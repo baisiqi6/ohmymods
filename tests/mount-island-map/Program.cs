@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using KingdomEnhancedMod;
 
 // production-linked 纯测试：
@@ -50,6 +51,8 @@ internal static class Program
         ArrayReplace();
         Geometry();
         PageCapacityAndTransactions();
+        LookupLifecycleCounterexamples();
+        ExtensionIslandMapWiring();
         PageHolderTransaction();
         Paging();
 
@@ -304,15 +307,22 @@ internal static class Program
         Check(!MountIslandDetailPagePlan.TryFindUniformPageCapacity(0, 16, AllFit8, out _), "empty request set -> no capacity");
         Check(!MountIslandDetailPagePlan.TryFindUniformPageCapacity(16, 16, null, out _), "null planner rejected");
 
-        // 字典两键追加事务：CAS 恢复/移除，foreign 值绝不覆盖。
+        // 字典两键追加事务：release CAS 归还（append-rollback 复用同一决策），foreign 值绝不覆盖。
+        // 纯决策逐值断言（执行/故障注入证据在 r2host 真实方法体 host，见 tests/mount-island-map/r2host）。
         var entry = MountIslandMapDictTransaction.Capture(11, true, 3, 10);
-        Check(MountIslandMapDictTransaction.ShouldRestoreRollback(entry, true, 10), "rollback restores prior when value is ours");
-        Check(!MountIslandMapDictTransaction.ShouldRestoreRollback(entry, true, 7), "rollback leaves foreign value untouched");
-        Check(!MountIslandMapDictTransaction.ShouldRestoreRollback(entry, false, 0), "absent key not restored");
+        Check(MountIslandMapDictTransaction.ShouldRestoreRelease(entry, 10, true, 10),
+            "release restores prior when current is our last-owned");
+        Check(!MountIslandMapDictTransaction.ShouldRestoreRelease(entry, 10, true, 7),
+            "release leaves foreign value untouched");
+        Check(!MountIslandMapDictTransaction.ShouldRestoreRelease(entry, 10, false, 0),
+            "absent key not restored");
         var fresh = MountIslandMapDictTransaction.Capture(13, false, 0, 11);
-        Check(MountIslandMapDictTransaction.ShouldRemoveRollback(fresh, true, 11), "rollback removes key we created");
-        Check(!MountIslandMapDictTransaction.ShouldRemoveRollback(fresh, true, 4), "rollback keeps foreign value on fresh key");
-        Check(!MountIslandMapDictTransaction.ShouldRemoveRollback(entry, true, 10), "pre-existing key never removed");
+        Check(MountIslandMapDictTransaction.ShouldRemoveRelease(fresh, 11, true, 11),
+            "release removes key we created");
+        Check(!MountIslandMapDictTransaction.ShouldRemoveRelease(fresh, 11, true, 4),
+            "release keeps foreign value on fresh key");
+        Check(!MountIslandMapDictTransaction.ShouldRemoveRelease(entry, 10, true, 10),
+            "pre-existing key never removed");
         Check(MountIslandMapDictTransaction.OwnsExpectedValue(10, 10) && !MountIslandMapDictTransaction.OwnsExpectedValue(9, 10),
             "degrade only on owned expected mapping");
         Check(MountIslandMapDictTransaction.RequiresPoisonOnRollbackFailure(true),
@@ -394,5 +404,317 @@ internal static class Program
         Check(!MountIslandDetailPagePlan.CoversAllOnce(0, 4, 2), "empty detail has no page");
         Check(MountIslandDetailPagePlan.TryPageRange(15, 4, 2, 1, out int s1, out int l1) && s1 == 8 && l1 == 7, "legacy 15 second page holds 7");
         Check(MountIslandDetailPagePlan.TryPageRange(16, 4, 2, 1, out int s2, out int l2) && s2 == 8 && l2 == 8, "legacy 16 second page holds 8");
+    }
+
+    // ==================================================================================
+    // 字典生命周期纯决策 counterexamples：直链真实 MountIslandMapDictTransaction/Entry，
+    // 镜像产品 ReleaseLookup/DegradeLookupForRevoke 的编排顺序驱动真实 Dictionary<int,int>
+    //（镜像已对齐生产：prior 同值零写通过、foreign continue 不读回；uncertain 门属代级状态，
+    // 由 r2host 真实方法体 host 覆盖——见 tests/mount-island-map/r2host，不在此重复执行证据）。
+    // 接线正确性（真实 ExtensionIslandMap 谁在何时调这些决策）由 ExtensionIslandMapWiring 覆盖。
+    // ==================================================================================
+
+    /// <summary>镜像产品 ReleaseLookup 的单键编排：prior 恢复/新建删除/foreign 不碰（无读回）。</summary>
+    private static bool ReleaseKey(Dictionary<int, int> dict, in MountIslandMapDictEntry entry, int lastOwned)
+    {
+        bool present = dict.ContainsKey(entry.Physical);
+        int current = present ? dict[entry.Physical] : 0;
+        if (present && current == entry.PriorValue) return true;   // 已处于 prior 状态：零写通过
+        if (MountIslandMapDictTransaction.ShouldRestoreRelease(entry, lastOwned, present, current))
+        {
+            dict[entry.Physical] = entry.PriorValue;
+        }
+        else if (MountIslandMapDictTransaction.ShouldRemoveRelease(entry, lastOwned, present, current))
+        {
+            dict.Remove(entry.Physical);
+        }
+        else
+        {
+            return true;   // foreign 改值/已删键：不接管不读回，责任消解
+        }
+        bool afterPresent = dict.ContainsKey(entry.Physical);
+        int afterValue = afterPresent ? dict[entry.Physical] : 0;
+        return MountIslandMapDictTransaction.ReleaseReadbackMatches(entry, afterPresent, afterValue);
+    }
+
+    private static void LookupLifecycleCounterexamples()
+    {
+        // --- 1) absent → append → 整代 clear → 再 append：无残留 9（旧实现的缺陷路径）。
+        var dict = new Dictionary<int, int>();
+        var priorA = MountIslandMapDictTransaction.Capture(11, false, 0, 10);
+        var priorB = MountIslandMapDictTransaction.Capture(13, false, 0, 11);
+        dict[11] = 10;
+        dict[13] = 11;   // append 写入
+        bool clean = ReleaseKey(dict, priorA, 10) && ReleaseKey(dict, priorB, 11);
+        Check(clean, "generation release clean after append");
+        Check(!dict.ContainsKey(11) && !dict.ContainsKey(13), "clear deletes keys absent before append (no residual 9)");
+        Check(dict.Count == 0, "dict back to native-only after clear");
+        // 再 append 的 first capture 又是 absent → 不再被拒（旧实现残留 9 会被当 foreign 拒绝）。
+        bool reHad = dict.ContainsKey(11);
+        Check(!reHad, "re-append sees absent prior (self cleanup no longer blocks re-registration)");
+        // 对照（缺陷的决策级证明）：旧实现的 clear 走泛降级——降级 CAS 对 9 不 owned
+        // （OwnsExpectedValue(9,10)==false）→ 不清理 → 残留 9；随后 append 的接管检查对 9
+        // 同样不 owned → 拒绝重登记。本修复以 release 决策取代该路径。
+        Check(!MountIslandMapDictTransaction.OwnsExpectedValue(
+                  ExtensionIslandMapPlan.FallbackFocusUi,
+                  ExtensionIslandMapPlan.LookupUiForPhysical(11, true)),
+            "legacy degrade CAS never owned the residual 9 (append then refused: defect decision proven)");
+
+        // --- 2) A revoke 自己写 fallback 9（兄弟 B 仍在）：A=9、B 保持 11；整代 clear 两者都归还。
+        dict.Clear();
+        dict[11] = 10;
+        dict[13] = 11;
+        Check(MountIslandMapDictTransaction.ShouldDegradeRevoke(10, 10), "A degrade allowed on owned 10");
+        dict[11] = 9;   // RevokeSlot 降级写 + last-owned 账目更新为 9
+        int lastOwnedA = 9, lastOwnedB = 11;
+        Check(dict[13] == 11, "B mapping untouched while A revoked (hidden B keeps 13->11)");
+        clean = ReleaseKey(dict, priorA, lastOwnedA) && ReleaseKey(dict, priorB, lastOwnedB);
+        Check(clean, "generation release clean after own-fallback-9 revoke");
+        Check(!dict.ContainsKey(11) && !dict.ContainsKey(13), "generation clear returns A's own 9 and B's 11");
+
+        // --- 3) prior 存在/不存在：精确归还。
+        dict.Clear();
+        dict[11] = 3;   // 上一代遗留 prior=3（append 只接管 owned 期望值 10，3 会被拒——由 WriteLookup 测试覆盖）
+        var priorHad = MountIslandMapDictTransaction.Capture(11, true, 3, 10);
+        dict[11] = 10;   // 假设某代以 had=true 成功入账（当前值==owned 期望 10 的接管场景）
+        Check(ReleaseKey(dict, priorHad, 10) && dict.ContainsKey(11) && dict[11] == 3,
+            "release restores exact pre-existing prior value");
+
+        // --- 4) 重复 clear 无写：CAS 已失配 → 决策不动字典。
+        Check(!MountIslandMapDictTransaction.ShouldRestoreRelease(priorHad, 10, true, 3)
+            && !MountIslandMapDictTransaction.ShouldRemoveRelease(priorHad, 10, true, 3),
+            "repeat clear writes nothing (CAS mismatch after restore)");
+        Check(!MountIslandMapDictTransaction.ShouldRestoreRelease(priorA, 10, false, 0)
+            && !MountIslandMapDictTransaction.ShouldRemoveRelease(priorA, 10, false, 0),
+            "repeat clear on deleted key writes nothing");
+
+        // --- 5) 真 foreign 9（本代账目是 10，从没写过 9）：不认、不还、降级拒绝。
+        Check(!MountIslandMapDictTransaction.ShouldRestoreRelease(priorHad, 10, true, 9)
+            && !MountIslandMapDictTransaction.ShouldRemoveRelease(priorHad, 10, true, 9),
+            "foreign 9 never owned when ledger says 10");
+        Check(!MountIslandMapDictTransaction.ShouldDegradeRevoke(9, 10),
+            "degrade refuses to treat foreign 9 as ours");
+        Check(!MountIslandMapDictTransaction.ShouldRestoreRelease(priorHad, 10, true, 7)
+            && !MountIslandMapDictTransaction.ShouldRemoveRelease(priorHad, 10, true, 7),
+            "foreign rewrite left alone on release");
+        Check(!MountIslandMapDictTransaction.ShouldDegradeRevoke(7, 10),
+            "degrade refuses foreign value without generation authorization");
+
+        // --- 6) 本代写的 9（last-owned 已记账）被整代归还认领。
+        Check(MountIslandMapDictTransaction.ShouldRemoveRelease(priorA, 9, true, 9),
+            "own fallback 9 removed at release when ledger recorded it");
+        Check(MountIslandMapDictTransaction.ShouldRestoreRelease(priorHad, 9, true, 9),
+            "own fallback 9 restores prior when ledger recorded it");
+
+        // --- 7) postconditions：setter 静默失败 / remove 读回未知 → 责任保留（poison）。
+        Check(MountIslandMapDictTransaction.ReleaseReadbackMatches(priorHad, true, 3),
+            "restore readback matches prior");
+        Check(!MountIslandMapDictTransaction.ReleaseReadbackMatches(priorHad, true, 9),
+            "restore silent-failure readback (still 9) is not clean");
+        Check(!MountIslandMapDictTransaction.ReleaseReadbackMatches(priorHad, true, 10),
+            "restore silent-failure readback (still our written 10) is not clean");
+        var priorFresh = MountIslandMapDictTransaction.Capture(13, false, 0, 11);
+        Check(MountIslandMapDictTransaction.ReleaseReadbackMatches(priorFresh, false, 0),
+            "remove readback clean when key gone");
+        Check(!MountIslandMapDictTransaction.ReleaseReadbackMatches(priorFresh, true, 11),
+            "remove readback unknown when key still present");
+        Check(!MountIslandMapDictTransaction.ReleaseReadbackMatches(priorFresh, true, 5),
+            "remove readback unknown when foreign residue present");
+        Check(MountIslandMapDictTransaction.RequiresPoisonOnRollbackFailure(true),
+            "unknown release readback poisons the menu generation");
+
+        // --- 8) native 0..10/12 逐值：扩展永不写这些键。
+        for (int physical = 0; physical <= 13; physical++)
+        {
+            if (physical == 11 || physical == 13) continue;
+            Check(ExtensionIslandMapPlan.LookupUiForPhysical(physical, true) == -1
+                && ExtensionIslandMapPlan.LookupUiForPhysical(physical, false) == -1,
+                "native/reserved physical " + physical + " never written in either mode");
+        }
+
+        // --- 9) B hidden（LockHidden）不触发任何字典写：处置决策与键值互不干扰。
+        Check(ExtensionIslandMapPlan.DecideSlotDisposition(true, true, true, true, false) == ExtensionSlotDisposition.LockHidden
+            && ExtensionIslandMapPlan.LookupUiForPhysical(13, true) == 11,
+            "hidden B keeps 13->11 (no degrade from LockHidden)");
+    }
+
+    // ==================================================================================
+    // 真实 ExtensionIslandMap 调用接线（源码级断言：产品文件含 Unity/Il2Cpp 依赖无法离线执行，
+    // 这里锁定生命周期编排本身——谁在何时 capture/入账/降级/归还，防止接线回退；
+    // native-map-runtime 的替身不能充当这个产品类的执行证据）。
+    // ==================================================================================
+
+    private static string ReadProductionSource(string fileName)
+    {
+        // 输出目录可能在仓库外（隔离 bin/obj）：优先 KEM_SOURCE_ROOT 显式指定源码根（worktree），
+        // 否则从程序集位置向上找 il2cpp/。
+        string root = Environment.GetEnvironmentVariable("KEM_SOURCE_ROOT");
+        if (!string.IsNullOrEmpty(root))
+        {
+            string explicitPath = Path.Combine(root, "il2cpp", fileName);
+            if (File.Exists(explicitPath)) return File.ReadAllText(explicitPath);
+        }
+        string dir = AppContext.BaseDirectory;
+        for (int i = 0; i < 8; i++)
+        {
+            string candidate = Path.Combine(dir, "il2cpp", fileName);
+            if (File.Exists(candidate)) return File.ReadAllText(candidate);
+            dir = Path.GetDirectoryName(dir);
+        }
+        throw new FileNotFoundException("production source not found: " + fileName
+            + " (set KEM_SOURCE_ROOT to the worktree root)");
+    }
+
+    private static string ExtractMethodBody(string source, string methodSignature)
+    {
+        int start = source.IndexOf(methodSignature, StringComparison.Ordinal);
+        Check(start >= 0, "method present in ExtensionIslandMap.cs: " + methodSignature);
+        if (start < 0) return "";
+        int endInternal = source.IndexOf("\n        internal static", start, StringComparison.Ordinal);
+        int endPrivate = source.IndexOf("\n        private static", start, StringComparison.Ordinal);
+        int end = source.Length;
+        if (endInternal >= 0) end = Math.Min(end, endInternal);
+        if (endPrivate >= 0) end = Math.Min(end, endPrivate);
+        return source.Substring(start, end - start);
+    }
+
+    private static void ExtensionIslandMapWiring()
+    {
+        string source = ReadProductionSource("ExtensionIslandMap.cs");
+
+        // append 事务：capture 后、第一次写入前挂账并发布 pending；写固定用 exact dict；发布前复核 dict 身份。
+        Check(source.Contains("AttachLookupLedger(generation, lookupDict, lookupPriors);"),
+            "first-capture ledger attached before any write");
+        Check(source.Contains("_generation = generation;   // pending 责任"),
+            "pending ledger published before first dictionary write");
+        Check(source.Contains("FixLookupOnDict(lookupDict, true, true)"), "append writes use the captured exact dictionary");
+        Check(source.Contains("if (!LookupDictStillCurrent(menu, lookupDict)) return;"),
+            "publish boundary rechecks menu dictionary identity (D1/D2 swap refuses publish)");
+        Check(!source.Contains("private static bool FixLookup("),
+            "ledger-less FixLookup entry point removed entirely (no value-based 9 writes)");
+        Check(!source.Contains("RestoreLookupPriors("),
+            "legacy void rollback without postconditions removed");
+
+        // EnsureAppended 编排：no-extension 零写；失败 finally 走 append-rollback 账目归还。
+        string ensureBody = ExtractMethodBody(source, "private static void EnsureAppended");
+        int captureCount = 0;
+        for (int at = ensureBody.IndexOf("CaptureLookupPriors(", StringComparison.Ordinal); at >= 0;
+            at = ensureBody.IndexOf("CaptureLookupPriors(", at + 1, StringComparison.Ordinal))
+        {
+            captureCount++;
+        }
+        Check(ensureBody.IndexOf("FixLookup(", StringComparison.Ordinal) < 0,
+            "no FixLookup call anywhere in EnsureAppended (no-extension writes zero)");
+        int noExtStart = ensureBody.IndexOf("no-extension-authorized", StringComparison.Ordinal);
+        Check(noExtStart >= 0
+            && ensureBody.IndexOf("return;", noExtStart, StringComparison.Ordinal) >= 0
+            && CountWritesBetween(ensureBody, noExtStart, ensureBody.IndexOf("return;", noExtStart, StringComparison.Ordinal)) == 0,
+            "no-extension branch performs zero dictionary writes");
+        Check(ensureBody.Contains("ReleaseLookup(generation, \"append-rollback\")"),
+            "failed append rolls back the pending ledger with real postconditions");
+        Check(ensureBody.Contains("if (LookupDictStillCurrent(menu, lookupDict))") == false,
+            "dict identity check gates publish on refusal path only");
+
+        // 详情船位：cache 重建之后（其扫描不含 inactive）→ 隐藏新 clone → 初始化 _ship → 才登记/发布。
+        int cacheAt = ensureBody.IndexOf("RebuildStaticIconCache(detailGo, detail);", StringComparison.Ordinal);
+        int hideAt = ensureBody.IndexOf("detailGo.SetActive(false);", StringComparison.Ordinal);
+        int shipAt = ensureBody.IndexOf("TryInitializeExtensionDetailShip(detail, physical)", StringComparison.Ordinal);
+        int callbackAt = ensureBody.IndexOf("AttachDetailCallback(pending)", StringComparison.Ordinal);
+        int addAt = ensureBody.IndexOf("lands.Add(detail);", StringComparison.Ordinal);
+        Check(cacheAt >= 0 && hideAt > cacheAt && shipAt > hideAt && callbackAt > shipAt && addAt > callbackAt,
+            "ship init sits after cache rebuild/hide and before callback/lands.Add");
+        int failedAt = ensureBody.IndexOf("MapMountIcons.DetailShipInit.Failed", StringComparison.Ordinal);
+        int failedReturn = failedAt >= 0 ? ensureBody.IndexOf("return;", failedAt, StringComparison.Ordinal) : -1;
+        Check(failedAt > shipAt && failedReturn > failedAt && failedReturn < callbackAt,
+            "unrecoverable ship write returns before registration (finally destroys unpublished clone)");
+        Check(CountOccurrences(source, "TryInitializeExtensionDetailShip(") == 1,
+            "ship init has exactly one production call site (detail clone only; templates/native untouched)");
+
+        // OnLandsCleared：按账目归还，不再泛降级 9；poison/_generation 只在责任消解后清。
+        string clearBody = ExtractMethodBody(source, "internal static void OnLandsCleared");
+        Check(!clearBody.Contains("FixLookup("), "native-clear no longer degrades via FixLookup(false,false)");
+        Check(clearBody.Contains("ReleaseLookup(generation, \"native-clear\")"), "native-clear releases lookup by generation ledger");
+        Check(clearBody.Contains("if (lookupClean)") && clearBody.Contains("_poisonedMenu = null")
+            && clearBody.Contains("_generation = null"),
+            "poison/generation cleared only after lookup responsibility settled");
+
+        // TryReclaimGeneration：字典责任先归还；drift 与成功路径都不得无条件丢账。
+        string reclaimBody = ExtractMethodBody(source, "private static void TryReclaimGeneration");
+        Check(reclaimBody.Contains("ReleaseLookup(generation, \"reclaim\")"), "generation reclaim releases lookup ledger first");
+        Check(reclaimBody.Contains("if (lookupClean) _generation = null;"), "map-drift path keeps unpaid ledger");
+        int nullCount = 0;
+        int unsafeNull = 0;
+        for (int at = reclaimBody.IndexOf("_generation = null", StringComparison.Ordinal); at >= 0;
+            at = reclaimBody.IndexOf("_generation = null", at + 1, StringComparison.Ordinal))
+        {
+            nullCount++;
+            int windowStart = Math.Max(0, at - 120);
+            if (reclaimBody.IndexOf("lookupClean", windowStart, at - windowStart, StringComparison.Ordinal) < 0) unsafeNull++;
+        }
+        Check(nullCount >= 2 && unsafeNull == 0, "every reclaim _generation=null sits behind the lookupClean gate");
+
+        // RevokeSlot：降级走 exact dict + last-owned 账目；不再全量 FixLookup 重写两键。
+        string revokeBody = ExtractMethodBody(source, "private static void RevokeSlot");
+        Check(!revokeBody.Contains("FixLookup("), "revoke no longer rewrites both keys via FixLookup");
+        Check(revokeBody.Contains("DegradeLookupForRevoke(revokeGeneration, slot)"), "revoke degrades via exact dict with ledger update");
+
+        // 幂等刷新不重捕获、不写字典；新 append 不得覆盖未结旧代责任。
+        int idempotentStart = ensureBody.IndexOf("RefreshAvailability(menu);", StringComparison.Ordinal);
+        int idempotentEnd = ensureBody.IndexOf("return;   // 本轮不重建", StringComparison.Ordinal);
+        Check(idempotentStart >= 0 && idempotentEnd > idempotentStart
+            && ensureBody.IndexOf("FixLookup", idempotentStart, idempotentEnd - idempotentStart, StringComparison.Ordinal) < 0,
+            "idempotent refresh no longer rewrites the lookup dict");
+        Check(ensureBody.Contains("ReleaseLookup(previousGeneration,"),
+            "new append settles previous generation ledger before replacing it");
+        Check(ensureBody.Contains("pending-superseded"),
+            "same-menu reentrant pending ledger also settled before replacement");
+
+        // R3 SetActive 重入边界：visibility 全部先于 commit；guard 后纯 managed 赋值；
+        // finally 数组回滚只 CAS 本次替换引用。
+        int visAt = ensureBody.IndexOf("ApplySlotVisibility(created[s]);", StringComparison.Ordinal);
+        int guardAt = ensureBody.IndexOf("if (!LookupCommitGuard(generation, menu, lookupDict)) return;", StringComparison.Ordinal);
+        int commitAt = ensureBody.IndexOf("Slots[slotIndex] = slot;", StringComparison.Ordinal);
+        Check(visAt >= 0 && guardAt > visAt && commitAt > guardAt,
+            "R3 visibility precedes commit guard precedes managed commit");
+        int tombstoneAt = ensureBody.IndexOf("if (!RemoveTombstoneForPendingGeneration(generation)) return;", StringComparison.Ordinal);
+        Check(tombstoneAt > visAt && tombstoneAt < guardAt,
+            "tombstone Unity wrapper checks precede final commit guard");
+        int commitEnd = ensureBody.IndexOf("_menuToken = new object();", StringComparison.Ordinal);
+        Check(commitEnd > commitAt
+            && ensureBody.IndexOf("ApplySlotVisibility", commitAt, commitEnd - commitAt, StringComparison.Ordinal) < 0,
+            "R3 managed commit loop contains no Unity writes");
+        Check(ensureBody.Contains("RestoreReplacedArraysIfStillOurs(map, newLands, newButtons, originalLands, originalButtons);"),
+            "R3 failed-append rollback restores arrays by CAS on replaced references only");
+        int finAt = ensureBody.IndexOf("finally", StringComparison.Ordinal);
+        string rollbackBody = ensureBody.Substring(finAt);
+        Check(rollbackBody.Split("CanPoisonAppendAttempt(generation)", StringSplitOptions.None).Length - 1 == 2,
+            "both failed-append poison writes retain attempt identity gates");
+        Check(finAt > 0
+            && ensureBody.IndexOf("map._lands = originalLands;", finAt, StringComparison.Ordinal) < 0,
+            "R3 no unconditional original-array writeback in finally");
+        string releaseBody = ExtractMethodBody(source, "private static bool ReleaseLookup");
+        Check(releaseBody.Contains("if (generation.LookupUncertain)"),
+            "release refuses to settle uncertain ledger as foreign");
+    }
+
+    private static int CountOccurrences(string source, string needle)
+    {
+        int count = 0;
+        for (int at = source.IndexOf(needle, StringComparison.Ordinal); at >= 0;
+            at = source.IndexOf(needle, at + needle.Length, StringComparison.Ordinal)) count++;
+        return count;
+    }
+
+    /// <summary>统计区间内的字典写调用次数（setter/remove/restore），零写断言用。</summary>
+    private static int CountWritesBetween(string body, int start, int end)
+    {
+        if (start < 0 || end <= start) return int.MaxValue;
+        int writes = 0;
+        for (int at = body.IndexOf("dict[", start, StringComparison.Ordinal); at >= 0 && at < end;
+            at = body.IndexOf("dict[", at + 1, StringComparison.Ordinal))
+        {
+            writes++;
+        }
+        return writes;
     }
 }

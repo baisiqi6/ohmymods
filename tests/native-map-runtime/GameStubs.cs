@@ -185,6 +185,8 @@ namespace KingdomEnhancedMod
     public class UILand : Behaviour
     {
         public Il2CppReferenceArray<UIDynamicMapIcon> _dynamicMapIcons;
+        /// <summary>native detail 船标（Boat Icon 整棵子树；生产 helper 只接受该 clone 的后代）。</summary>
+        public GameObject _ship;
 
         /// <summary>仿真原生 UILand.UpdateLand 的 patch 派发（Harmony postfix）。</summary>
         public void UpdateLand(CampaignSaveData.ReignInfo reignInfo, int landIndex)

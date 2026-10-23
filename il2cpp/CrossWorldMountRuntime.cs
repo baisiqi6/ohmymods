@@ -421,7 +421,6 @@ internal static class CrossWorldMountRuntime
 
         bool grantAllowed = GrantEnabled();
         bool distributed = MountIslandSplitPolicy.IsExtensionLand(land);   // A11/B13 共用同一分散接缝规则
-        bool freshChecked = false;       // fresh 票据门按需（首个 GrantAndInject）判定一次
         bool freshGrant = false;
         string freshReason = null;
         var insertions = new List<Insertion>(2);
@@ -436,6 +435,11 @@ internal static class CrossWorldMountRuntime
             }
 
             CrossWorldMountDecision decision = CrossWorldMountPolicy.Decide(state);
+            if (distributed && decision == CrossWorldMountDecision.Skip && state.LastPlayedDays > 0d
+                && !state.IslandVisited && !state.MarkerInCampaign && !state.ReceiptInCampaign
+                && state.CampaignEvidenceReadable
+                && MountIslandFreshObservation.TryGetCurrentTransitionTime(frame, land, out MountIslandCurrentTransitionTime time))
+                decision = CrossWorldMountPolicy.DecideWithCurrentTransitionTime(state, time);
             if (decision == CrossWorldMountDecision.InjectOnly)
             {
                 // 开关只阻止"新分配"；已授予的岛继续履行重建责任（布局块不丢失）。
@@ -480,17 +484,14 @@ internal static class CrossWorldMountRuntime
             {
                 LogOnce("skip-deps-" + definition.Id + "-" + land,
                     "skip def=" + definition.Id + " land=" + land + " (dependencies not ready: "
-                    + CrossWorldMountDependencies.FirstNotReadyReason() + ")");
+                    + CrossWorldMountDependencies.DefinitionNotReadyReason(definition) + ")");
                 continue;
             }
             // fresh 观察票据门（A11/B13 新授予统一门，替代原常 Unknown 的 native 资格门占位）：
             // 只有本 frame 持有匹配的 native 缺记录候选票据才放行；未知/过期/身份漂移一律 closed。
             // InjectOnly 重建路径不受此门影响（原位顺序不变）。
-            if (!freshChecked)
-            {
-                freshChecked = true;
-                freshGrant = MountIslandFreshObservation.IsGrantAuthorized(frame, land, out freshReason);
-            }
+            // Each definition rechecks the same frame/transition proof immediately before queueing.
+            freshGrant = MountIslandFreshObservation.IsGrantAuthorized(frame, land, out freshReason);
             if (!freshGrant)
             {
                 LogOnce("skip-fresh-" + definition.Id + "-" + land,
@@ -509,11 +510,14 @@ internal static class CrossWorldMountRuntime
         // （不 already-queued 就发布；无剩余项时原样保留调用方列表指针）。
         bool authorityCurrent = authority != null && authority.MatchesCurrent(campaign);
         bool ownerCurrent = SameOwner(frame);
-        if (!MountIslandGrantFacts.AllowsGrantPublish(authorityCurrent, ownerCurrent)
+        bool freshCurrent = !HasGrantPlans(insertions)
+            || MountIslandFreshObservation.IsGrantAuthorized(frame, land, out _);
+        if ((!freshCurrent || !MountIslandGrantFacts.AllowsGrantPublish(authorityCurrent, ownerCurrent))
             && HasGrantPlans(insertions))
         {
             RevokeGrantPlans(frame, insertions,
-                authorityCurrent ? "raw owner changed before publish" : "authority facts changed before publish");
+                !freshCurrent ? "fresh transition proof changed before publish"
+                    : authorityCurrent ? "raw owner changed before publish" : "authority facts changed before publish");
         }
 
         // 扩展岛（A11/B13）：全部待注入地块按固定目录顺序确定性分散到合法内部接缝；
@@ -891,30 +895,14 @@ internal static class CrossWorldMountRuntime
     /// </summary>
     private static bool TryWriteMarker(Frame frame, CrossWorldMountDefinition definition, int land)
     {
-        try
-        {
-            if (frame == null) return false;
-            if (!SameOwner(frame)) return false;
-            CampaignSaveData current = CampaignSaveData.current;
-            CampaignSaveData.ReignInfo reign = current != null ? current.currentReign : null;
-            if (reign == null) return false;
-            Il2CppSystem.Collections.Generic.List<CampaignSaveData.LandMapData> landData = reign.landData;
-            if (landData == null || land < 0 || land >= landData.Count) return false;
-
-            CampaignSaveData.LandMapData entry = landData[land];
-            int[] next = CrossWorldMountPolicy.AppendMarker(ToIntArray(entry.steedSpawns), definition.SteedTypeId);
-            var typed = new SteedType[next.Length];
-            for (int i = 0; i < next.Length; i++) typed[i] = (SteedType)next[i];
-            entry.steedSpawns = typed;   // Il2CppStructArray<SteedType> 隐式转换
-            landData[land] = entry;      // List<T> 值类型元素：必须回写（interop 值类型读为副本）
-            CrossWorldMountDependencies.InvalidateGrantCache();   // 查询覆盖的 receipt 兜底缓存立即失效
-            return true;
-        }
-        catch (Exception e)
-        {
-            LogError("marker write failed: " + e.GetType().Name + " " + e.Message);
-            return false;
-        }
+        // #260 C: the helper owns the existing native ownership/write contract.
+        return MountIslandMarkerRuntime.TryWriteMarker(
+            frame != null ? frame.Campaign : null,
+            frame != null ? frame.ReignIndex : -1,
+            frame != null ? frame.LandDataPointer : 0UL,
+            definition,
+            land,
+            out _);
     }
 
     /// <summary>

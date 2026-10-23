@@ -1,0 +1,24 @@
+<?xml version='1.0' encoding='utf-8'?>
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AssemblyName>MountTransitionTests</AssemblyName>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <NoWarn>0649</NoWarn>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../il2cpp/Patch_MountIslandFreshEvidence.cs" />
+    <Compile Include="../../il2cpp/MountIslandTransitionHistory.cs" />
+    <Compile Include="../../il2cpp/Patch_MountIslandRequestEntry.cs" />
+    <Compile Include="../../il2cpp/Patch_MountIslandSplitPolicy.cs" />
+    <Compile Include="../../il2cpp/Patch_MountIslandAvailabilityPolicy.cs" />
+    <Compile Include="../../il2cpp/CrossWorldMountData.cs" />
+    <Compile Include="../../il2cpp/ExtensionIslandPlan.cs" />
+    <Compile Include="Program.cs" />
+  </ItemGroup>
+</Project>

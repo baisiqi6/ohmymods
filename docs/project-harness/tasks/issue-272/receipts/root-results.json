@@ -1,0 +1,119 @@
+{
+  "issue": 272,
+  "base": "2b22aa5b21e2d8d96dd01b754b047836e8d166fe",
+  "Native": false,
+  "installed": false,
+  "merged": false,
+  "modelEvidence": {
+    "map": {
+      "sessionFile": "/Users/Admin/projects/ohmymods/.local/tasks/mount32-fresh-validation-20261019/map-lifecycle-followup/map-worker/session/2026-10-20T03-03-42-141Z_01a15743-c73d-73b8-9071-1200114fc374.jsonl",
+      "publicModelEvents": [
+        {
+          "type": "model_change",
+          "timestamp": "2026-10-20T03:03:42.408Z",
+          "model": "zhipu-coding-plan/glm-5.3",
+          "resolvedModelIsFallback": false
+        },
+        {
+          "type": "thinking_level_change",
+          "timestamp": "2026-10-20T03:03:42.408Z",
+          "thinkingLevel": "max"
+        }
+      ],
+      "role": "bounded implementation worker, Root reviewed; final tiny integration delta by Root"
+    },
+    "ui": {
+      "sessionFile": "/Users/Admin/projects/ohmymods/.local/tasks/mount32-fresh-validation-20261019/map-lifecycle-followup/ui-worker/session/2026-10-20T03-03-42-124Z_01a15743-c72c-73b1-bac3-c26a9c4c0807.jsonl",
+      "publicModelEvents": [
+        {
+          "type": "model_change",
+          "timestamp": "2026-10-20T03:03:42.380Z",
+          "model": "zhipu-coding-plan/glm-5.3",
+          "resolvedModelIsFallback": false
+        },
+        {
+          "type": "thinking_level_change",
+          "timestamp": "2026-10-20T03:03:42.381Z",
+          "thinkingLevel": "max"
+        }
+      ],
+      "role": "bounded implementation worker, Root reviewed; final tiny integration delta by Root"
+    },
+    "diagnostics": {
+      "sessionFile": "/Users/Admin/projects/ohmymods/.local/tasks/mount32-fresh-validation-20261019/map-lifecycle-followup/diagnostics-worker/session/2026-10-20T03-03-42-085Z_01a15743-c705-73d1-b66a-743b5c421f72.jsonl",
+      "publicModelEvents": [
+        {
+          "type": "model_change",
+          "timestamp": "2026-10-20T03:03:42.354Z",
+          "model": "zhipu-coding-plan/glm-5.3",
+          "resolvedModelIsFallback": false
+        },
+        {
+          "type": "thinking_level_change",
+          "timestamp": "2026-10-20T03:03:42.354Z",
+          "thinkingLevel": "max"
+        }
+      ],
+      "role": "bounded implementation worker, Root reviewed; final tiny integration delta by Root"
+    }
+  },
+  "reviews": {
+    "map": {
+      "path": "/Users/Admin/projects/ohmymods/.local/tasks/mount32-fresh-validation-20261019/map-lifecycle-followup/review-map-r3.md",
+      "sha256": "2e5abdc303cafb94d01711df63222467a7bcbb58205e55d107e4f1048ca5069e",
+      "verdict": "approved"
+    },
+    "UI": {
+      "path": "/Users/Admin/projects/ohmymods/.local/tasks/mount32-fresh-validation-20261019/map-lifecycle-followup/review-ui-r2.md",
+      "sha256": "c6376769d29fe91abf71190c39249b12d9c01546fb859bbee0363326b80cdcb9",
+      "verdict": "approved"
+    },
+    "diagnostics": {
+      "path": "/Users/Admin/projects/ohmymods/.local/tasks/mount32-fresh-validation-20261019/map-lifecycle-followup/review-diagnostics-r2.md",
+      "sha256": "1b993f56c20063e87dc75d0e55ab11804ab0be572fbe9ca227437c88339e3899",
+      "verdict": "approved"
+    }
+  },
+  "rootResults": {
+    "path": "/Users/Admin/projects/ohmymods/.local/tasks/mount32-fresh-validation-20261019/map-lifecycle-followup/root-build/final-results.json",
+    "sha256": "c9ab66b33e3c5aa9e157abdb8d1ff139396faba9f1339768a8b7e517ea0e7fb8",
+    "NoDeploy": true,
+    "BepInExPluginsPath": "",
+    "frameworks": [
+      "net6.0",
+      "net8.0"
+    ],
+    "compileCount": 275,
+    "frozenReferenceCount": 161,
+    "resources": 38,
+    "zeroWarningsZeroErrors": true,
+    "planAndWiring": 357,
+    "realExtractedMethodChecks": 81,
+    "extractedMethods": 15,
+    "UIVariant": 194,
+    "callback": 4,
+    "missingResource": 3,
+    "runtimeProbe": {
+      "checks": 1037,
+      "failures": 39,
+      "sameAsHeadBaseline": true,
+      "green": false
+    },
+    "outputs": {
+      "net6.0": {
+        "path": "/Users/Admin/projects/ohmymods/.local/tasks/mount32-fresh-validation-20261019/map-lifecycle-followup/root-build/out-net6.0/Release/net6.0/KingdomEnhancedMod.dll",
+        "sha256": "c3bfcf50ef5bb3b9b7f161b5c8bb84ea7e6ebe595ba2fdd6a82059ec1e2a11d8"
+      },
+      "net8.0": {
+        "path": "/Users/Admin/projects/ohmymods/.local/tasks/mount32-fresh-validation-20261019/map-lifecycle-followup/root-build/out-net8.0/Release/net8.0/KingdomEnhancedMod.dll",
+        "sha256": "76e172a9c89d8671e27d2a70141946545b6b127228d274652acf043e554acd27"
+      }
+    }
+  },
+  "sourcePins": {
+    "ExtensionIslandMap.cs": "56dbd457b417d20dc752556d8b637ddf66dae64bb3d611009e8434b2946fbbee",
+    "MapMountIcons.cs": "ed61ea16a90003281625ab40b4837e538f31fb831b9aa9bf84ed6433b80295e2",
+    "Patch_MountIslandMapLayout.cs": "d59b6ae203c082f8568c20c81ab407f9c3b84f129712a1c2f06cbfe9e8efe2bd",
+    "ExtensionIslandMapPlan.cs": "edfc8e70ae232251b5bf7a7f8256dc826563171d8c67de36553cfc486ab6e182"
+  }
+}

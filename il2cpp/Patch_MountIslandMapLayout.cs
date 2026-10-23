@@ -194,8 +194,10 @@ namespace KingdomEnhancedMod
     }
 
     /// <summary>
-    /// LAND_TO_MAP_LAND 两键（11/13）追加事务的纯决策：捕获 prior（存在/值），后续任何失败时按
-    /// CAS 恢复（仅当当前值仍是我们写入的值），从未存在过的键则移除；foreign/未知值绝不覆盖。
+    /// LAND_TO_MAP_LAND 两键（11/13）追加事务的纯决策：捕获 prior（存在/值）；整代释放按
+    /// first-capture prior 归还——当前值必须是本代该键最后 owned 值（append 写入值或本代撤销
+    /// 降级 9）才动；追加失败/未发布的回滚复用同一释放决策（append-rollback）。
+    /// foreign/未知值绝不覆盖；降级写 9 未经独立 readback 证明时保留 uncertain 责任。
     /// </summary>
     internal readonly struct MountIslandMapDictEntry
     {
@@ -212,25 +214,37 @@ namespace KingdomEnhancedMod
             WrittenValue = writtenValue;
         }
     }
-
     internal static class MountIslandMapDictTransaction
     {
         internal static MountIslandMapDictEntry Capture(int physical, bool hadKey, int priorValue, int writtenValue)
             => new MountIslandMapDictEntry(physical, hadKey, priorValue, writtenValue);
 
-        /// <summary>回滚：键仍存在且当前值 == 我们写入的值才允许恢复 prior（CAS）。</summary>
-        internal static bool ShouldRestoreRollback(in MountIslandMapDictEntry entry, bool keyPresent, int currentValue)
-            => entry.HadKey && keyPresent && currentValue == entry.WrittenValue;
-
-        /// <summary>回滚：我们新建的键（prior 不存在）且当前值仍是我们的写入值才允许移除（CAS）。</summary>
-        internal static bool ShouldRemoveRollback(in MountIslandMapDictEntry entry, bool keyPresent, int currentValue)
-            => !entry.HadKey && keyPresent && currentValue == entry.WrittenValue;
-
         /// <summary>正常撤销降级（→9）：仅当当前值仍是本 tuple 的 owned 期望映射时才写，foreign 不动。</summary>
         internal static bool OwnsExpectedValue(int currentValue, int expectedUi) => currentValue == expectedUi;
 
+        /// <summary>整代释放：prior 存在且当前值仍是本代该键最后 owned 值（append 写入值或本代降级 9）才恢复 prior（CAS）。</summary>
+        internal static bool ShouldRestoreRelease(in MountIslandMapDictEntry entry, int lastOwnedValue,
+            bool keyPresent, int currentValue)
+            => entry.HadKey && keyPresent && currentValue == lastOwnedValue;
+
+        /// <summary>整代释放：本代新建键（prior 不存在）且当前值仍是本代最后 owned 值才移除（CAS）。</summary>
+        internal static bool ShouldRemoveRelease(in MountIslandMapDictEntry entry, int lastOwnedValue,
+            bool keyPresent, int currentValue)
+            => !entry.HadKey && keyPresent && currentValue == lastOwnedValue;
+
+        /// <summary>单 tuple 撤销降级：仅当前值 == 本代该键最后 owned 值才允许写 fallback 9（真 foreign 9 不认）。</summary>
+        internal static bool ShouldDegradeRevoke(int currentValue, int lastOwnedValue)
+            => currentValue == lastOwnedValue;
+
         /// <summary>
-        /// 回滚 setter/remove/array setter 失败/读回未知 → 该菜单代次必须 poisoned（不 dispatch/不 append/不 travel），
+        /// 释放后读回校验：恢复 prior 后键在且值 == prior；删除本代新建键后键必须消失。
+        /// 任一不符（setter 静默失败/读回未知）→ 调用方保留责任并 poison，不得当成功。
+        /// </summary>
+        internal static bool ReleaseReadbackMatches(in MountIslandMapDictEntry entry, bool keyPresentAfter, int valueAfter)
+            => entry.HadKey ? keyPresentAfter && valueAfter == entry.PriorValue : !keyPresentAfter;
+
+        /// <summary>
+        /// 回滚/释放 setter/remove/array setter 失败/读回未知 → 该菜单代次必须 poisoned（不 dispatch/不 append/不 travel），
         /// 由 Native Clear / menu lifecycle 有界归还；不做自动 retry 扫描。anyUnknown=true 才 poison。
         /// </summary>
         internal static bool RequiresPoisonOnRollbackFailure(bool anyUnknownReadback) => anyUnknownReadback;

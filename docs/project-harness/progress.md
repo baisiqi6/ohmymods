@@ -1,8 +1,32 @@
+## 2026-10-22 — #260 已交付修复收尾，旧 PR #264 撤回
+
+首次登岛生成、地图剪影/船位/配色与保存冷读已由 #271/#273/#274 合并并安装；当前正常 Mac DLL 仍为 `25d9ffef…f4c156`，本轮只读核对一致。用户明确选择撤回未完成原生验收的旧空岛恢复 PR #264，保留分支，将“已访问空岛原位回填”完整转入 [#277](https://github.com/baisiqi6/ohmymods/issues/277) 延期待办；#264 关闭未合并，不称旧档回填已完成或实装。#260 按已交付替代方案收尾，详情见 [收尾记录](tasks/issue-260/closeout.md)。
+
+本次无产品修改、游戏启动、正常数据写入或 DLL 安装；复核成功源与主线 `il2cpp/tests` 无差异，沿用仍有效的构建/原生证据。第二岛、旧档回填、Windows/Android/联机边界保持；新“开启开关后航行全岛不可选”另行保留排期。下文为各历史时点，不覆盖旧失败记录。
+
 ## 2026-10-21 UTC — Android 池初始化交接修复进入 Playing，保存 Draft 检查点后暂停
 
 修复原提前注册处：自定义角色/工具、北境弓手、弩箭与银行助手只在 native InitPools 正常返回的同一当前 PM 上注册，World 仅消费该事实；删除 Android 旧外层 Init 弩箭登记，银行原账务收尾顺序保留。北境身份改读 prefab/实例 Persistent.path，所有 Android 消费者把未知保留为未知，PC 有效代码保持。Root 19 条生命周期回归、默认 net6 双构建、两实际 DLL 各 Adapter1504/0、独立源码审查通过。
 
 新候选 c1e43 在唯一一次 Native 中记录原生池 0→109、自定义登记后118，九具名池与 syncID 匹配；船池在 Apply 已存在，三次自然 FastSpawn 非空，世界进入第8岛 Playing 并观察120秒。独立 actual 审查允许 Draft 代码检查点；诊断32池上限及 mode-schema 使两个聚合目标仍 false，原始异常传播/无额外探针兼容、完整职业经济保存及玩家验收不记通过。Root 确认真实 wait/reap、八原件和完整 metadata、自有 AVD/端口保持；未写 Steam 或持久 AVD。按用户要求在本批暂停，不开下一 Native。PR263 Draft，232/262 OPEN；下一步先无额外 detour 加载核对，再按真实依赖处理两处已观察的缺失引擎调用与玩法。详见[本次记录](tasks/issue-262/verification.md#g20-native-definitions-fix)。
+
+## 2026-10-20 — 坐骑岛显示修复已合并、安装，正常存档未替换
+
+#271→#273分别合并为0fc779a4、1b892284；合并态318项repo构建输入与实测B逐byte相同，NoAudit net6/net8两TFM0W0E。A41 F1→真实后像A39 F2已Playing11/八设施/八markers、八剪影、岸外单船、配色及地图往返、两次UI自然SaveQuit exit0通过。原生坐标采样、旧岛地同色和船managed wrapper根因及验证边界见[联合回执](tasks/issue-272/receipts/joint-native-20261020.md)。
+
+同B net6 DLL25d9…c156已装独立ARM64正常游玩包，安装前完整备份，16个save/config/prefs/Steam文件逐hash未变，未restore；仅DLL/manifest/SHA256SUMS三个部署文件改变，启动器check-only与独立274项checksum通过，未开正常游戏。270/272已关闭；**260旧正常空岛回填仍开放、未实装**。旧岛8原生时间1ULP、角色Unknown、已有日志警告保留；B本轮是冷读已有设施，首次出航证据来自H，第二岛自然抵达/Windows243/Android设备/联机不外推。本地checklist未见三项独立节点，未裸改canonical，validator0warning。下文为历史时点。
+
+## 2026-10-20 — #272 坐标采样已修，缺剪影转查渲染层
+
+A35真实稳定详情快照已取得有效native坐标：8图标均有尺寸、在裁剪内、父级alpha正常，空白仍复现，不支持几何补偿。隔离UI保存退出samePopen exit0/wait0、无signal，8标记落盘；正常完整closure未变。继续以船标对照Canvas/depth/layer/effective sprite，船位/RGB最终联合Native尚待完成，未合并release或安装。#260必要出航修复已窄接主线Source、双TFM0W0E和17/0测试及独审通过；不包含旧空岛自动补发。详见本任务收据，下面A34为历史。
+
+## 2026-10-20 — #272 已复现登岛后详情缺剪影，船位与配色仍待Native验收
+
+船/涟漪岸外初始化及两PNG仅RGB校色已通过Source审查/双TFM构建，PR273保持Draft、未合并安装。旧H的A34隔离冷重进已实际复现第一岛详情空白：8设施/8地图记录/8图标及锁定贴图均存在，稳定详情帧active/alpha正常。诊断器GetCorners的managed/native数组复制使坐标数据无效，尚不能定摆放/遮挡根因；不得据此改解锁或补历史。A33协议错误及A34受控超时退出原件保留，A34未完成自然保存退出、不作合格父；正常DLL/存档/配置与完整closure保持。详见[本轮记录](tasks/issue-272/receipts/visual-detail-20261020.md)。
+
+## 2026-10-19 — #270 扩展地图出航返回边界已修，隔离 Native 待验
+
+A21 实际确认后原生返回 focusedLand(UI10)，旧补丁只写 landResult11，Campaign 因而落10并由守卫终止，不能称已证游戏崩溃。当前窄修复在 exact BaseShow 完成处一次交接物理编号；不改 UI focus/Campaign/hasValue，不制造 None。最终 Root net6/net8 0W0E、22测试/230断言与独审通过，具体专属结果cell已静态核验；真实布局/hook、出航11/八设施、Save+Quit及同实际后像冷重进尚未通过。正常存档/配置/DLL未改，Issue270开放、未合并安装；详情岛形另项未修。见[tasks/issue-270/receipts/root-verification.md](tasks/issue-270/receipts/root-verification.md)。
 
 ## 2026-10-19 UTC — Android 已观察到船件入口NULL，完整根因仍待上游字段补证
 

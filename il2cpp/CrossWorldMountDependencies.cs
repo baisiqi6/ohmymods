@@ -154,6 +154,26 @@ internal static class CrossWorldMountDependencies
         return "ready";
     }
 
+    /// <summary>Only this definition's dependency gap; global first-gap is not its cause.</summary>
+    internal static string DefinitionNotReadyReason(CrossWorldMountDefinition definition)
+    {
+        EnsureStates();
+        int index = IndexOfDefinition(definition);
+        if (index < 0) return "definition unknown";
+        if (!_steedStates[index].Ready)
+            return "type " + definition.SteedTypeId + ": " + (_steedStates[index].Failure ?? "pending");
+        for (int a = 0; a < definition.Aliases.Length; a++)
+        {
+            int type = definition.Aliases[a].SteedTypeId;
+            for (int i = 0; i < _steedStates.Length; i++)
+                if (_steedStates[i].TypeId == type && !_steedStates[i].Ready)
+                    return "alias " + type + ": " + (_steedStates[i].Failure ?? "pending");
+        }
+        if (IsPoolDefinition(definition) && !_poolStates[index].Ready)
+            return "pool " + definition.Id + ": " + (_poolStates[index].Failure ?? "pending");
+        return "ready";
+    }
+
     // ------------------------------------------------------------------ entries
 
     /// <summary>生成前/初始化点：登记缺失定义并补池（幂等；就绪时直接返回）。</summary>
@@ -214,9 +234,10 @@ internal static class CrossWorldMountDependencies
     {
         try
         {
+            // Native pools can rebuild while this feature is disabled. Invalidate managed
+            // lookup/readiness before the gate; loading/registration remain gated below.
+            InvalidatePoolLookupState();
             if (!ModConfig.Enabled.Value) return;
-            _allPoolsReady = false;
-            if (_poolStates != null) for (int i = 0; i < _poolStates.Length; i++) _poolStates[i].Ready = false;
             EnsurePools(true);
         }
         catch (Exception e)
@@ -841,7 +862,7 @@ internal static class CrossWorldMountDependencies
             if (managerChanged)
             {
                 _poolManagerPointer = managerPointer;
-                for (int i = 0; i < _poolStates.Length; i++) _poolStates[i].Ready = false;
+                InvalidatePoolLookupState();
             }
             if (!managerChanged && _allPoolsReady && !force) return;
 
@@ -984,6 +1005,19 @@ internal static class CrossWorldMountDependencies
         }
     }
 
+    /// <summary>
+    /// The resource snapshot and Ready bits belong to one native pool generation.
+    /// Keep failures/cooldowns/log state: existing force/managerChanged paths already
+    /// bypass the cooldown at a real rebuild; query retries retain their prior policy.
+    /// </summary>
+    private static void InvalidatePoolLookupState()
+    {
+        _poolCollections = null;
+        _allPoolsReady = false;
+        if (_poolStates != null)
+            for (int i = 0; i < _poolStates.Length; i++) _poolStates[i].Ready = false;
+    }
+
     private static void AddUnique(List<GameObject> list, GameObject prefab)
     {
         ulong pointer = PointerOf(prefab);
@@ -1001,7 +1035,14 @@ internal static class CrossWorldMountDependencies
         sync = false; syncID = 0; preload = 0; capacity = 0; expendable = false;
         try
         {
-            if (_poolCollections == null) _poolCollections = Resources.LoadAll<BiomeObjectPools>("");
+            if (_poolCollections == null)
+            {
+                _poolCollections = Resources.LoadAll<BiomeObjectPools>("");
+                if (_poolCollections != null)
+                    Log("native skill pool snapshot loaded: manager=0x" + _poolManagerPointer.ToString("X")
+                        + " snapshot=0x" + PointerOf(_poolCollections).ToString("X")
+                        + " collections=" + _poolCollections.Length);
+            }
             Il2CppArrayBase<BiomeObjectPools> collections = _poolCollections;
             if (collections == null) return false;
             ulong pointer = PointerOf(prefab);
