@@ -1,6 +1,6 @@
 # #101 R12：完整 Mod 基底与400u接线检查点
 
-> 最新边界：Phase C 已完成完整 R12 场景源级接线与四变体构建/实际嵌入资源检查；最终增量复审通过，Native 付费往返尚未运行，未合并安装。Phase A/B 及早期 Phase C 的“仍44u/消费者未齐”是当时记录，最新状态以文末接线节为准。
+> 最新边界：完整400u与Mac ARM64 2.4.0单机隔离付费进入、保存退出、宫廷冷读、免费返回和来源冷读已通过；PR #265 merge `fa54574426a528f135e79b2f9d9bf4c1c9a80e15`，`2026-10-23T19:15:01.156608+00:00` 已安装到正常独立ARM64包并通过原launcher只读预检。Issue #101关闭，#279素材经 #265纳入后关闭未独立合并。诊断实机与默认安装证据分开；下文旧44u、未齐消费者、未实机及失败时点均保留为历史，当前状态以文末收尾为准。
 
 2026-10-23。用户已批准约 400u 宫廷画卷及后续素材制作、隔离接入。本记录仅交付当前完整 Mod 与既有宫廷修订的源级整合；**宫廷仍为旧 44u 配方，400u 地面和最终素材尚未接入**。#101 与对应宫廷 PR 保持进行中；未合入 release、未安装正常包、未启动游戏。
 
@@ -123,3 +123,11 @@ cold10已用新exact凭据从09真实后像冷读source8：raw35在原生加载�
 本轮明确通过的链为：paid02真实10币/原生结算→fresh400u创建→cold04真实保存退出与完整disk→新进程宫廷冷读→cold09用户自然免费回程/一次Reload8/钱包128→128/真实原生提交及UI退出→cold10来源新进程冷读与UI退出。cold05的900秒超时、Root输入误操作、工具EventDeliveryUNKNOWN及被证伪的未挂载推测均保留原始证据，不把失败改写成功。两端旧P2静帧已闭合；连续60fps动画观感、全部动作、Windows2.4.3、Android和联机没有在这条Mac ARM64 2.4.0单机链代验。
 
 R4产品/source未再改，default-net6 SHA `055368a3964d307b9a3155160d6a2036cd554f8765c7ea79bdac198b6e59fcaf`。正常DLL `25d9…c156`及正常15数据备份和物理游戏71文件保持；合并与正常包安装仍须独立最终决策和回执，未将私人测试存档移到正常版。
+
+### 合并与正常包安装收尾（2026-10-23）
+
+- PR #265 merge `fa54574426a528f135e79b2f9d9bf4c1c9a80e15`，实际GitHub已读回MERGED。#279原提交3dfad32c与采用提交0ef5d44f的完整`git show --pretty=format: --binary`字节相同，stable patch-id均`d7483b316f5c6442b93611afe57cced4b372f9f3`；按incorporated via #265关闭，不虚构 #279另有merge，不改master/删作者分支。Issue #101已按本轮代码与原生完整链收尾。
+- Native使用diagnostic-net6 `62a5fa1f9af5cad83400b264aaadc29bd906248cfd182cc0558d5e03f5db27b7`；实际安装default-net6 `055368a3964d307b9a3155160d6a2036cd554f8765c7ea79bdac198b6e59fcaf`。623项冻结源/资源一致，四变体0W0E、actual92资源/275检查通过；不将同源等同为default已另做实机。
+- 旧“仅DLL安装”方案经实际launcher依赖核对被推翻：launcher每次硬校验SUMS，须同步manifest中的DLL哈希/大小和SUMS对应两行。最终只改三键；manifest仅3字段，SUMS274行只改DLL与manifest两行。独立GLM5.3/max集中审查批准；Root84/84受影响host回归、独立18/18包增量通过，未重跑未变化产品/Native。copy/hash失败漏清的原反例保留，修到exclusive stage成功后立即登记owned临时文件，保留foreign stale。
+- `2026-10-23T19:15:01.156608+00:00` 完成一次受管三文件安装：DLL、package-manifest.json、SHA256SUMS；写后SHA精确，normal树恰3键变化。旧DLL及原metadata、15份save/config/prefs备份均读回校验保留；正常数据/71个物理游戏文件未变，未写Steam、未迁入私人测试档。原launcher `--check-only` exit0，前后树一致，未启动正常游戏。本地实际回执在`.local/tasks/palace400-runtime-20261023/phase-c/normal-install-plan/receipt.json`与`postinstall-receipt.json`，非公开原始日志。
+- 正常DLL由25d9ffef…c156变为055368a3…59fcaf，旧隔离控制器/批准的正常指纹已过时，后续测试重新准备匹配的基线与单次凭据。两端截边已静帧闭合；完整连续动画/全部动作、Windows2.4.3、Android设备、联机及Windows性能不由本轮代验。未发布公共release/tag，宫廷功能在下一正式版本只按一条+0.3登记，内部返修不重复计分。未发现checklist对应既有节点，未裸改JSON/DB或新增虚假项。
