@@ -1,3 +1,11 @@
+## 2026-10-23 — DSH 正式承接 Android 专项，主线 f2b6dc 合并入候选分支
+
+按用户 2026-10-23 原会话授权（readback 已存），DSH 原桌面会话经原生 envelope 完成正式交接；Coordinate #232/#262 已按 DSH 身份 `mac-dsh-ohmymods-android-operator`（session `dsh-android-profession-archery-20261023`）完成 assignment request/accept，canonical checklist 的 owner/session/workflow/lease 已更新，旧 owner 记录保留。原 Codex 转为增量 Reviewer，不再并行修改 Android 产品。
+
+DSH 新写入工作树从精确 200a793 派生（`dsh/android-economy-262-20261023`，路径 `.local/worktrees/android-economy-262-dsh`）；原 W5 工作树保持 200a793 供旧回执路径解析。本批将主线 `release/v9.5.13`=`f2b6dcaa` 合并入分支：双方改动文件交集仅 `docs/project-harness/progress.md`，冲突按两侧条目时间序合并解决；主线 52 个变化文件与本 Android 工程 249 个显式编译输入无交集，本合并无 Android 产品源码变化，c1e43/cfg16b/F35fae 候选绑定保持有效。
+
+下一步：以 609e control-only 观察器准备零额外 Pool/Boat hook 的单次加载对照（新 plan/source review/运行门），并取两处 MissingICall 精确 Signature；随后按依赖验证职业/弓弩与银行补货的付款、保存、池生命周期。构建、原生运行和审查证据分别记账，未变化证据不重复复核。
+
 ## 2026-10-22 — #260 已交付修复收尾，旧 PR #264 撤回
 
 首次登岛生成、地图剪影/船位/配色与保存冷读已由 #271/#273/#274 合并并安装；当前正常 Mac DLL 仍为 `25d9ffef…f4c156`，本轮只读核对一致。用户明确选择撤回未完成原生验收的旧空岛恢复 PR #264，保留分支，将“已访问空岛原位回填”完整转入 [#277](https://github.com/baisiqi6/ohmymods/issues/277) 延期待办；#264 关闭未合并，不称旧档回填已完成或实装。#260 按已交付替代方案收尾，详情见 [收尾记录](tasks/issue-260/closeout.md)。
