@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <UseSharedCompilation>false</UseSharedCompilation>
+    <NodeReuse>false</NodeReuse>
+    <NuGetAudit>false</NuGetAudit>
+    <CheckEolTargetFramework>false</CheckEolTargetFramework>
+    <VisitClockSource>$(MSBuildProjectDirectory)/../../Patch_PalaceVisitClock.cs</VisitClockSource>
+    <TestSource>$(MSBuildProjectDirectory)/Program.cs.txt</TestSource>
+    <GeneratedDir>$(MSBuildProjectDirectory)/obj/Generated</GeneratedDir>
+    <ExtractorDll>$(MSBuildProjectDirectory)/bin-extractor/Extractor.dll</ExtractorDll>
+    <!-- Optional pinned baseline source for the old-source negative control; absent in normal builds. -->
+    <LegacyVisitClockSource></LegacyVisitClockSource>
+    <LegacyGeneratedDir>$(GeneratedDir)/Legacy</LegacyGeneratedDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(LegacyVisitClockSource)' != ''">
+    <DefineConstants>$(DefineConstants);FRESH_SEED_LEGACY</DefineConstants>
+  </PropertyGroup>
+  <Target Name="ExtractFreshSeed" BeforeTargets="BeforeCompile">
+    <Exec Command="&quot;$(DOTNET_HOST_PATH)&quot; &quot;$(ExtractorDll)&quot; &quot;$(VisitClockSource)&quot; &quot;$(GeneratedDir)&quot;"
+          EnvironmentVariables="MSBUILDDISABLENODEREUSE=1" />
+  </Target>
+  <Target Name="ExtractLegacyFreshSeed" BeforeTargets="BeforeCompile"
+          Condition="'$(LegacyVisitClockSource)' != ''">
+    <Exec Command="&quot;$(DOTNET_HOST_PATH)&quot; &quot;$(ExtractorDll)&quot; legacy &quot;$(LegacyVisitClockSource)&quot; &quot;$(LegacyGeneratedDir)&quot;"
+          EnvironmentVariables="MSBUILDDISABLENODEREUSE=1" />
+  </Target>
+  <ItemGroup>
+    <Compile Include="$(TestSource)" />
+    <Compile Include="$(GeneratedDir)/FreshSeed.Default.g.cs" />
+    <Compile Include="$(GeneratedDir)/FreshSeed.Diagnostic.g.cs" />
+    <Compile Include="$(GeneratedDir)/FreshSeed.Identity.cs" />
+    <Compile Include="$(LegacyGeneratedDir)/FreshSeed.Legacy.g.cs"
+             Condition="'$(LegacyVisitClockSource)' != ''" />
+    <AssemblyMetadata Include="VisitClockSourcePath" Value="$(VisitClockSource)" />
+    <AssemblyMetadata Include="FreshSeedGeneratedSource" Value="$(GeneratedDir)/FreshSeed.Diagnostic.g.cs" />
+  </ItemGroup>
+</Project>

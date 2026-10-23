@@ -1,0 +1,847 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.IO;
+using System.Reflection;
+using System.Security.Cryptography;
+using System.Text;
+
+namespace KingdomEnhancedMod
+{
+    internal enum ListKind { Objects, Revisions }
+
+    internal enum ProbeCounter
+    {
+        ManagersInst, CampaignCurrent, ManagersGame, ManagersDirector,
+        GamePointer, GameLand, CampaignLand, CampaignIsland,
+        IslandPointer, IslandIsNew, IslandLand, IslandLastReign,
+        IslandObjects, IslandRevisions, ObjectsCount, RevisionsCount,
+        Observe, Decide, Count
+    }
+
+    internal static class FreshSeedProbe
+    {
+        private static readonly int[] Counts = new int[(int)ProbeCounter.Count];
+        internal static PalaceScopeObservation Observation = new PalaceScopeObservation();
+
+        internal static void Bump(ProbeCounter counter) => Counts[(int)counter]++;
+        internal static void ResetCounts() => Array.Clear(Counts, 0, Counts.Length);
+        internal static int[] Snapshot() => (int[])Counts.Clone();
+    }
+
+    internal sealed class ProbeList : IReadOnlyList<int>
+    {
+        private readonly int _count;
+        private readonly ListKind _kind;
+
+        internal ProbeList(int count, ListKind kind)
+        {
+            _count = count;
+            _kind = kind;
+        }
+
+        public int Count
+        {
+            get
+            {
+                FreshSeedProbe.Bump(_kind == ListKind.Objects ? ProbeCounter.ObjectsCount : ProbeCounter.RevisionsCount);
+                return _count;
+            }
+        }
+
+        public int this[int index] => 0;
+        public IEnumerator<int> GetEnumerator() { yield break; }
+        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+    }
+
+    internal sealed class Director { }
+
+    internal sealed class Game
+    {
+        private IntPtr _pointer;
+        private int _currentLand;
+
+        internal IntPtr Pointer
+        {
+            get { FreshSeedProbe.Bump(ProbeCounter.GamePointer); return _pointer; }
+            set { _pointer = value; }
+        }
+
+        internal int currentLand
+        {
+            get { FreshSeedProbe.Bump(ProbeCounter.GameLand); return _currentLand; }
+            set { _currentLand = value; }
+        }
+    }
+
+    internal sealed class IslandSaveData
+    {
+        private IntPtr _pointer;
+        private double _playTimeDays;
+        private int _lastPlayedReign;
+        private IReadOnlyList<int> _objects;
+        private IReadOnlyList<int> _revisions;
+
+        internal IntPtr Pointer
+        {
+            get { FreshSeedProbe.Bump(ProbeCounter.IslandPointer); return _pointer; }
+            set { _pointer = value; }
+        }
+
+        // Native get_isNew（06003a56）只判断 playTimeDays == 0；fixture 不允许手工伪造 isNew。
+        internal bool isNew
+        {
+            get { FreshSeedProbe.Bump(ProbeCounter.IslandIsNew); return _playTimeDays == 0.0; }
+        }
+
+        internal double playTimeDays
+        {
+            set { _playTimeDays = value; }
+        }
+
+        // 只读 fixture 默认值（0）；生产方法不应读取，也不允许测试再写入 land。
+        internal int land
+        {
+            get { FreshSeedProbe.Bump(ProbeCounter.IslandLand); return 0; }
+        }
+
+        internal int lastPlayedReign
+        {
+            get { FreshSeedProbe.Bump(ProbeCounter.IslandLastReign); return _lastPlayedReign; }
+            set { _lastPlayedReign = value; }
+        }
+
+        internal IReadOnlyList<int> objects
+        {
+            get { FreshSeedProbe.Bump(ProbeCounter.IslandObjects); return _objects; }
+            set { _objects = value; }
+        }
+
+        internal IReadOnlyList<int> savedWithRevisions
+        {
+            get { FreshSeedProbe.Bump(ProbeCounter.IslandRevisions); return _revisions; }
+            set { _revisions = value; }
+        }
+    }
+
+    internal sealed class Managers
+    {
+        private static Managers _inst;
+
+        internal static Managers Inst
+        {
+            get { FreshSeedProbe.Bump(ProbeCounter.ManagersInst); return _inst; }
+            set { _inst = value; }
+        }
+
+        private Game _game;
+        private Director _director;
+
+        internal Game game
+        {
+            get { FreshSeedProbe.Bump(ProbeCounter.ManagersGame); return _game; }
+            set { _game = value; }
+        }
+
+        internal Director director
+        {
+            get { FreshSeedProbe.Bump(ProbeCounter.ManagersDirector); return _director; }
+            set { _director = value; }
+        }
+    }
+
+    internal sealed class CampaignSaveData
+    {
+        private static CampaignSaveData _current;
+
+        internal static CampaignSaveData current
+        {
+            get { FreshSeedProbe.Bump(ProbeCounter.CampaignCurrent); return _current; }
+            set { _current = value; }
+        }
+
+        private int _currentLand;
+        private IslandSaveData _currentIsland;
+
+        internal int CurrentLand
+        {
+            get { FreshSeedProbe.Bump(ProbeCounter.CampaignLand); return _currentLand; }
+            set { _currentLand = value; }
+        }
+
+        internal IslandSaveData CurrentIsland
+        {
+            get { FreshSeedProbe.Bump(ProbeCounter.CampaignIsland); return _currentIsland; }
+            set { _currentIsland = value; }
+        }
+    }
+
+    internal enum PalaceScopeVerdict { Foreign, Owned, Unknown }
+
+    internal sealed class PalaceScopeObservation { }
+
+    internal sealed class PalaceLocalDayPolicy
+    {
+        internal bool HasLocal;
+        internal long Day1Seeds;
+        internal long Hydrations;
+        internal int AdoptCalls;
+
+        internal void AdoptNewIslandDay1()
+        {
+            AdoptCalls++;
+            Day1Seeds++;
+            HasLocal = true;
+        }
+    }
+
+    internal sealed class PalaceClockLease
+    {
+        internal bool StickyUnknown;
+        internal bool Suspended;
+        internal PalaceLocalDayPolicy Policy = new PalaceLocalDayPolicy();
+    }
+
+    internal sealed class PalaceScopeDecision
+    {
+        internal PalaceScopeVerdict Verdict;
+        internal PalaceClockLease Lease;
+    }
+
+    internal sealed class PalaceClockPolicyAdapter
+    {
+        internal bool TrialUnknown;
+        internal PalaceScopeDecision Decision = new PalaceScopeDecision();
+
+        internal PalaceScopeDecision DecideScope(PalaceScopeObservation observation)
+        {
+            FreshSeedProbe.Bump(ProbeCounter.Decide);
+            return Decision;
+        }
+    }
+
+    internal static class PalaceClockLog
+    {
+        internal static readonly List<string> Lines = new List<string>();
+        internal static bool Throw;
+
+        internal static void Info(string message)
+        {
+            if (Throw) throw new InvalidOperationException("sink");
+            Lines.Add(message);
+        }
+    }
+
+    internal static class Program
+    {
+        private static int _passed, _failed;
+
+        private static int Main()
+        {
+            TestSourceIdentity();
+            TestScenarioMatrix();
+            TestBoundedDiagnostics();
+            TestSeedIdempotenceAndSavedHydrate();
+#if FRESH_SEED_LEGACY
+            TestLegacyRejectsNativeCtorFixture();
+#endif
+            Console.WriteLine("cases=" + (_passed + _failed) + " passed=" + _passed + " failed=" + _failed);
+            return _failed == 0 ? 0 : 1;
+        }
+
+        private static void Check(string name, bool condition, string detail = "")
+        {
+            if (condition) { _passed++; Console.WriteLine("PASS " + name); }
+            else { _failed++; Console.WriteLine("FAIL " + name + (detail.Length == 0 ? "" : " :: " + detail)); }
+        }
+
+        private sealed class Scenario
+        {
+            internal string Name;
+            internal bool Hooks = true;
+            internal bool Trial;
+            internal Game Game;
+            internal Game ManagerGame;
+            internal IslandSaveData Island;
+            internal IslandSaveData CampaignIsland;
+            internal Managers Managers;
+            internal CampaignSaveData Campaign;
+            internal Func<PalaceScopeDecision> DecisionFactory;
+            internal bool ExpectResult;
+            internal string ExpectLeaf;
+            internal string ExpectReason;
+            internal bool ExpectPost;
+            internal PalaceScopeDecision LastDefaultDecision;
+            internal PalaceScopeDecision LastDiagnosticDecision;
+        }
+
+        private static Scenario Base(string name)
+        {
+            var s = new Scenario
+            {
+                Name = name,
+                Game = new Game { Pointer = (IntPtr)0x1000, currentLand = 12 },
+                ManagerGame = new Game { Pointer = (IntPtr)0x1000 },
+                // Native ctor 形状：playTimeDays == 0 → isNew；lastPlayedReign 恰为 -1；
+                // objects/savedWithRevisions 未初始化 → null。land 仅保留默认 fixture 值（0），
+                // 本 fixture 不声称 CASE08 实际观测到 0，也不允许生产方法读取该 getter。
+                Island = new IslandSaveData
+                {
+                    Pointer = (IntPtr)0x2000,
+                    lastPlayedReign = -1,
+                    objects = null,
+                    savedWithRevisions = null
+                },
+                CampaignIsland = new IslandSaveData { Pointer = (IntPtr)0x2000 },
+                Managers = new Managers(),
+                Campaign = new CampaignSaveData { CurrentLand = 12 },
+                DecisionFactory = () => new PalaceScopeDecision
+                {
+                    Verdict = PalaceScopeVerdict.Owned,
+                    Lease = new PalaceClockLease()
+                },
+                ExpectResult = true,
+                ExpectReason = "complete-native-fresh-facts-day1",
+                ExpectPost = true
+            };
+            s.Managers.game = s.ManagerGame;
+            s.Managers.director = new Director();
+            s.Campaign.CurrentIsland = s.CampaignIsland;
+            return s;
+        }
+
+        private static Scenario Term(string name, Action<Scenario> configure, string leaf)
+        {
+            Scenario s = Base(name);
+            configure(s);
+            s.ExpectResult = false;
+            s.ExpectLeaf = leaf;
+            s.ExpectReason = null;
+            s.ExpectPost = false;
+            return s;
+        }
+
+        private static Scenario Post(string name, Func<PalaceScopeDecision> factory, string leaf)
+        {
+            Scenario s = Base(name);
+            s.DecisionFactory = factory;
+            s.ExpectResult = false;
+            s.ExpectLeaf = leaf;
+            s.ExpectReason = null;
+            s.ExpectPost = true;
+            return s;
+        }
+
+        private static Scenario Local(string name, long day1Seeds, long hydrations, bool expectResult)
+        {
+            Scenario s = Base(name);
+            s.DecisionFactory = () => new PalaceScopeDecision
+            {
+                Verdict = PalaceScopeVerdict.Owned,
+                Lease = new PalaceClockLease
+                {
+                    Policy = new PalaceLocalDayPolicy { HasLocal = true, Day1Seeds = day1Seeds, Hydrations = hydrations }
+                }
+            };
+            s.ExpectResult = expectResult;
+            s.ExpectReason = "fresh-local-already-established";
+            s.ExpectPost = true;
+            return s;
+        }
+
+        private static List<Scenario> Scenarios()
+        {
+            var list = new List<Scenario>
+            {
+                Base("success"),
+                Term("hooks-not-ready", s => s.Hooks = false, "hooks-not-ready"),
+                Term("trial-unknown", s => s.Trial = true, "trial-unknown"),
+                Term("game-null", s => s.Game = null, "game-null"),
+                Term("island-null", s => s.Island = null, "island-null"),
+                Term("campaign-null", s => s.Campaign = null, "campaign-null"),
+                Term("managers-null", s => s.Managers = null, "managers-null"),
+                Term("manager-game-null", s => s.Managers.game = null, "manager-game-null"),
+                Term("current-game-pointer-mismatch", s => s.ManagerGame.Pointer = (IntPtr)0x3000,
+                    "current-game-pointer-mismatch"),
+                Term("director-null", s => s.Managers.director = null, "director-null"),
+                Term("game-land-not-12", s => s.Game.currentLand = 11, "game-land-not-12"),
+                Term("campaign-land-not-12", s => s.Campaign.CurrentLand = 11, "campaign-land-not-12"),
+                Term("current-island-null", s => s.Campaign.CurrentIsland = null, "current-island-null"),
+                Term("current-island-pointer-mismatch", s => s.CampaignIsland.Pointer = (IntPtr)0x3000,
+                    "current-island-pointer-mismatch"),
+                Term("island-not-new", s => s.Island.playTimeDays = 1.0, "island-not-new"),
+                Term("lastreign-zero", s => s.Island.lastPlayedReign = 0, "lastreign-not-pristine"),
+                Term("lastreign-positive", s => s.Island.lastPlayedReign = 1, "lastreign-not-pristine"),
+                Term("lastreign-negative-two", s => s.Island.lastPlayedReign = -2, "lastreign-not-pristine"),
+                Term("objects-empty", s => s.Island.objects = new ProbeList(0, ListKind.Objects),
+                    "objects-already-initialized"),
+                Term("objects-nonempty", s => s.Island.objects = new ProbeList(1, ListKind.Objects),
+                    "objects-already-initialized"),
+                Term("revisions-empty", s => s.Island.savedWithRevisions = new ProbeList(0, ListKind.Revisions),
+                    "revisions-already-initialized"),
+                Term("revisions-nonempty", s => s.Island.savedWithRevisions = new ProbeList(1, ListKind.Revisions),
+                    "revisions-already-initialized"),
+                // TrySeed 不直接读 semantic owner/biome/slot；这些身份由 Observe→DecideScope 的
+                // Foreign/Unknown verdict 统一拒绝（真实实现内由 typed scope 事实判定）。
+                Post("scope-verdict-foreign", () => new PalaceScopeDecision
+                {
+                    Verdict = PalaceScopeVerdict.Foreign,
+                    Lease = new PalaceClockLease()
+                }, "scope-verdict-foreign"),
+                Post("scope-verdict-unknown", () => new PalaceScopeDecision
+                {
+                    Verdict = PalaceScopeVerdict.Unknown,
+                    Lease = new PalaceClockLease()
+                }, "scope-verdict-unknown"),
+                Post("scope-verdict-foreign-not-lease-null", () => new PalaceScopeDecision
+                {
+                    Verdict = PalaceScopeVerdict.Foreign,
+                    Lease = null
+                }, "scope-verdict-foreign"),
+                Post("scope-lease-null", () => new PalaceScopeDecision
+                {
+                    Verdict = PalaceScopeVerdict.Owned,
+                    Lease = null
+                }, "scope-lease-null"),
+                Post("scope-lease-sticky-unknown", () => new PalaceScopeDecision
+                {
+                    Verdict = PalaceScopeVerdict.Owned,
+                    Lease = new PalaceClockLease { StickyUnknown = true }
+                }, "scope-lease-sticky-unknown"),
+                Post("scope-lease-suspended", () => new PalaceScopeDecision
+                {
+                    Verdict = PalaceScopeVerdict.Owned,
+                    Lease = new PalaceClockLease { Suspended = true }
+                }, "scope-lease-suspended"),
+                Post("scope-lease-sticky-before-suspended", () => new PalaceScopeDecision
+                {
+                    Verdict = PalaceScopeVerdict.Owned,
+                    Lease = new PalaceClockLease { StickyUnknown = true, Suspended = true }
+                }, "scope-lease-sticky-unknown"),
+                Local("fresh-local-already-established-true", 1, 0, true),
+                Local("fresh-local-already-established-false", 2, 0, false),
+                Local("fresh-local-hydrated-false", 1, 1, false)
+            };
+            return list;
+        }
+
+        private static bool RunDefault(Scenario s, out string reason)
+        {
+            Managers.Inst = s.Managers;
+            CampaignSaveData.current = s.Campaign;
+            FreshSeedDefaultHost.HooksReady = s.Hooks;
+            FreshSeedDefaultHost.Policy.TrialUnknown = s.Trial;
+            FreshSeedDefaultHost.Policy.Decision = s.LastDefaultDecision = s.DecisionFactory();
+            FreshSeedProbe.ResetCounts();
+            return FreshSeedDefaultHost.TrySeedVerifiedFresh(s.Game, s.Island, out reason);
+        }
+
+        private static bool RunDiagnostic(Scenario s, out string reason)
+        {
+            Managers.Inst = s.Managers;
+            CampaignSaveData.current = s.Campaign;
+            FreshSeedDiagnosticHost.HooksReady = s.Hooks;
+            FreshSeedDiagnosticHost.Policy.TrialUnknown = s.Trial;
+            FreshSeedDiagnosticHost.Policy.Decision = s.LastDiagnosticDecision = s.DecisionFactory();
+            FreshSeedProbe.ResetCounts();
+            return FreshSeedDiagnosticHost.TrySeedVerifiedFresh(s.Game, s.Island, out reason);
+        }
+
+        private static void TestScenarioMatrix()
+        {
+            List<Scenario> scenarios = Scenarios();
+            Check("scenario-count", scenarios.Count == 32, "count=" + scenarios.Count);
+            foreach (Scenario s in scenarios) RunAndCompare(s);
+        }
+
+        private static void RunAndCompare(Scenario s)
+        {
+            bool defaultResult = RunDefault(s, out string defaultReason);
+            int[] defaultCounts = FreshSeedProbe.Snapshot();
+            int defaultAdopt = s.LastDefaultDecision?.Lease?.Policy.AdoptCalls ?? 0;
+
+            bool diagnosticResult = RunDiagnostic(s, out string diagnosticReason);
+            int[] diagnosticCounts = FreshSeedProbe.Snapshot();
+            int diagnosticAdopt = s.LastDiagnosticDecision?.Lease?.Policy.AdoptCalls ?? 0;
+
+            Check(s.Name + "-default-result", defaultResult == s.ExpectResult, "got=" + defaultResult);
+            Check(s.Name + "-diagnostic-result", diagnosticResult == s.ExpectResult, "got=" + diagnosticResult);
+            Check(s.Name + "-counts-equal", Same(defaultCounts, diagnosticCounts),
+                Describe(defaultCounts) + " vs " + Describe(diagnosticCounts));
+            Check(s.Name + "-adopt-equal", defaultAdopt == diagnosticAdopt, defaultAdopt + " vs " + diagnosticAdopt);
+            Check(s.Name + "-adopt-expected",
+                diagnosticAdopt == (s.ExpectReason == "complete-native-fresh-facts-day1" ? 1 : 0),
+                "got=" + diagnosticAdopt);
+
+            if (s.ExpectLeaf == null)
+            {
+                Check(s.Name + "-default-reason", defaultReason == s.ExpectReason, defaultReason);
+                Check(s.Name + "-diagnostic-reason", diagnosticReason == s.ExpectReason, diagnosticReason);
+            }
+            else
+            {
+                Check(s.Name + "-default-pending", defaultReason == "fresh-facts-pending", defaultReason);
+                Check(s.Name + "-diagnostic-leaf", diagnosticReason == "fresh-facts-pending:" + s.ExpectLeaf,
+                    diagnosticReason);
+            }
+
+            int observe = diagnosticCounts[(int)ProbeCounter.Observe];
+            int decide = diagnosticCounts[(int)ProbeCounter.Decide];
+            Check(s.Name + "-one-observe-one-decide",
+                observe == (s.ExpectPost ? 1 : 0) && decide == (s.ExpectPost ? 1 : 0),
+                "obs=" + observe + " dec=" + decide);
+            Check(s.Name + "-no-extra-native", AllCountsNotGreater(diagnosticCounts, MaxCounts()),
+                Describe(diagnosticCounts));
+            // fresh 阶段身份不来自 island.land；新方法在任何路径都不得读取该 getter。
+            Check(s.Name + "-land-getter-zero", diagnosticCounts[(int)ProbeCounter.IslandLand] == 0,
+                Describe(diagnosticCounts));
+            Check(s.Name + "-short-circuit", ShortCircuitHolds(s, diagnosticCounts), Describe(diagnosticCounts));
+            if (s.ExpectPost)
+                Check(s.Name + "-exact-native-counts", Same(diagnosticCounts, MaxCounts()),
+                    Describe(diagnosticCounts));
+        }
+
+        private static int[] MaxCounts()
+        {
+            var max = new int[(int)ProbeCounter.Count];
+            max[(int)ProbeCounter.ManagersInst] = 1;
+            max[(int)ProbeCounter.CampaignCurrent] = 1;
+            max[(int)ProbeCounter.ManagersGame] = 2;
+            max[(int)ProbeCounter.ManagersDirector] = 2;
+            max[(int)ProbeCounter.GamePointer] = 2;
+            max[(int)ProbeCounter.GameLand] = 1;
+            max[(int)ProbeCounter.CampaignLand] = 1;
+            max[(int)ProbeCounter.CampaignIsland] = 2;
+            max[(int)ProbeCounter.IslandPointer] = 2;
+            max[(int)ProbeCounter.IslandIsNew] = 1;
+            max[(int)ProbeCounter.IslandLand] = 0;      // 新 shape 门完全不读存档 land 字段
+            max[(int)ProbeCounter.IslandLastReign] = 1;
+            max[(int)ProbeCounter.IslandObjects] = 1;
+            max[(int)ProbeCounter.IslandRevisions] = 1;
+            max[(int)ProbeCounter.ObjectsCount] = 0;    // 非 null 即拒绝，不得读 Count
+            max[(int)ProbeCounter.RevisionsCount] = 0;
+            max[(int)ProbeCounter.Observe] = 1;
+            max[(int)ProbeCounter.Decide] = 1;
+            return max;
+        }
+
+        private static bool ShortCircuitHolds(Scenario s, int[] c)
+        {
+            switch (s.Name)
+            {
+                case "hooks-not-ready":
+                case "trial-unknown":
+                case "game-null":
+                case "island-null":
+                case "campaign-null":
+                case "managers-null":
+                    return c[(int)ProbeCounter.ManagersGame] == 0
+                        && c[(int)ProbeCounter.CampaignIsland] == 0
+                        && c[(int)ProbeCounter.Observe] == 0;
+                case "manager-game-null":
+                    return c[(int)ProbeCounter.ManagersGame] == 1
+                        && c[(int)ProbeCounter.GamePointer] == 0
+                        && c[(int)ProbeCounter.ManagersDirector] == 0;
+                case "current-game-pointer-mismatch":
+                    return c[(int)ProbeCounter.ManagersGame] == 2
+                        && c[(int)ProbeCounter.GamePointer] == 2
+                        && c[(int)ProbeCounter.ManagersDirector] == 0
+                        && c[(int)ProbeCounter.GameLand] == 0;
+                case "director-null":
+                    return c[(int)ProbeCounter.ManagersDirector] == 1
+                        && c[(int)ProbeCounter.GameLand] == 0
+                        && c[(int)ProbeCounter.CampaignLand] == 0;
+                case "game-land-not-12":
+                    return c[(int)ProbeCounter.GameLand] == 1
+                        && c[(int)ProbeCounter.CampaignLand] == 0
+                        && c[(int)ProbeCounter.CampaignIsland] == 0;
+                case "campaign-land-not-12":
+                    return c[(int)ProbeCounter.CampaignLand] == 1
+                        && c[(int)ProbeCounter.CampaignIsland] == 0
+                        && c[(int)ProbeCounter.IslandPointer] == 0;
+                case "current-island-null":
+                    return c[(int)ProbeCounter.CampaignIsland] == 1
+                        && c[(int)ProbeCounter.IslandPointer] == 0
+                        && c[(int)ProbeCounter.IslandIsNew] == 0;
+                case "current-island-pointer-mismatch":
+                    return c[(int)ProbeCounter.CampaignIsland] == 2
+                        && c[(int)ProbeCounter.IslandPointer] == 2
+                        && c[(int)ProbeCounter.IslandIsNew] == 0;
+                case "island-not-new":
+                    return c[(int)ProbeCounter.IslandIsNew] == 1
+                        && c[(int)ProbeCounter.IslandLastReign] == 0
+                        && c[(int)ProbeCounter.IslandObjects] == 0;
+                case "lastreign-zero":
+                case "lastreign-positive":
+                case "lastreign-negative-two":
+                    return c[(int)ProbeCounter.IslandLastReign] == 1
+                        && c[(int)ProbeCounter.IslandObjects] == 0
+                        && c[(int)ProbeCounter.ObjectsCount] == 0;
+                case "objects-empty":
+                case "objects-nonempty":
+                    return c[(int)ProbeCounter.IslandObjects] == 1
+                        && c[(int)ProbeCounter.ObjectsCount] == 0
+                        && c[(int)ProbeCounter.IslandRevisions] == 0
+                        && c[(int)ProbeCounter.RevisionsCount] == 0;
+                case "revisions-empty":
+                case "revisions-nonempty":
+                    return c[(int)ProbeCounter.IslandRevisions] == 1
+                        && c[(int)ProbeCounter.RevisionsCount] == 0
+                        && c[(int)ProbeCounter.Observe] == 0
+                        && c[(int)ProbeCounter.Decide] == 0;
+                default:
+                    return true;
+            }
+        }
+
+        private static void TestBoundedDiagnostics()
+        {
+            ResetFreshSeedDiagnostics();
+            List<Scenario> scenarios = Scenarios();
+            int initialFailures = 0;
+            foreach (Scenario s in scenarios)
+            {
+                if (s.ExpectLeaf == null || s.ExpectPost) continue;
+                RunDiagnostic(s, out _);
+                initialFailures++;
+            }
+            Check("bounded-initial-failures", initialFailures == 21, "count=" + initialFailures);
+            Check("bounded-cap-16", PalaceClockLog.Lines.Count == 16, "lines=" + PalaceClockLog.Lines.Count);
+
+            Scenario post = scenarios.Find(x => x.ExpectPost && x.ExpectLeaf != null);
+            RunDiagnostic(post, out _);
+            Check("bounded-cap-still-16", PalaceClockLog.Lines.Count == 16, "lines=" + PalaceClockLog.Lines.Count);
+
+            ResetFreshSeedDiagnostics();
+            Scenario repeat = scenarios.Find(x => x.Name == "hooks-not-ready");
+            RunDiagnostic(repeat, out _);
+            RunDiagnostic(repeat, out _);
+            Check("bounded-dedupe-same", PalaceClockLog.Lines.Count == 1, "lines=" + PalaceClockLog.Lines.Count);
+
+            ResetFreshSeedDiagnostics();
+            PalaceClockLog.Throw = true;
+            bool survived = true;
+            string thrownReason = null;
+            try { RunDiagnostic(repeat, out thrownReason); }
+            catch (Exception) { survived = false; }
+            PalaceClockLog.Throw = false;
+            Check("bounded-sink-throw-contained", survived && thrownReason == "fresh-facts-pending:hooks-not-ready",
+                "reason=" + thrownReason);
+            Check("bounded-sink-no-line-on-throw", PalaceClockLog.Lines.Count == 0,
+                "lines=" + PalaceClockLog.Lines.Count);
+
+            ResetFreshSeedDiagnostics();
+            Scenario gameNull = scenarios.Find(x => x.Name == "game-null");
+            Scenario islandNull = scenarios.Find(x => x.Name == "island-null");
+            RunDiagnostic(gameNull, out _);
+            RunDiagnostic(gameNull, out _);
+            RunDiagnostic(islandNull, out _);
+            Check("bounded-transition", PalaceClockLog.Lines.Count == 2, "lines=" + PalaceClockLog.Lines.Count);
+            Check("bounded-line-prefix",
+                PalaceClockLog.Lines.TrueForAll(x => x.StartsWith("fresh-seed-first-failure fresh-facts-pending:",
+                    StringComparison.Ordinal)),
+                string.Join("|", PalaceClockLog.Lines));
+        }
+
+        private static void TestSeedIdempotenceAndSavedHydrate()
+        {
+            // 同一 lease 上重复 seed：第二次仍 true，但 AdoptNewIslandDay1 不得再次执行。
+            Scenario repeat = Base("repeat-seed");
+            var repeatDecision = new PalaceScopeDecision
+            {
+                Verdict = PalaceScopeVerdict.Owned,
+                Lease = new PalaceClockLease()
+            };
+            repeat.DecisionFactory = () => repeatDecision;
+            bool first = RunDiagnostic(repeat, out string firstReason);
+            int firstCountsObserve = FreshSeedProbe.Snapshot()[(int)ProbeCounter.Observe];
+            bool second = RunDiagnostic(repeat, out string secondReason);
+            int[] secondCounts = FreshSeedProbe.Snapshot();
+            Check("repeat-seed-first", first && firstReason == "complete-native-fresh-facts-day1", firstReason);
+            Check("repeat-seed-second", second && secondReason == "fresh-local-already-established", secondReason);
+            Check("repeat-seed-adopt-once", repeatDecision.Lease.Policy.AdoptCalls == 1,
+                "adopt=" + repeatDecision.Lease.Policy.AdoptCalls);
+            Check("repeat-seed-day1-once", repeatDecision.Lease.Policy.Day1Seeds == 1,
+                "seeds=" + repeatDecision.Lease.Policy.Day1Seeds);
+            Check("repeat-seed-no-hydrate", repeatDecision.Lease.Policy.Hydrations == 0,
+                "hydrations=" + repeatDecision.Lease.Policy.Hydrations);
+            Check("repeat-seed-one-observe", firstCountsObserve == 1
+                && secondCounts[(int)ProbeCounter.Observe] == 1
+                && secondCounts[(int)ProbeCounter.Decide] == 1,
+                Describe(secondCounts));
+
+            // Saved island（playTime > 0）不进入 fresh seed：真实 ApplyData hydrate 不在本方法内；
+            // 这里只证明 TrySeed 拒绝并且零 Adopt、零 Observe/Decide。
+            Scenario saved = Base("saved-island");
+            saved.Island.playTimeDays = 12.5;
+            saved.Island.lastPlayedReign = 3;
+            saved.Island.objects = new ProbeList(0, ListKind.Objects);
+            saved.Island.savedWithRevisions = new ProbeList(0, ListKind.Revisions);
+            bool savedResult = RunDiagnostic(saved, out string savedReason);
+            int[] savedCounts = FreshSeedProbe.Snapshot();
+            Check("saved-island-not-seeded", !savedResult
+                && savedReason == "fresh-facts-pending:island-not-new", savedReason);
+            Check("saved-island-no-adopt", saved.LastDiagnosticDecision.Lease.Policy.AdoptCalls == 0);
+            Check("saved-island-no-observe-decide",
+                savedCounts[(int)ProbeCounter.Observe] == 0 && savedCounts[(int)ProbeCounter.Decide] == 0,
+                Describe(savedCounts));
+            Check("saved-island-land-not-read", savedCounts[(int)ProbeCounter.IslandLand] == 0,
+                Describe(savedCounts));
+        }
+
+#if FRESH_SEED_LEGACY
+        private static void TestLegacyRejectsNativeCtorFixture()
+        {
+            // baseline 388f 源码经 marker 逐字抽取；与本轮成功 fixture 完全相同：
+            // playTime 0、lastPlayedReign -1、objects/revisions null、land 仅默认 0。
+            // 旧门把存档 land 当身份，故拒绝；新门不读 land 并接受。
+            Check("legacy-388-source-sha",
+                FreshSeedLegacyIdentity.SourceSha256
+                    == "388f98911bafdfa255b00f7483e8dd36beb237462d2e8aef8226843e6949282c",
+                FreshSeedLegacyIdentity.SourceSha256);
+            Check("legacy-388-method-extracted", FreshSeedLegacyIdentity.MethodChars > 0,
+                "chars=" + FreshSeedLegacyIdentity.MethodChars);
+            Scenario s = Base("legacy-388-negative");
+            Managers.Inst = s.Managers;
+            CampaignSaveData.current = s.Campaign;
+            FreshSeedLegacyHost.HooksReady = true;
+            FreshSeedLegacyHost.Policy.TrialUnknown = false;
+            FreshSeedLegacyHost.Policy.Decision = new PalaceScopeDecision
+            {
+                Verdict = PalaceScopeVerdict.Owned,
+                Lease = new PalaceClockLease()
+            };
+            FreshSeedProbe.ResetCounts();
+            bool legacyResult = FreshSeedLegacyHost.TrySeedVerifiedFresh(s.Game, s.Island, out string legacyReason);
+            int[] legacyCounts = FreshSeedProbe.Snapshot();
+            Check("legacy-388-rejects-native-ctor-fixture",
+                !legacyResult && legacyReason == "fresh-facts-pending",
+                "result=" + legacyResult + " reason=" + legacyReason);
+            Check("legacy-388-land-gate-before-observe",
+                legacyCounts[(int)ProbeCounter.IslandLand] == 1
+                && legacyCounts[(int)ProbeCounter.Observe] == 0,
+                Describe(legacyCounts));
+            Check("legacy-388-same-fixture-new-host-accepts",
+                RunDiagnostic(s, out string newReason) && newReason == "complete-native-fresh-facts-day1",
+                newReason);
+        }
+#endif
+
+        private static void ResetFreshSeedDiagnostics()
+        {
+            Type type = typeof(PalaceFreshSeedDiagnostics);
+            type.GetField("_last", BindingFlags.NonPublic | BindingFlags.Static).SetValue(null, null);
+            type.GetField("_lines", BindingFlags.NonPublic | BindingFlags.Static).SetValue(null, 0);
+            PalaceClockLog.Lines.Clear();
+            PalaceClockLog.Throw = false;
+            FreshSeedProbe.ResetCounts();
+        }
+
+        private static void TestSourceIdentity()
+        {
+            string source = File.ReadAllText(FreshSeedIdentity.SourcePath, Encoding.UTF8);
+            byte[] sourceBytes = Encoding.UTF8.GetBytes(source);
+            Check("identity-source-bytes", sourceBytes.Length == FreshSeedIdentity.SourceBytes);
+            Check("identity-source-sha", Sha(sourceBytes) == FreshSeedIdentity.SourceSha256);
+            Check("identity-one-method", Occurrences(source, "internal static bool TrySeedVerifiedFresh(") == 1);
+            Check("identity-one-method-begin", Occurrences(source, "// <PALACE-FRESH-SEED-METHOD-BEGIN>") == 1);
+            Check("identity-one-method-end", Occurrences(source, "// <PALACE-FRESH-SEED-METHOD-END>") == 1);
+            Check("identity-one-helper-begin", Occurrences(source, "// <PALACE-FRESH-SEED-DIAGNOSTICS-BEGIN>") == 1);
+            Check("identity-one-helper-end", Occurrences(source, "// <PALACE-FRESH-SEED-DIAGNOSTICS-END>") == 1);
+
+            string method = ExtractBetween(source, "// <PALACE-FRESH-SEED-METHOD-BEGIN>",
+                "// <PALACE-FRESH-SEED-METHOD-END>");
+            string helper = ExtractBetween(source, "// <PALACE-FRESH-SEED-DIAGNOSTICS-BEGIN>",
+                "// <PALACE-FRESH-SEED-DIAGNOSTICS-END>");
+            Check("identity-method-chars", method.Length == FreshSeedIdentity.MethodChars);
+            Check("identity-method-sha", Sha(Encoding.UTF8.GetBytes(method)) == FreshSeedIdentity.MethodSha256);
+            Check("identity-helper-chars", helper.Length == FreshSeedIdentity.HelperChars);
+            Check("identity-helper-sha", Sha(Encoding.UTF8.GetBytes(helper)) == FreshSeedIdentity.HelperSha256);
+
+            string defaultGenerated = File.ReadAllText(FreshSeedIdentity.DefaultPath, Encoding.UTF8);
+            string diagnosticGenerated = File.ReadAllText(FreshSeedIdentity.DiagnosticPath, Encoding.UTF8);
+            Check("identity-default-bytes", Encoding.UTF8.GetByteCount(defaultGenerated) == FreshSeedIdentity.DefaultBytes);
+            Check("identity-default-sha", Sha(Encoding.UTF8.GetBytes(defaultGenerated)) == FreshSeedIdentity.DefaultSha256);
+            Check("identity-diagnostic-bytes",
+                Encoding.UTF8.GetByteCount(diagnosticGenerated) == FreshSeedIdentity.DiagnosticBytes);
+            Check("identity-diagnostic-sha",
+                Sha(Encoding.UTF8.GetBytes(diagnosticGenerated)) == FreshSeedIdentity.DiagnosticSha256);
+            Check("identity-default-verbatim-method", defaultGenerated.Contains(method));
+            Check("identity-diagnostic-verbatim-method", diagnosticGenerated.Contains(method));
+            Check("identity-diagnostic-verbatim-helper", diagnosticGenerated.Contains(helper));
+            Check("identity-default-no-helper",
+                !defaultGenerated.Contains("internal static class PalaceFreshSeedDiagnostics"));
+            Check("identity-default-undef",
+                defaultGenerated.StartsWith("#undef PALACE_PAID_CAPTURE_DIAGNOSTICS", StringComparison.Ordinal));
+            Check("identity-diagnostic-define",
+                diagnosticGenerated.StartsWith("#define PALACE_PAID_CAPTURE_DIAGNOSTICS", StringComparison.Ordinal));
+
+            int ifAt = method.IndexOf("#if PALACE_PAID_CAPTURE_DIAGNOSTICS", StringComparison.Ordinal);
+            int elseAt = method.IndexOf("#else", ifAt, StringComparison.Ordinal);
+            int endifAt = method.IndexOf("#endif", elseAt, StringComparison.Ordinal);
+            Check("identity-gated", ifAt >= 0 && elseAt > ifAt && endifAt > elseAt);
+            string defaultBranch = method.Substring(elseAt, endifAt - elseAt);
+            Check("identity-default-branch-native-ctor-shape",
+                defaultBranch.Contains("!HooksReady || Policy.TrialUnknown || game == null || island == null || c == null")
+                && defaultBranch.Contains("|| c.CurrentIsland.Pointer != island.Pointer || !island.isNew")
+                && defaultBranch.Contains("|| island.lastPlayedReign != -1 || island.objects != null")
+                && defaultBranch.Contains("|| island.savedWithRevisions != null) return false;")
+                && !defaultBranch.Contains("island.land")
+                && !defaultBranch.Contains(".Count")
+                && !defaultBranch.Contains("fresh-facts-pending:"), defaultBranch);
+            Check("identity-diagnostic-labels",
+                method.Contains("fresh-facts-pending:\" + leaf")
+                && method.Contains("fresh-facts-pending:\" + scopeLeaf")
+                && method.Contains("leaf = \"lastreign-not-pristine\"")
+                && method.Contains("leaf = \"objects-already-initialized\"")
+                && method.Contains("leaf = \"revisions-already-initialized\""));
+            Check("identity-no-land-read-or-collection-count",
+                !method.Contains("island.land ==") && !method.Contains("island.land !=")
+                && !method.Contains("objects.Count") && !method.Contains("savedWithRevisions.Count"));
+        }
+
+        private static string ExtractBetween(string source, string beginMarker, string endMarker)
+        {
+            int begin = source.IndexOf(beginMarker, StringComparison.Ordinal);
+            if (begin < 0) throw new InvalidOperationException("begin marker");
+            int beginLineEnd = source.IndexOf('\n', begin);
+            if (beginLineEnd < 0) throw new InvalidOperationException("begin line");
+            int regionStart = beginLineEnd + 1;
+            int end = source.IndexOf(endMarker, regionStart, StringComparison.Ordinal);
+            if (end < 0) throw new InvalidOperationException("end marker");
+            int endLineStart = source.LastIndexOf('\n', end);
+            if (endLineStart < regionStart) throw new InvalidOperationException("empty region");
+            return source.Substring(regionStart, endLineStart + 1 - regionStart);
+        }
+
+        private static bool Same(int[] a, int[] b)
+        {
+            if (a.Length != b.Length) return false;
+            for (int i = 0; i < a.Length; i++) if (a[i] != b[i]) return false;
+            return true;
+        }
+
+        private static bool AllCountsNotGreater(int[] counts, int[] max)
+        {
+            for (int i = 0; i < counts.Length; i++) if (counts[i] > max[i]) return false;
+            return true;
+        }
+
+        private static string Describe(int[] counts)
+        {
+            var parts = new List<string>();
+            for (int i = 0; i < counts.Length; i++)
+                if (counts[i] != 0) parts.Add(((ProbeCounter)i).ToString() + "=" + counts[i]);
+            return string.Join(",", parts);
+        }
+
+        private static int Occurrences(string text, string value)
+        {
+            int count = 0, at = 0;
+            while ((at = text.IndexOf(value, at, StringComparison.Ordinal)) >= 0) { count++; at += value.Length; }
+            return count;
+        }
+
+        private static string Sha(byte[] bytes) => Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
+    }
+}

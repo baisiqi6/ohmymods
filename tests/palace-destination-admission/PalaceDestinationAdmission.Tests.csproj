@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <UseSharedCompilation>false</UseSharedCompilation>
+    <NodeReuse>false</NodeReuse>
+    <GeneratedSourceDir>$(MSBuildProjectDirectory)/obj/$(Configuration)/$(TargetFramework)/generated</GeneratedSourceDir>
+    <ProductionSource>$(MSBuildProjectDirectory)/../../il2cpp/Patch_PalaceDestinationSupport.cs</ProductionSource>
+  </PropertyGroup>
+  <Target Name="ExtractAdmissionMethods" BeforeTargets="BeforeCompile">
+    <Exec Command="dotnet run --project &quot;$(MSBuildProjectDirectory)/Extractor/Extractor.csproj&quot; -c Release -p:UseSharedCompilation=false -- &quot;$(ProductionSource)&quot; &quot;$(GeneratedSourceDir)&quot;"
+          EnvironmentVariables="MSBUILDDISABLENODEREUSE=1" />
+  </Target>
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <Compile Include="HostStubs.cs" />
+    <Compile Include="$(GeneratedSourceDir)/PalaceDestinationAdmission.Extracted.cs" />
+    <AssemblyMetadata Include="AdmissionSourcePath" Value="$(ProductionSource)" />
+    <AssemblyMetadata Include="AdmissionExtractionMetadata" Value="$(GeneratedSourceDir)/extraction.json" />
+    <AssemblyMetadata Include="AdmissionGeneratedSource" Value="$(GeneratedSourceDir)/PalaceDestinationAdmission.Extracted.cs" />
+  </ItemGroup>
+</Project>

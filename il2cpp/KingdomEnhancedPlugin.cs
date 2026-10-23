@@ -60,6 +60,7 @@ public class KingdomEnhancedPlugin :
 
             // 全程序集 [HarmonyPatch] 自动注册
             var harmony = new HarmonyLib.Harmony(MyPluginInfo.PLUGIN_GUID);
+            PalacePlayable.InstallOnce(harmony);
             harmony.PatchAll(typeof(KingdomEnhancedPlugin).Assembly);
 
             // F5 面板输入门：手动解析安装（PatchAll 对解析失败的 attribute 会抛异常拖垮整个
