@@ -1,0 +1,466 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using System.Xml.Linq;
+using KingdomEnhancedMod;
+
+internal static class Program
+{
+    private static int _checks;
+    private static Dictionary<string, byte[]> _files;
+    private static Dictionary<string, string> _index;
+    private static List<string> _names;
+    private static string _propsPath;
+
+    private interface IDisposeProbe { bool WasDisposed { get; } }
+
+    private sealed class TrackedStream : MemoryStream, IDisposeProbe
+    {
+        public bool WasDisposed { get; private set; }
+        internal TrackedStream(byte[] bytes) : base(bytes, writable: false) { }
+        protected override void Dispose(bool disposing) { WasDisposed = true; base.Dispose(disposing); }
+    }
+
+    private sealed class LyingLengthStream : MemoryStream, IDisposeProbe
+    {
+        private readonly long _reportedLength;
+        public bool WasDisposed { get; private set; }
+        internal LyingLengthStream(byte[] bytes, long reportedLength) : base(bytes, writable: false)
+        { _reportedLength = reportedLength; }
+        public override long Length => _reportedLength;
+        protected override void Dispose(bool disposing) { WasDisposed = true; base.Dispose(disposing); }
+    }
+
+    private sealed class NonSeekableStream : Stream, IDisposeProbe
+    {
+        private readonly MemoryStream _inner;
+        public bool WasDisposed { get; private set; }
+        internal NonSeekableStream(byte[] bytes) { _inner = new MemoryStream(bytes, writable: false); }
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => false;
+        public override long Length => throw new NotSupportedException();
+        public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+        public override int Read(byte[] buffer, int offset, int count) => _inner.Read(buffer, offset, count);
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+        public override void Flush() { }
+        protected override void Dispose(bool disposing) { WasDisposed = true; if (disposing) _inner.Dispose(); base.Dispose(disposing); }
+    }
+
+    private sealed class DisposeFailureStream : MemoryStream
+    {
+        internal int DisposeCalls;
+        private readonly bool _badLength;
+        internal DisposeFailureStream(byte[] bytes, bool badLength=false) : base(bytes, writable:false) { _badLength=badLength; }
+        public override long Length => _badLength ? throw new InvalidOperationException("length") : base.Length;
+        protected override void Dispose(bool disposing) { DisposeCalls++; throw new IOException("before close"); }
+    }
+
+    private static void Check(bool value, string name)
+    {
+        _checks++;
+        if (!value) throw new Exception("FAIL: " + name);
+    }
+
+    private static void CheckThrows<T>(Action action, string name) where T : Exception
+    {
+        _checks++;
+        try { action(); }
+        catch (T) { return; }
+        catch (Exception e) { throw new Exception("FAIL wrong exception: " + name + " -> " + e.GetType().Name); }
+        throw new Exception("FAIL no throw: " + name);
+    }
+
+    private static string ShaHex(byte[] bytes) => Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
+
+    private static Func<string, Stream> Open(Dictionary<string, byte[]> files,
+        IReadOnlyDictionary<string, Func<Stream>> overrides = null, List<IDisposeProbe> opened = null)
+    {
+        return logicalName =>
+        {
+            if (!logicalName.StartsWith(PalaceCapitalResources.Prefix, StringComparison.Ordinal))
+                throw new InvalidOperationException("unexpected logical name: " + logicalName);
+            string key = logicalName.Substring(PalaceCapitalResources.Prefix.Length);
+            Stream stream;
+            if (overrides != null && overrides.TryGetValue(key, out var factory)) stream = factory();
+            else if (files.TryGetValue(key, out byte[] bytes)) stream = new TrackedStream(bytes);
+            else throw new FileNotFoundException(key);
+            if (stream != null && opened != null) opened.Add(stream as IDisposeProbe ?? throw new Exception("untracked stream"));
+            return stream;
+        };
+    }
+
+    private static void Reject(Dictionary<string, byte[]> files, IReadOnlyCollection<string> names,
+        IReadOnlyDictionary<string, Func<Stream>> overrides, string expectedPrefix, string name)
+    {
+        var opened = new List<IDisposeProbe>();
+        bool ok = PalaceCapitalResources.TryLoad(Open(files, overrides, opened), names,
+            out PalaceCapitalPackage package, out string reason);
+        _checks++;
+        if (ok) throw new Exception("FAIL accepted: " + name);
+        if (package != null) throw new Exception("FAIL package not null: " + name);
+        if (string.IsNullOrEmpty(reason)) throw new Exception("FAIL empty reason: " + name);
+        if (expectedPrefix != null && !reason.StartsWith(expectedPrefix, StringComparison.Ordinal))
+            throw new Exception("FAIL reason: " + name + " expected=" + expectedPrefix + " actual=" + reason);
+        foreach (var probe in opened)
+            if (!probe.WasDisposed) throw new Exception("FAIL stream not disposed: " + name);
+    }
+
+    private static int Main(string[] args)
+    {
+        if (args.Length != 2) { Console.Error.WriteLine("usage: <package-dir> <props-file>"); return 2; }
+        string root = Path.GetFullPath(args[0]);
+        _propsPath = Path.GetFullPath(args[1]);
+        _files = Directory.GetFiles(root, "*", SearchOption.AllDirectories)
+            .ToDictionary(p => Path.GetRelativePath(root, p).Replace('\\', '/'), File.ReadAllBytes, StringComparer.Ordinal);
+        using (var doc = JsonDocument.Parse(Encoding.UTF8.GetString(_files["SHA256.json"])))
+            _index = doc.RootElement.EnumerateObject().ToDictionary(p => p.Name, p => p.Value.GetString(), StringComparer.Ordinal);
+        _names = _files.Keys.Select(k => PalaceCapitalResources.Prefix + k).ToList();
+
+        CheckActualPackage();
+        CheckAvailableNames();
+        CheckStreamFailures();
+        CheckOwnershipFailures();
+        CheckIndexParser();
+        CheckBinderLayers();
+        CheckProps();
+
+        Console.WriteLine("PASS " + _checks + " capital resource checks; actual frozen P package, name/index/stream "
+            + "failures, clone isolation and props names; no decode, Unity, Native, runtime IO, cache or gate");
+        return 0;
+    }
+
+    private static void CheckActualPackage()
+    {
+        var opened = new List<IDisposeProbe>();
+        bool ok = PalaceCapitalResources.TryLoad(Open(_files, null, opened), _names,
+            out PalaceCapitalPackage package, out string reason);
+        Check(ok, "actual package loads: " + reason);
+        Check(string.IsNullOrEmpty(reason), "actual package reason is empty");
+        Check(package != null && package.Source != null, "package/source published");
+        Check(opened.Count == PalaceCapitalResources.TotalResourceCount, "opens exactly 92 logical names");
+        Check(opened.All(p => p.WasDisposed), "every opened stream disposed");
+        Check(package.ImageCount == 86, "86 retained images");
+        long pngBytes = _files.Where(p => p.Key.EndsWith(".png", StringComparison.Ordinal)).Sum(p => (long)p.Value.Length);
+        Check(package.TotalBytes == pngBytes, "TotalBytes is retained PNG payload");
+        Check(package.Source.Assets.Count == 86 && package.Source.Placements.Count == 452, "86 assets / 452 placements");
+        Check(!package.Source.NativeAccepted && !package.Source.PaidResourceGate, "source stays non-native/non-paid");
+        Check(package.Source.PaletteSha256 == _index["palette.json"], "source palette equals index");
+
+        long rgba = 0;
+        int images = 0;
+        foreach (var asset in package.Source.Assets)
+        {
+            Check(asset.RelativePath.EndsWith(".png", StringComparison.Ordinal), "asset path is png: " + asset.Id);
+            Check(_index.TryGetValue(asset.RelativePath, out string indexed) && indexed == asset.DeclaredPngSha256,
+                "asset sha equals index: " + asset.Id);
+            byte[] copy = package.CopyPngBytes(asset.Id);
+            Check(copy.SequenceEqual(_files[asset.RelativePath]), "copy bytes equal source: " + asset.Id);
+            Check(ShaHex(copy) == asset.DeclaredPngSha256, "copy sha: " + asset.Id);
+            int width = ReadInt32BigEndian(copy, 16), height = ReadInt32BigEndian(copy, 20);
+            Check(width == asset.Width && height == asset.Height, "IHDR matches registry: " + asset.Id);
+            rgba = checked(rgba + (long)width * height * 4);
+            images++;
+        }
+        Check(images == 86, "all 86 assets copied");
+        Check(rgba == 9208800L && rgba <= PalaceCapitalResources.MaxPngRgbaBytes, "actual PNG RGBA arithmetic 9208800");
+
+        byte[] first = package.CopyPngBytes("central-palace-gate");
+        byte[] second = package.CopyPngBytes("central-palace-gate");
+        Check(!ReferenceEquals(first, second), "CopyPngBytes returns distinct arrays");
+        byte original = first[0];
+        first[0] = (byte)(original ^ 0xFF);
+        Check(package.CopyPngBytes("central-palace-gate")[0] == original, "caller mutation does not alter package");
+        CheckThrows<ArgumentException>(() => package.CopyPngBytes("missing-asset"), "unknown asset throws");
+        CheckThrows<ArgumentNullException>(() => package.CopyPngBytes(null), "null asset throws");
+        CheckThrows<ArgumentException>(() => package.CopyPngBytes("README.md"), "non-image bytes are not retained");
+    }
+
+    private static void CheckAvailableNames()
+    {
+        var opened = new List<IDisposeProbe>();
+        var unrelated = new List<string>(_names) { "Other.Mod/a.png", "Other.Mod/a.png", "Other.Mod/../b.png" };
+        Check(PalaceCapitalResources.TryLoad(Open(_files, null, opened), unrelated,
+            out PalaceCapitalPackage package, out string reason), "other prefixes ignored: " + reason);
+        Check(package != null && package.ImageCount == 86, "other-prefix package loaded");
+        Check(opened.All(p => p.WasDisposed), "other-prefix streams disposed");
+
+        Reject(_files, _names.Concat(new[] { _names[0] }).ToList(), null,
+            "available-duplicate:", "duplicate capital name");
+        Reject(_files, _names.Skip(1).ToList(), null, "available-count:", "missing capital name");
+        Reject(_files, _names.Concat(new[] { PalaceCapitalResources.Prefix + "extra.png" }).ToList(), null,
+            "available-count", "extra capital name");
+        Reject(_files, _names.Concat(new string[] { null }).ToList(), null, "name-null", "null name");
+    }
+
+    private static void CheckStreamFailures()
+    {
+        Reject(_files, _names, new Dictionary<string, Func<Stream>>
+        {
+            ["palette.json"] = () => throw new IOException("boom"),
+        }, "open-fault:", "open throws");
+        Reject(_files, _names, new Dictionary<string, Func<Stream>>
+        {
+            ["palette.json"] = () => null,
+        }, "stream-null", "null stream");
+        Reject(_files, _names, new Dictionary<string, Func<Stream>>
+        {
+            ["palette.json"] = () => new NonSeekableStream(_files["palette.json"]),
+        }, "read-fault:NotSupportedException", "non-seekable stream");
+        Reject(_files, _names, new Dictionary<string, Func<Stream>>
+        {
+            ["palette.json"] = () => new TrackedStream(new byte[PalaceCapitalResources.MaxResourceBytes + 1]),
+        }, "size:", "oversized resource");
+        Reject(_files, _names, new Dictionary<string, Func<Stream>>
+        {
+            ["palette.json"] = () => new TrackedStream(_files["palette.json"].Take(_files["palette.json"].Length - 100).ToArray()),
+        }, "resource-sha:palette.json", "truncated resource");
+        Reject(_files, _names, new Dictionary<string, Func<Stream>>
+        {
+            ["palette.json"] = () => new LyingLengthStream(_files["palette.json"], 100),
+        }, "resource-sha:palette.json", "short lying length");
+        Reject(_files, _names, new Dictionary<string, Func<Stream>>
+        {
+            ["palette.json"] = () => new LyingLengthStream(_files["palette.json"], PalaceCapitalResources.MaxResourceBytes + 1),
+        }, "size:", "long lying length");
+        Reject(_files, _names, new Dictionary<string, Func<Stream>>
+        {
+            ["SHA256.json"] = () => new TrackedStream(new byte[PalaceCapitalResources.MaxIndexBytes + 1]),
+        }, "size:", "oversized index");
+        Reject(_files, _names, new Dictionary<string, Func<Stream>>
+        {
+            ["SHA256.json"] = () => throw new IOException("boom"),
+        }, "open-fault:", "index open throws");
+
+        var corruptIndex = CloneFiles();
+        corruptIndex["SHA256.json"][0] ^= 0xFF;
+        Reject(corruptIndex, _names, null, "index-sha", "one corrupt index byte is rejected by bootstrap SHA");
+
+        var truncatedIndex = CloneFiles();
+        truncatedIndex["SHA256.json"] = truncatedIndex["SHA256.json"].Take(truncatedIndex["SHA256.json"].Length - 10).ToArray();
+        Reject(truncatedIndex, _names, null, "index-sha", "truncated index is rejected by bootstrap SHA");
+
+        foreach (string key in new[] { "registry.json", "layout.json", "palette.json" })
+        {
+            var replaced = CloneFiles();
+            replaced[key] = Encoding.UTF8.GetBytes("{}");
+            Reject(replaced, _names, null, "resource-sha:" + key,
+                key + " replacement never reaches R1 parse (index SHA is unchanged)");
+        }
+    }
+
+    private static void CheckOwnershipFailures()
+    {
+        foreach (string key in new[]{"SHA256.json","README.md","entities/central-palace-gate.png"})
+        {
+            var probe=new DisposeFailureStream(_files[key]);
+            var overrides=new Dictionary<string,Func<Stream>> { [key]=()=>probe };
+            bool ok=PalaceCapitalResources.TryLoad(Open(_files,overrides),_names,out var package,out string reason);
+            Check(!ok && package==null,"dispose failure must not publish: "+key);
+            Check(reason=="dispose-fault:IOException","dispose reason: "+key+" got "+reason);
+            Check(probe.DisposeCalls==1 && probe.CanRead,"dispose failure observed once, close unknown: "+key);
+        }
+        var doubleFault=new DisposeFailureStream(_files["SHA256.json"],true);
+        bool accepted=PalaceCapitalResources.TryLoad(Open(_files,new Dictionary<string,Func<Stream>>
+            { ["SHA256.json"]=()=>doubleFault }),_names,out var failed,out string both);
+        Check(!accepted && failed==null,"read+dispose failure not published");
+        Check(both=="read-fault:InvalidOperationException;dispose-fault:IOException","both failure causes: "+both);
+        Check(doubleFault.DisposeCalls==1,"double fault disposes once");
+        var input=CloneFiles();input.Remove("SHA256.json");
+        Check(PalaceCapitalResources.TryBind(_index,input,out var owned,out string bindReason),"bind owns verified input: "+bindReason);
+        string path="entities/central-palace-gate.png";byte original=input[path][0];
+        input[path][0]^=0xFF;
+        Check(owned.CopyPngBytes("central-palace-gate")[0]==original,"input array mutation cannot change package");
+        input[path]=new byte[]{1};input.Clear();
+        Check(owned.CopyPngBytes("central-palace-gate")[0]==original,"input dictionary mutation cannot change package");
+    }
+
+    private static void CheckIndexParser()
+    {
+        string hash = _index["README.md"];
+        CheckIndex("{\"a.png\":\"" + hash + "\"}", true, null, "minimal index");
+        CheckIndex("{\"a.png\":\"" + hash + "\",\"a.png\":\"" + hash + "\"}", false, "index-duplicate", "duplicate key");
+        CheckIndex("{\"./a.png\":\"" + hash + "\"}", false, "index-path", "dot alias");
+        CheckIndex("{\"../a.png\":\"" + hash + "\"}", false, "index-path", "parent alias");
+        CheckIndex("{\"a/../b.png\":\"" + hash + "\"}", false, "index-path", "embedded parent alias");
+        CheckIndex("{\"a//b.png\":\"" + hash + "\"}", false, "index-path", "empty segment");
+        CheckIndex("{\"/a.png\":\"" + hash + "\"}", false, "index-path", "absolute path");
+        var backslash = JsonSerializer.Serialize(new Dictionary<string, string> { ["a\\b.png"] = hash });
+        CheckIndex(backslash, false, "index-path", "backslash path");
+        CheckIndex("{\"C:/a.png\":\"" + hash + "\"}", false, "index-path", "drive path");
+        CheckIndex("{\"\":\"" + hash + "\"}", false, "index-path", "empty path");
+        CheckIndex("{\"SHA256.json\":\"" + hash + "\"}", false, "index-path", "self reference");
+        CheckIndex("{\"a.png\":123}", false, "index-value", "non-string hash");
+        CheckIndex("{\"a.png\":\"abc\"}", false, "index-hash", "short hash");
+        CheckIndex("{\"a.png\":\"" + hash.ToUpperInvariant() + "\"}", true, null, "uppercase hash accepted");
+        CheckIndex("{\"a.png\":{\"h\":\"" + hash + "\"}}", false, "index-value", "nested value");
+        CheckIndex("", false, "index-empty", "empty index");
+        CheckIndex("{\"a.png\":\"" + hash + "\"} trailing", false, "index-json", "trailing data");
+        CheckIndex("null", false, "index-json", "non-object root");
+        bool utf8Parsed = PalaceCapitalResources.TryParseIndex(new byte[] { 0x7B, 0xFF, 0x7D }, out _, out string utf8Reason);
+        Check(!utf8Parsed && utf8Reason == "index-utf8", "invalid UTF-8 rejected: " + utf8Reason);
+
+        var many = new Dictionary<string, string>(StringComparer.Ordinal);
+        for (int i = 0; i < 92; i++) many["f" + i + ".json"] = hash;
+        CheckIndex(JsonSerializer.Serialize(many), false, "index-count", "92 entries rejected");
+        many.Remove("f91.json");
+        CheckIndex(JsonSerializer.Serialize(many), true, null, "91 entries accepted");
+    }
+
+    private static void CheckIndex(string json, bool expected, string expectedReason, string name)
+    {
+        bool ok = PalaceCapitalResources.TryParseIndex(Encoding.UTF8.GetBytes(json), out _, out string reason);
+        _checks++;
+        if (ok != expected) throw new Exception("FAIL parse index: " + name + " reason=" + reason);
+        if (!expected && expectedReason != null && reason != expectedReason)
+            throw new Exception("FAIL index reason: " + name + " expected=" + expectedReason + " actual=" + reason);
+    }
+
+    private static void CheckBinderLayers()
+    {
+        var index = _files.Where(p => p.Key != "SHA256.json")
+            .ToDictionary(p => p.Key, p => ShaHex(p.Value), StringComparer.Ordinal);
+        var resources = _files.Where(p => p.Key != "SHA256.json")
+            .ToDictionary(p => p.Key, p => p.Value, StringComparer.Ordinal);
+        Check(PalaceCapitalResources.TryBind(index, resources, out PalaceCapitalPackage package, out string reason),
+            "pure binder accepts actual payload: " + reason);
+        Check(package != null && package.ImageCount == 86, "binder package");
+
+        var registryBad = CloneResources(resources, index);
+        registryBad.Resources["registry.json"] = Encoding.UTF8.GetBytes("{}");
+        registryBad.Index["registry.json"] = ShaHex(registryBad.Resources["registry.json"]);
+        BindReject(registryBad, "source:", "registry schema parse failure");
+
+        var layoutBad = CloneResources(resources, index);
+        layoutBad.Resources["layout.json"] = Encoding.UTF8.GetBytes("{}");
+        layoutBad.Index["layout.json"] = ShaHex(layoutBad.Resources["layout.json"]);
+        BindReject(layoutBad, "source:", "layout schema parse failure");
+
+        var paletteBad = CloneResources(resources, index);
+        paletteBad.Resources["palette.json"] = Encoding.UTF8.GetBytes("{\"x\":1}");
+        paletteBad.Index["palette.json"] = ShaHex(paletteBad.Resources["palette.json"]);
+        BindReject(paletteBad, "palette-sha", "palette hash disagrees with registry");
+
+        var swappedPng = CloneResources(resources, index);
+        swappedPng.Resources["entities/cargo-granary.png"] = swappedPng.Resources["entities/cargo-dock-store.png"];
+        swappedPng.Index["entities/cargo-granary.png"] = ShaHex(swappedPng.Resources["entities/cargo-granary.png"]);
+        BindReject(swappedPng, "png-asset-sha:entities/cargo-granary.png", "asset SHA disagrees with PNG");
+
+        var renamedPng = CloneResources(resources, index);
+        byte[] moved = renamedPng.Resources["motion/lotus-leaf-flat.png"];
+        renamedPng.Resources.Remove("motion/lotus-leaf-flat.png");
+        renamedPng.Resources["motion/lotus-leaf-flat.txt"] = moved;
+        renamedPng.Index.Remove("motion/lotus-leaf-flat.png");
+        renamedPng.Index["motion/lotus-leaf-flat.txt"] = ShaHex(moved);
+        BindReject(renamedPng, "png-count:85", "85 PNG keys");
+
+        var missingResource = CloneResources(resources, index);
+        byte[] readme = missingResource.Resources["README.md"];
+        missingResource.Resources.Remove("README.md");
+        missingResource.Resources["other.txt"] = readme;
+        BindReject(missingResource, "resource-missing:README.md", "indexed resource absent");
+
+        var totalBudget = CloneResources(resources, index);
+        foreach (string key in totalBudget.Index.Keys.ToList()) totalBudget.Resources[key] = new byte[200000];
+        BindReject(totalBudget, "total-budget", "resource payload over 16 MiB");
+
+        var sizeMismatch = CloneResources(resources, index);
+        byte[] larger = (byte[])sizeMismatch.Resources["entities/cargo-granary.png"].Clone();
+        WriteInt32BigEndian(larger, 16, ReadInt32BigEndian(larger, 16) + 1);
+        sizeMismatch.Resources["entities/cargo-granary.png"] = larger;
+        sizeMismatch.Index["entities/cargo-granary.png"] = ShaHex(larger);
+        MutateRegistryAsset(sizeMismatch, "cargo-granary", asset =>
+            asset["SHA256"] = sizeMismatch.Index["entities/cargo-granary.png"]);
+        BindReject(sizeMismatch, "png-size:entities/cargo-granary.png", "IHDR size disagrees with registry");
+
+        var rgbaBudget = CloneResources(resources, index);
+        byte[] huge = (byte[])rgbaBudget.Resources["entities/cargo-granary.png"].Clone();
+        WriteInt32BigEndian(huge, 16, 2048);
+        WriteInt32BigEndian(huge, 20, 2048);
+        rgbaBudget.Resources["entities/cargo-granary.png"] = huge;
+        rgbaBudget.Index["entities/cargo-granary.png"] = ShaHex(huge);
+        MutateRegistryAsset(rgbaBudget, "cargo-granary", asset =>
+        {
+            asset["SHA256"] = rgbaBudget.Index["entities/cargo-granary.png"];
+            asset["size"] = new JsonArray(2048, 2048);
+            asset["masterRect"] = new JsonArray(0, 0, 2048, 2048);
+        });
+        BindReject(rgbaBudget, "png-rgba-budget", "PNG RGBA arithmetic over 16 MiB");
+    }
+
+    private sealed class ResourceSet
+    {
+        internal Dictionary<string, string> Index;
+        internal Dictionary<string, byte[]> Resources;
+    }
+
+    private static ResourceSet CloneResources(Dictionary<string, byte[]> resources, Dictionary<string, string> index)
+        => new ResourceSet
+        {
+            Index = new Dictionary<string, string>(index, StringComparer.Ordinal),
+            Resources = resources.ToDictionary(p => p.Key, p => (byte[])p.Value.Clone(), StringComparer.Ordinal),
+        };
+
+    private static void MutateRegistryAsset(ResourceSet set, string assetId, Action<JsonObject> edit)
+    {
+        var registry = (JsonObject)JsonNode.Parse(Encoding.UTF8.GetString(set.Resources["registry.json"]));
+        var asset = registry["assets"].AsArray().Select(n => n.AsObject())
+            .First(a => a["id"].GetValue<string>() == assetId);
+        edit(asset);
+        byte[] bytes = Encoding.UTF8.GetBytes(registry.ToJsonString());
+        set.Resources["registry.json"] = bytes;
+        set.Index["registry.json"] = ShaHex(bytes);
+    }
+
+    private static void BindReject(ResourceSet set, string expectedPrefix, string name)
+    {
+        bool ok = PalaceCapitalResources.TryBind(set.Index, set.Resources,
+            out PalaceCapitalPackage package, out string reason);
+        _checks++;
+        if (ok) throw new Exception("FAIL accepted: " + name);
+        if (package != null) throw new Exception("FAIL package not null: " + name);
+        if (!reason.StartsWith(expectedPrefix, StringComparison.Ordinal))
+            throw new Exception("FAIL reason: " + name + " expected=" + expectedPrefix + " actual=" + reason);
+    }
+
+    private static void CheckProps()
+    {
+        var document = XDocument.Load(_propsPath);
+        var items = document.Descendants("EmbeddedResource").ToList();
+        Check(items.Count == 92, "props has 92 entries");
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        const string prefix = "$(MSBuildThisFileDirectory)Assets/Palace/Palace400R12/";
+        foreach (var item in items)
+        {
+            string include = (string)item.Attribute("Include");
+            string logical = (string)item.Attribute("LogicalName");
+            Check(include != null && include.StartsWith(prefix, StringComparison.Ordinal), "props include prefix");
+            string relative = include.Substring(prefix.Length);
+            Check(_files.ContainsKey(relative), "props include exists in P: " + relative);
+            Check(logical == PalaceCapitalResources.Prefix + relative, "props logical name: " + relative);
+            Check(seen.Add(relative), "props duplicate: " + relative);
+        }
+        Check(seen.SetEquals(_files.Keys), "props names exactly match P tree");
+    }
+
+    private static int ReadInt32BigEndian(byte[] bytes, int offset)
+        => (bytes[offset] << 24) | (bytes[offset + 1] << 16) | (bytes[offset + 2] << 8) | bytes[offset + 3];
+
+    private static void WriteInt32BigEndian(byte[] bytes, int offset, int value)
+    {
+        bytes[offset] = (byte)(value >> 24);
+        bytes[offset + 1] = (byte)(value >> 16);
+        bytes[offset + 2] = (byte)(value >> 8);
+        bytes[offset + 3] = (byte)value;
+    }
+
+    private static Dictionary<string, byte[]> CloneFiles()
+        => _files.ToDictionary(p => p.Key, p => (byte[])p.Value.Clone(), StringComparer.Ordinal);
+}

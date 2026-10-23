@@ -3,19 +3,24 @@
 // 目标：给 Root 之后"在站姿图上标出身体头顶/脚底"这一步提供当帧真实输入 —— actor/renderer/sprite/texture
 //   身份与 scene、actual root localScale、实际 renderer.localToWorldMatrix、sprite rect/pivot/PPU、renderer
 //   flip、texture readable、动画 state/hash/过渡/ASStand、GreekScaleScope 只读 registered target。
+//   CamWater 的 Mac2.4.0 原生 getter 只 RET；不调用、不投影 Water 实例字段，水面保持 Unknown。
 //   本文件不测 BODY、不猜 19px 或骑乘整高、不读 GPU/不导出纹理；BODY 像素头顶脚底必须记 Unknown。
 //   这是明确的 metadata 样本：`sample complete` **不等于**可信站姿、**不等于**成人 H 冻结（仍需同帧站姿图 +
 //   身体头脚标记；晚期之后原生/Render 是否再写也未在源码中证明）。
 //
-// 门与一次性语义（无新 hook / 无 MonoBehaviour / 无 driver / 无周期探查 / trip 文件只读一次）：
-//   * Enabled = PALACE_ADULT_BODY_METRICS_PRIVATE=1 且 PalaceScrollNativeBinding.Enabled；否则零动作、零日志。
+// 门与一次性语义（无新 hook / 无 MonoBehaviour / 无 driver / 无周期探查）：
+//   * 正常 PC / Android：Enabled = PALACE_ADULT_BODY_METRICS_PRIVATE 能力（RuntimeProfile 固定 false）且
+//     PalaceScrollNativeBinding.Enabled；否则零动作、零日志。RuntimeProfile 表不改，旧诊断路径仍不可到达。
+//   * 仅 PALACE_PAID_CAPTURE_DIAGNOSTICS 诊断构建：Enabled = PalaceScrollNativeBinding.Enabled 且既有
+//     PalaceSaveBindingSource 已捕获实际 private save binding；精确 agent Pointer/folder 仍在 Arm 一次受理。
 //   * Arm（Root 在既有 PalaceCourtVisuals.GameplayFrame 调用）：先闭合"基础 scope"——实际 Playing + 离线 +
 //     HasWorldAuth + 非 saving + TryScope 口径 currentCampaign（非挑战 / Greek / GetCurrentCampaign 与
 //     CampaignSaveData.current 同实例）+ exact Managers.game/kingdom/level/world.gameLayer 同 scene +
-//     game.currentLand 与 campaign.CurrentLand 都=8 + typed `Filer.DotNetAgent.folder` 精确等于本次 private
-//     save-root（环境变量配置不构成证明）。基础 scope 首次闭合后立刻 latch `_validationAttempt`，其后
-//     PalaceTripContext.Read / TryBinding / RecordMatches **只受理一次**：任一失败即 `unknown` + Close
-//     （不 re-arm、不延时重试、不新增 hook/扫描）；全部通过才冻结 ownerPtrs + scene + agent Pointer。
+//     game.currentLand 与 campaign.CurrentLand 都=8 + typed `Filer.DotNetAgent.folder` 精确等于既有
+//     private save binding（环境变量配置不构成证明）。基础 scope 首次闭合后立刻 latch `_validationAttempt`。
+//     正常构建随后 PalaceTripContext.Read / TryBinding / RecordMatches **只受理一次**：任一失败即 `unknown` +
+//     Close（不 re-arm、不延时重试、不新增 hook/扫描）；全部通过才冻结 ownerPtrs + scene + agent Pointer。
+//     诊断构建不读 trip（fresh source8 无 trip record），其余 identity 全部保留，不伪造 trip 日志。
 //     不 spawn、不自动旅行；空 land12 不采。
 //   * ObserveAfterRegisteredY（Root 在既有 ScaleRegistryHolder.LateUpdate 的 MaintainRegisteredY 正常返回后调用）：
 //     取样前复核 Enabled / 离线 + authority / Greek + 非挑战 / exact managers + scene / `global.GetCurrentCampaign()`
@@ -38,6 +43,10 @@ internal static class PalaceAdultBodyMetrics
     private const string EnableEnv = "PALACE_ADULT_BODY_METRICS_PRIVATE";
     private const int SourceLandIndex = 8;
     private const int MaxRoster = 256;
+#if PALACE_PAID_CAPTURE_DIAGNOSTICS
+    private const int MaxCameraRefs = 4;
+    private const int MaxCameraTargets = 4;
+#endif
 
     // 本次 private case 的实际 save-root（同 R5 PalaceCourtScene.SaveFolder；typed agent folder 的 exact 比对值）。
 
@@ -60,7 +69,30 @@ internal static class PalaceAdultBodyMetrics
     }
 
     internal static bool Enabled
+#if PALACE_PAID_CAPTURE_DIAGNOSTICS
+        => DiagnosticEnabled;
+#else
         => PalaceRuntimeProfile.Capability(EnableEnv) && PalaceScrollNativeBinding.Enabled;
+#endif
+
+#if PALACE_PAID_CAPTURE_DIAGNOSTICS
+    /// <summary>
+    /// 诊断构建门 = 诊断编译 + R4 scroll + 既有 private save binding 已捕获 + 当前 typed Filer.DotNetAgent
+    /// 仍是该 binding 的 agent（Pointer/folder 精确）。Arm 每帧只走廉价前置门，精确 agent 在唯一受理点冻结。
+    /// </summary>
+    private static bool DiagnosticEnabled
+        => PalaceScrollNativeBinding.Enabled && DiagnosticBindingCaptured() && DiagnosticAgentMatches(out _);
+
+    /// <summary>廉价 binding 读取；不在此处读 agent/folder（避免逐帧字符串规范化）。</summary>
+    private static bool DiagnosticBindingCaptured()
+    {
+        try { return PalaceSaveBindingSource.Current != null; }
+        catch (Exception) { return false; }
+    }
+
+    private static bool DiagnosticAgentMatches(out string detail)
+        => CurrentAgent(out _, out detail) != null;
+#endif
 
     /// <summary>
     /// Root 在既有 PalaceCourtVisuals.GameplayFrame(Game) 内调用。基础 scope 未闭合 → 静默保持等待；
@@ -68,7 +100,13 @@ internal static class PalaceAdultBodyMetrics
     /// </summary>
     internal static void Arm(Game game)
     {
+#if PALACE_PAID_CAPTURE_DIAGNOSTICS
+        if (_closed || _armed || _validationAttempt) return;
+        // Per-frame cheap gate; the exact typed agent/folder is accepted once below via CurrentAgent.
+        if (!PalaceScrollNativeBinding.Enabled || !DiagnosticBindingCaptured()) return;
+#else
         if (_closed || _armed || _validationAttempt || !Enabled) return;
+#endif
         try
         {
             if (game == null || game.state != Game.State.Playing) return;           // 实际 Playing
@@ -104,6 +142,8 @@ internal static class PalaceAdultBodyMetrics
             if (agent == null)
             { Close("identity unknown: private agent not the exact save-root: " + agentDetail); return; }
 
+#if !PALACE_PAID_CAPTURE_DIAGNOSTICS
+            // 正常构建：trip 只受理一次（诊断构建不读 trip，见文件头）。
             PalaceTripContext.ReadStatus status = PalaceTripContext.Read(global, out PalaceTripRecord record, out string readDetail);
             if (status != PalaceTripContext.ReadStatus.Ok || record == null)
             { Close("identity unknown: trip record not readable (status=" + status + " detail=" + readDetail + ")"); return; }
@@ -113,6 +153,7 @@ internal static class PalaceAdultBodyMetrics
             { Close("identity unknown: trip binding not established (" + bindReason + ")"); return; }
             if (!PalaceTripContext.RecordMatches(current, guid, slot, record, out string matchReason))
             { Close("identity unknown: trip record/campaign mismatch (" + matchReason + ")"); return; }
+#endif
 
             _epoch = new Epoch
             {
@@ -126,6 +167,17 @@ internal static class PalaceAdultBodyMetrics
                 Scene = scene,
             };
             _armed = true;
+#if PALACE_PAID_CAPTURE_DIAGNOSTICS
+            Log("armed t=" + Time.unscaledTime.ToString("F2") + ": diagnostic=PALACE_PAID_CAPTURE_DIAGNOSTICS"
+                + " scrollR4=1 offline=1 auth=1 saving=0 state=" + game.state
+                + " land=game" + game.currentLand + "/campaign" + current.CurrentLand
+                + " biome=" + biome.BiomeIndex + " game=" + Ptr(game.Pointer) + " kingdom=" + Ptr(kingdom.Pointer)
+                + " level=" + Ptr(level.Pointer) + " gameLayer=" + Ptr(layer.Pointer) + " scene=" + scene
+                + " global=" + Ptr(global.Pointer) + " campaign=" + Ptr(current.Pointer)
+                + " agent=" + Ptr(agentPtr) + " agentFolder=exact-private-save-binding"
+                + " trip=not-required (diagnostic source8 metadata; no trip read and no fabricated record)"
+                + "; freeze=ownerPtrs+scene+agent; identity accepted once; no re-arm");
+#else
             Log("armed t=" + Time.unscaledTime.ToString("F2") + ": private=1+scrollR4 offline=1 auth=1 saving=0 state="
                 + game.state + " land=game" + game.currentLand + "/campaign" + current.CurrentLand
                 + " biome=" + biome.BiomeIndex + " game=" + Ptr(game.Pointer) + " kingdom=" + Ptr(kingdom.Pointer)
@@ -135,6 +187,7 @@ internal static class PalaceAdultBodyMetrics
                 + " record{read=" + readDetail + " sourceLand=" + record.SourceLand + " palaceLand=" + record.PalaceLand
                 + " phase=" + record.Phase + " tripId=" + record.TripId + " binding=ok match=ok}"
                 + "; freeze=ownerPtrs+scene+agent; identity accepted once; no re-arm");
+#endif
         }
         catch (Exception e)
         {
@@ -193,6 +246,9 @@ internal static class PalaceAdultBodyMetrics
                 + "; typedCameraMinX={" + min + "}; typedCameraMaxX={" + max + "}"
                 + "; getter metadata0x90/0x98 is prior same-interop evidence, not raw memory read or reproved offset"
                 + "; no camera writes; BODY/trip flow continues unchanged");
+#if PALACE_PAID_CAPTURE_DIAGNOSTICS
+            SampleSource8CameraAndWater(kingdom, scene);
+#endif
         }
         catch (Exception e)
         {
@@ -201,6 +257,181 @@ internal static class PalaceAdultBodyMetrics
                 + "; one-shot, original BODY/trip flow continues");
         }
     }
+
+#if PALACE_PAID_CAPTURE_DIAGNOSTICS
+    // Diagnostic-only typed camera/water metadata: one bounded 4x4 CameraMarshaller match for P1, no Camera.main,
+    // no re-pick, no per-frame scan, no write path and no material getter with possible lazy side effects.
+    private static void SampleSource8CameraAndWater(Kingdom kingdom, int scene)
+    {
+        if (!TryResolveUniqueP1Camera(kingdom, scene, out MainCamera mainCamera, out Camera camera, out string identity))
+        {
+            Source8CameraLog("unknown: typed camera identity rejected: " + identity
+                + "; one-shot, no fallback/re-pick; BODY/trip flow continues");
+            return;
+        }
+        Source8CameraLog("camera identity ok: " + identity + "; read-only typed sample");
+        try { Source8CameraLog("camera[" + DescribeCamera(camera) + "]"); }
+        catch (Exception e) { Source8CameraLog("unknown: camera fields unreadable (" + e.GetType().Name + ")"); }
+
+        // Mac 2.4.0 audit: token 0x060023bc -> ARM64 0x729328 is RET-only,
+        // returning self rather than a Water object. Do not invoke it or project Water fields.
+        // This is a recorded audit identity, not runtime version detection or authority to use _water.
+        Source8CameraLog("water=unknown: CamWater sampling disabled; audited Mac ARM64 2.4.0 "
+            + "fat=738fb98871dd6e2136474325ea3f7f4f81f2094873a6bc88f7a942d268660b1a "
+            + "token=0x060023bc VA=0x729328 RET-only; runtime version not inferred; "
+            + "no Water instance fields/quad or raw-field substitution");
+        try { Source8CameraLog("waterPipeline[" + DescribeWaterPipeline() + "]"); }
+        catch (Exception e) { Source8CameraLog("unknown: water pipeline fields unreadable (" + e.GetType().Name + ")"); }
+        Source8CameraLog("water limits: visibleWaterY=Unknown (current pipeline water is a post fullscreenBlit material pass;"
+            + " geometricQuadTop/waterTopOffset/debugRenderer are NOT the visible surface); no waterY formula;"
+            + " no ResizeWater/SetReflectionBuffer/SetPropertiesOnMaterial/GetWaterMaterialInstance; no mesh instantiation;"
+            + " one-shot metadata cannot prove pause elapsed or 400u exposure");
+    }
+
+    /// <summary>
+    /// 当次 playerOne 在 CameraMarshaller.cameraRefs(≤4) × 每个 MainCamera.cameraTargets(≤4) 中唯一命中；
+    /// `_camera` 必须 enabled/active 且与 owner scene 一致。只校验不重选，无 Camera.main、无全场扫描。
+    /// </summary>
+    private static bool TryResolveUniqueP1Camera(Kingdom kingdom, int scene,
+        out MainCamera mainCamera, out Camera camera, out string detail)
+    {
+        mainCamera = null;
+        camera = null;
+        detail = null;
+        Player playerOne = kingdom.playerOne;
+        if (playerOne == null || !(bool)playerOne || playerOne.gameObject == null)
+        { detail = "kingdom.playerOne unavailable"; return false; }
+        GameObject target = playerOne.gameObject;
+        CameraMarshaller marshaller = CameraMarshaller.Inst;
+        if (marshaller == null) { detail = "CameraMarshaller.Inst unavailable"; return false; }
+        var refs = marshaller.cameraRefs;
+        if (refs == null || refs.Length < 1 || refs.Length > MaxCameraRefs)
+        {
+            detail = "cameraRefs " + (refs == null ? "null" : "count=" + refs.Length)
+                + " (expected 1.." + MaxCameraRefs + ")";
+            return false;
+        }
+        int hits = 0;
+        string skipped = "";
+        for (int i = 0; i < refs.Length; i++)
+        {
+            MainCamera candidate = refs[i];
+            if (candidate == null || !(bool)candidate) { skipped += " refs[" + i + "]=null/destroyed;"; continue; }
+            var targets = candidate.cameraTargets;
+            if (targets == null) { skipped += " refs[" + i + "].targets=null;"; continue; }
+            if (targets.Length > MaxCameraTargets)
+            {
+                detail = "cameraTargets over cap at refs[" + i + "] count=" + targets.Length;
+                return false;
+            }
+            bool hit = false;
+            for (int t = 0; t < targets.Length; t++)
+            {
+                GameObject go = targets[t];
+                if (go != null && go.Pointer == target.Pointer) { hit = true; break; }
+            }
+            if (!hit) { skipped += " refs[" + i + "].targets=" + targets.Length + " no P1;"; continue; }
+            hits++;
+            mainCamera = candidate;
+        }
+        if (hits != 1 || mainCamera == null)
+        { detail = "P1 camera not unique (hits=" + hits + ";" + skipped + ")"; return false; }
+        Camera cam = mainCamera._camera;
+        if (cam == null || !(bool)cam) { detail = "MainCamera._camera null/destroyed"; return false; }
+        if (!cam.enabled || cam.gameObject == null || !cam.gameObject.activeInHierarchy)
+        { detail = "Camera not enabled/active"; return false; }
+        if (cam.gameObject.scene.handle != scene)
+        { detail = "Camera scene differs from owner scene"; return false; }
+        camera = cam;
+        detail = "mainCamera=" + Ptr(mainCamera.Pointer) + " camId=" + mainCamera.cameraId
+            + " camera=" + Ptr(cam.Pointer) + " cameraScene=" + cam.gameObject.scene.handle
+            + " refs=" + refs.Length + " targets<=4 hits=1 (no Camera.main, no scan, no re-pick)";
+        return true;
+    }
+
+    private static string DescribeCamera(Camera camera)
+    {
+        Transform transform = camera.transform;
+        return "ptr=" + Ptr(camera.Pointer) + " enabled=" + camera.enabled
+            + " viewport(pixelRect=" + R(camera.pixelRect) + " pixel=" + camera.pixelWidth + "x" + camera.pixelHeight + ")"
+            + " orthographic=" + camera.orthographic + " orthoSize=" + F(camera.orthographicSize)
+            + " aspect=" + F(camera.aspect) + " near=" + F(camera.nearClipPlane) + " far=" + F(camera.farClipPlane)
+            + " depth=" + F(camera.depth) + " cullingMask=" + camera.cullingMask
+            + " position=" + V3(transform.position) + " rotation=" + Q(transform.rotation)
+            + " worldToCamera=" + Mat(camera.worldToCameraMatrix)
+            + " projection=" + Mat(camera.projectionMatrix);
+    }
+
+    private static string DescribeWaterPipeline()
+    {
+        global::Rendering settings = global::Rendering.Inst;
+        if (settings == null)
+            return "unknown: Rendering.Inst=null; selectedMaterial=Unknown; no getter call";
+        int propertyId;
+        try { propertyId = Water.SPReflectionProperties; }
+        catch (Exception e)
+        {
+            return "Rendering.Inst=" + Ptr(settings.Pointer) + " unknown: Water.SPReflectionProperties unreadable ("
+                + e.GetType().Name + "); selectedMaterial=Unknown; no getter call";
+        }
+        return "Rendering.Inst=" + Ptr(settings.Pointer)
+            + " selectedMaterial=Unknown (no GetWaterMaterialInstance call; renderId not read)"
+            + " waterMaterial=" + DescribeWaterMaterial(settings.waterMaterial, propertyId)
+            + " waterMaterialInstance=" + DescribeWaterMaterial(settings.waterMaterialInstance, propertyId)
+            + " waterMaterialInstance2=" + DescribeWaterMaterial(settings.waterMaterialInstance2, propertyId)
+            + " renderReflections=" + settings.renderReflections
+            + " SPReflectionProperties=" + propertyId;
+    }
+
+    /// <summary>只读材质字段：shader/queue/passes，以及 HasProperty(id) 为真时才 GetVector(id)；不触发 .material 实例化。</summary>
+    private static string DescribeWaterMaterial(Material material, int propertyId)
+    {
+        if (material == null) return "null";
+        string shaderName, queue, passes, reflection;
+        try { Shader shader = material.shader; shaderName = shader == null ? "none" : SafeName(shader); }
+        catch (Exception e) { shaderName = "unknown(" + e.GetType().Name + ")"; }
+        try { queue = material.renderQueue.ToString(CultureInfo.InvariantCulture); }
+        catch (Exception e) { queue = "unknown(" + e.GetType().Name + ")"; }
+        try { passes = material.passCount.ToString(CultureInfo.InvariantCulture); }
+        catch (Exception e) { passes = "unknown(" + e.GetType().Name + ")"; }
+        try
+        {
+            bool has = material.HasProperty(propertyId);
+            reflection = has ? "has=true,value=" + V4(material.GetVector(propertyId)) : "has=false";
+        }
+        catch (Exception e) { reflection = "unknown(" + e.GetType().Name + ")"; }
+        return "ptr=" + Ptr(material.Pointer) + " shader=" + shaderName + " queue=" + queue
+            + " passes=" + passes + " SPReflectionProperties{" + reflection + "}";
+    }
+
+    private static string DescribeRenderTexture(RenderTexture texture)
+    {
+        if (texture == null || !(bool)texture) return "none";
+        string size;
+        try { size = texture.width + "x" + texture.height; }
+        catch (Exception e) { size = "unknown(" + e.GetType().Name + ")"; }
+        return "ptr=" + Ptr(texture.Pointer) + " size=" + size;
+    }
+
+    private static string PtrOf(UnityEngine.Object value)
+    {
+        try { return value == null ? "none" : Ptr(value.Pointer); }
+        catch (Exception e) { return "unknown(" + e.GetType().Name + ")"; }
+    }
+
+    private static string F(float value)
+        => float.IsFinite(value) ? value.ToString("R", CultureInfo.InvariantCulture) : "unknown(nonfinite)";
+
+    private static string R(Rect rect)
+        => "(" + F(rect.x) + "," + F(rect.y) + "," + F(rect.width) + "," + F(rect.height) + ")";
+
+    private static string Q(Quaternion q)
+        => "(" + F(q.x) + "," + F(q.y) + "," + F(q.z) + "," + F(q.w) + ")";
+
+    private static string V2(Vector2 v) => "(" + F(v.x) + "," + F(v.y) + ")";
+
+    private static string V4(Vector4 v) => "(" + F(v.x) + "," + F(v.y) + "," + F(v.z) + "," + F(v.w) + ")";
+#endif
 
     private static string DescribeSource8Boundary(GameObject value)
     {
@@ -266,7 +497,12 @@ internal static class PalaceAdultBodyMetrics
     private static bool FrozenEpochCurrent(out string drift)
     {
         drift = null;
+#if PALACE_PAID_CAPTURE_DIAGNOSTICS
+        if (!PalaceScrollNativeBinding.Enabled || !DiagnosticBindingCaptured())
+        { drift = "diagnostic gate off (scroll/binding)"; return false; }
+#else
         if (!Enabled) { drift = "private gate off"; return false; }
+#endif
         if (NetworkBigBoss.IsOnline || !NetworkBigBoss.HasWorldAuth) { drift = "online/authority lost"; return false; }
         Managers managers = Managers.Inst;
         if (managers == null || managers.game == null || managers.kingdom == null

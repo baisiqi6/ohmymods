@@ -9,8 +9,36 @@ using System.Text.Json;
 
 namespace KingdomEnhancedMod;
 
+// Common immutable views over the reviewed actor batch and production local-motion atlases.
+// Phase/local-origin/contact-anchor are null for actor frames, never synthesized as 0.
+internal interface PalaceFrame
+{
+    int Index { get; }
+    string State { get; }
+    int DurationMs { get; }
+    PalaceActorRegistry.Rect SourceRectTopLeft { get; }
+    PalaceActorRegistry.Rect UnitySourceRectBottomLeft { get; }
+    string MasterId { get; }
+    PalaceActorRegistry.Rect MasterRect { get; }
+    PalaceActorRegistry.Point PivotBottomLeftPixels { get; }
+    string LogicalRgbaSha256 { get; }
+    int? Phase { get; }
+    PalaceActorRegistry.Point? LocalOriginPixels { get; }
+    PalaceActorRegistry.Point? ContactAnchorCellTopLeftPixels { get; }
+}
+
+internal interface PalaceClip
+{
+    string Id { get; }
+    IReadOnlyList<int> Indices { get; }
+    IReadOnlyList<int> DurationsMs { get; }
+    long TotalDurationMs { get; }
+    bool Loops { get; }
+}
+
 internal sealed class PalaceActorRegistry
 {
+    internal enum ActorEnvelope { Batch1, Production }
     internal const int MaxJsonChars=1024*1024;
     private static readonly HashSet<string> KnownIds=new(StringComparer.Ordinal)
     { "patrol-guard-lance","patrol-guard-shield","court-dancer","guardian-orb","guardian-lute",
@@ -51,7 +79,7 @@ internal sealed class PalaceActorRegistry
             int total=0;
             foreach(var row in rows.EnumerateArray())
             {
-                var actor=new Actor(row,ppu);Require(ids.Add(actor.Id)&&paths.Add(actor.Path)&&masters.Add(actor.MasterId),"duplicate-actor-or-master");
+                var actor=new Actor(row,ppu,ActorEnvelope.Batch1);Require(ids.Add(actor.Id)&&paths.Add(actor.Path)&&masters.Add(actor.MasterId),"duplicate-actor-or-master");
                 total=checked(total+actor.Frames.Count);Require(total<=4096,"frame-budget");actors.Add(actor);
             }
             string rawHash=Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(json))).ToLowerInvariant();
@@ -74,7 +102,7 @@ internal sealed class PalaceActorRegistry
         internal double X { get; } internal double Y { get; }
         internal Point(double x,double y){X=x;Y=y;}
     }
-    internal sealed class Frame
+    internal sealed class Frame : PalaceFrame
     {
         internal int Index { get; } internal string State { get; } internal int DurationMs { get; }
         internal Rect SourceRectTopLeft { get; } internal Rect UnitySourceRectBottomLeft { get; }
@@ -94,8 +122,20 @@ internal sealed class PalaceActorRegistry
             PivotBottomLeftPixels=ReadPoint(row.GetProperty("pivotBottomLeft"));
             LogicalRgbaSha256=Hash(row,"logicalRGBA_SHA256");
         }
+        int PalaceFrame.Index=>Index;
+        string PalaceFrame.State=>State;
+        int PalaceFrame.DurationMs=>DurationMs;
+        Rect PalaceFrame.SourceRectTopLeft=>SourceRectTopLeft;
+        Rect PalaceFrame.UnitySourceRectBottomLeft=>UnitySourceRectBottomLeft;
+        string PalaceFrame.MasterId=>MasterId;
+        Rect PalaceFrame.MasterRect=>MasterRect;
+        Point PalaceFrame.PivotBottomLeftPixels=>PivotBottomLeftPixels;
+        string PalaceFrame.LogicalRgbaSha256=>LogicalRgbaSha256;
+        int? PalaceFrame.Phase=>null;
+        Point? PalaceFrame.LocalOriginPixels=>null;
+        Point? PalaceFrame.ContactAnchorCellTopLeftPixels=>null;
     }
-    internal sealed class Clip
+    internal sealed class Clip : PalaceClip
     {
         internal string State { get; } internal IReadOnlyList<int> Indices { get; } internal IReadOnlyList<int> DurationsMs { get; }
         internal long TotalDurationMs { get; } internal bool Loops { get; } internal bool OneShot { get; }
@@ -119,6 +159,11 @@ internal sealed class PalaceActorRegistry
             if(phases.ValueKind==JsonValueKind.Null)CompatiblePhases=null;
             else {Require(phases.ValueKind==JsonValueKind.Array&&phases.GetArrayLength()<=32,"phase-list");CompatiblePhases=Array.AsReadOnly(phases.EnumerateArray().Select(p=>TextValue(p,128)).ToArray());}
         }
+        string PalaceClip.Id=>State;
+        IReadOnlyList<int> PalaceClip.Indices=>Indices;
+        IReadOnlyList<int> PalaceClip.DurationsMs=>DurationsMs;
+        long PalaceClip.TotalDurationMs=>TotalDurationMs;
+        bool PalaceClip.Loops=>Loops;
     }
     internal sealed class Actor
     {
@@ -132,9 +177,15 @@ internal sealed class PalaceActorRegistry
         internal string DrawRole { get; } internal string MotionGroup { get; } internal string AmodalStatus { get; }
         internal IReadOnlyList<Frame> Frames { get; } internal IReadOnlyList<Clip> Clips { get; }
         internal int DistinctAtlasCells { get; }
-        internal Actor(JsonElement row,int ppu)
+        internal Actor(JsonElement row,int ppu,ActorEnvelope envelope)
         {
-            Keys(row,"id,path,SHA256,size,kind,masterId,masterRect,logicalCell,localOrigin,pixelsPerUnitDesign,originalDeclaredLogicalPPU,pivotBottomLeft,support,interaction,footprint,drawRole,motionGroup,amodalStatus,frames,clips,frameCount,distinctAtlasCells,nativeCalibrationPending,consumerWired,authorPaletteUnchanged");
+            Keys(row,"id,path,SHA256,size,kind,masterId,masterRect,logicalCell,localOrigin,pixelsPerUnitDesign,originalDeclaredLogicalPPU,pivotBottomLeft,support,interaction,footprint,drawRole,motionGroup,amodalStatus,frames,clips,frameCount,distinctAtlasCells,nativeCalibrationPending,consumerWired,authorPaletteUnchanged"
+                +(envelope==ActorEnvelope.Production?",filterMode,nativeAccepted":""));
+            if(envelope==ActorEnvelope.Production)
+            {
+                Require(Text(row,"filterMode")=="Point","filter-mode");
+                Require(!Bool(row,"nativeAccepted"),"native-accepted");
+            }
             Id=Text(row,"id");Require(KnownIds.Contains(Id),"unknown-role");Path=Text(row,"path",256);Require(SafePath(Path),"unsafe-path");Sha256=Hash(row,"SHA256");
             var size=ReadInts(row.GetProperty("size"),2,2);Width=size[0];Height=size[1];Require(Width>0&&Width<=2048&&Height>0&&Height<=2048,"atlas-size");
             Require(Text(row,"kind")=="actor-atlas","kind");MasterId=Text(row,"masterId",256);MasterRect=ReadRect(row.GetProperty("masterRect"));

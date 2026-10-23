@@ -1151,9 +1151,17 @@ internal static class PalaceDestinationAdmission
         if(table==null || capacity<ExtensionIslandRuntime.RequiredFileCapacity)
         { reason="destination-file-table-null-or-capacity"; return false; }
         var key=new IslandSaveData.FilePropsKey { campaign=binding.SemanticSlot,land=12,challengeId=0 };
-        if(!table.TryGetValue(key,out var props) || props==null || string.IsNullOrEmpty(props.filename))
+        // FileProps is a native 16-byte value wrapped as a CLR class. The current Interop
+        // TryGetValue allocates only an 8-byte out slot; use the runtime-invoke boxed getter.
+        if(!table.ContainsKey(key))
         { reason="destination-file-key-missing"; return false; }
-        filename=props.filename; tablePointer=table.Pointer;
+        var props=table[key];
+        if(props==null)
+        { reason="destination-file-key-missing"; return false; }
+        string actualFilename=props.filename;
+        if(string.IsNullOrEmpty(actualFilename))
+        { reason="destination-file-key-missing"; return false; }
+        filename=actualFilename; tablePointer=table.Pointer;
         if(Filer.folder!=binding.Folder || binding.Agent.folder!=binding.Folder
             || !ReferenceEquals(binding,PalaceSaveBindingSource.Current))
         { reason="destination-file-binding-drift"; return false; }
@@ -1325,14 +1333,16 @@ internal static class PalaceDestinationAdmission
 
     internal static void RunResourcePrecheck(PalaceLayoutRecipe recipe)
     {
-        if(ReferenceEquals(recipe,PalaceLayoutRecipe.Known44))RunResourcePrecheck();
-        // Capital400 has no reviewed production resource contract yet. Do not warm old R7 as400.
+        if(ReferenceEquals(recipe,PalaceLayoutRecipe.Known44)){RunResourcePrecheck();return;}
+        if(ReferenceEquals(recipe,PalaceLayoutRecipe.Capital400))PalaceCapitalRuntime.Warm();
+        // Unknown recipes do not warm old R7 as Capital400.
     }
     internal static bool TryGetResourcePrecheck(PalaceLayoutRecipe recipe,out string reason)
     {
         if(ReferenceEquals(recipe,PalaceLayoutRecipe.Known44))return TryGetResourcePrecheck(out reason);
-        reason=ReferenceEquals(recipe,PalaceLayoutRecipe.Capital400)
-            ?"Capital400 R12 resource contract/package not ready":"resource-layout-unknown";
+        if(ReferenceEquals(recipe,PalaceLayoutRecipe.Capital400))
+            return PalaceCapitalRuntime.TryGetPackage(out _,out reason);
+        reason="resource-layout-unknown";
         return false;
     }
 

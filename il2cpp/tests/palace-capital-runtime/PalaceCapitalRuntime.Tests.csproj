@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <UseAppHost>false</UseAppHost>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <LangVersion>latest</LangVersion>
+    <BepInExPluginsPath></BepInExPluginsPath>
+    <NoDeploy>true</NoDeploy>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Program.cs.txt" />
+    <Compile Include="../../Patch_PalaceActorRegistry.cs" />
+    <Compile Include="../../Patch_PalaceProductionSource.cs" />
+    <Compile Include="../../Patch_PalaceLayoutRecipe.cs" />
+    <Compile Include="../../Patch_PalaceScrollGeometry.cs" />
+    <Compile Include="../../PalaceResourceContract.cs" />
+    <Compile Include="../../PalaceResourceHashGaps.cs" />
+    <Compile Include="../../Patch_PalaceCapitalResources.cs" />
+    <Compile Include="../../Patch_PalaceCapitalPolicy.cs" />
+  </ItemGroup>
+</Project>

@@ -73,7 +73,17 @@ public class ScaleRegistryHolder : MonoBehaviour
 
     public static bool TryGet(Mover mover, out float y) => GreekScaleScope.TryGet(mover, out y);
 
+#if PALACE_PAID_CAPTURE_DIAGNOSTICS && !ANDROID
+    private void LateUpdate()
+    {
+        GreekScaleScope.MaintainRegisteredY();
+        // Read-only diagnostic metadata after MaintainRegisteredY returns normally; no exception handler.
+        // This branch exists only in the diagnostic build; normal PC/Android keep the original method below.
+        PalaceAdultBodyMetrics.ObserveAfterRegisteredY();
+    }
+#else
     private void LateUpdate() => GreekScaleScope.MaintainRegisteredY();
+#endif
 
     public static void QueueShieldEquip(NpcShieldUser shieldUser)
     {

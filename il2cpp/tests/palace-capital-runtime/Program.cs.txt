@@ -1,0 +1,278 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using KingdomEnhancedMod;
+
+internal static class Program
+{
+    private const float UnitZ=3.25f;
+    private const float CameraZ=-10f;
+    private const float NearClip=0.3f;
+    private const float FarClip=1000f;
+    private static int _checks;
+    private static Dictionary<string,byte[]> _files;
+    private static List<string> _names;
+
+    private static void Check(bool value,string name)
+    {
+        _checks++;
+        if(!value)throw new Exception("FAIL: "+name);
+    }
+
+    private static void CheckRejected(string reason,string contains,string name)
+    {
+        Check(!string.IsNullOrEmpty(reason),name+" reason empty");
+        Check(reason.Contains(contains,StringComparison.Ordinal),name+" reason="+reason);
+    }
+
+    private static int Main(string[] args)
+    {
+        if(args.Length!=2)
+        {
+            Console.Error.WriteLine("usage: PalaceCapitalRuntime.Tests.dll <package-dir> <matrix|warm-fail|warm-ok|main>");
+            return 2;
+        }
+        string directory=args[0];
+        string mode=args[1];
+        LoadDirectory(directory);
+        try
+        {
+            switch(mode)
+            {
+                case "matrix":Matrix();break;
+                case "warm-fail":WarmFailureIsStable();break;
+                case "warm-ok":WarmSuccessIsStable();break;
+                case "main":MainChecks();break;
+                default:throw new Exception("unknown mode: "+mode);
+            }
+            Console.WriteLine("PASS "+mode+" checks="+_checks);
+            return 0;
+        }
+        catch(Exception e)
+        {
+            Console.Error.WriteLine("FAIL "+mode+": "+e);
+            return 1;
+        }
+    }
+
+    private static void LoadDirectory(string directory)
+    {
+        _files=new Dictionary<string,byte[]>(StringComparer.Ordinal);
+        _names=new List<string>();
+        foreach(string path in Directory.GetFiles(directory,"*",SearchOption.AllDirectories).OrderBy(p=>p,StringComparer.Ordinal))
+        {
+            string relative=Path.GetRelativePath(directory,path).Replace(Path.DirectorySeparatorChar,'/');
+            string logical=PalaceCapitalResources.Prefix+relative;
+            _files.Add(logical,File.ReadAllBytes(path));
+            _names.Add(logical);
+        }
+        Check(_files.Count==92,"actual package has 92 files");
+        Check(_names.Count==92,"actual package names");
+        Check(_files.ContainsKey(PalaceCapitalResources.IndexLogicalName),"index present");
+    }
+
+    private static Stream OpenAll(string name)
+        =>_files.TryGetValue(name,out byte[] bytes)?new MemoryStream(bytes,false):null;
+
+    private static Func<string,Stream> OpenFailAt(int call)
+    {
+        int count=0;
+        return delegate(string name)
+        {
+            count++;
+            if(count==call)return null;
+            return _files.TryGetValue(name,out byte[] bytes)?new MemoryStream(bytes,false):null;
+        };
+    }
+
+    private static void Matrix()
+    {
+        Check(PalaceCapitalRuntime.VerifyWarm(OpenAll,_names,out var package,out string reason),"full warm verifies: "+reason);
+        Check(package!=null&&package.ImageCount==86&&package.Source.Placements.Count==452,"full package shape");
+        foreach(int position in new[]{1,2,46,92})
+        {
+            Check(!PalaceCapitalRuntime.VerifyWarm(OpenFailAt(position),_names,out var partial,out string failed),
+                "null stream at call "+position+" must fail");
+            Check(partial==null,"null stream at call "+position+" publishes no package");
+            Check(failed.Length!=0,"null stream at call "+position+" has a reason");
+        }
+        var missing=new List<string>(_names);
+        missing.RemoveAt(10);
+        Check(!PalaceCapitalRuntime.VerifyWarm(OpenAll,missing,out _,out string missingReason),"missing 92nd name fails");
+        CheckRejected(missingReason,"available-count","missing name reason");
+        var extra=new List<string>(_names){PalaceCapitalResources.Prefix+"unexpected.png"};
+        Check(!PalaceCapitalRuntime.VerifyWarm(OpenAll,extra,out _,out string extraReason),"extra name fails");
+        CheckRejected(extraReason,"available-count","extra name reason");
+        Check(!PalaceCapitalRuntime.TryGetPackage(out _,out string accessor),"accessor is false before any Warm");
+        Check(accessor.Length!=0,"accessor reason before Warm");
+    }
+
+    private static void WarmFailureIsStable()
+    {
+        Check(!PalaceCapitalRuntime.WarmOnce(OpenFailAt(1),_names,out string first),"first warm failure");
+        string firstReason=first;
+        Check(!PalaceCapitalRuntime.TryGetPackage(out _,out string accessor),"failed warm accessor false");
+        Check(accessor==firstReason,"failed accessor keeps stable reason");
+        Check(!PalaceCapitalRuntime.WarmOnce(OpenAll,_names,out string second),"one-shot never retries");
+        Check(second==firstReason,"second warm keeps first reason");
+        Check(!PalaceCapitalRuntime.TryGetPackage(out _,out string after),"still unavailable");
+        Check(after==firstReason,"still same reason");
+    }
+
+    private static void WarmSuccessIsStable()
+    {
+        Check(PalaceCapitalRuntime.WarmOnce(OpenAll,_names,out string first),"warm succeeds");
+        Check(first=="ready","warm ready reason");
+        Check(PalaceCapitalRuntime.TryGetPackage(out var package,out string accessor)&&package!=null
+            &&package.ImageCount==86,"accessor sees package");
+        Check(accessor=="ready","accessor reason");
+        Check(PalaceCapitalRuntime.WarmOnce(OpenFailAt(1),_names,out string second),"already warmed");
+        Check(second=="ready","already warmed keeps ready");
+        Check(PalaceCapitalRuntime.TryGetPackage(out var again,out _)&&ReferenceEquals(package,again),"same unique package");
+        PalaceCapitalRuntime.Warm(); // settled path must return before manifest enumeration/IO
+        Check(PalaceCapitalRuntime.TryGetPackage(out var afterWarm,out _)&&ReferenceEquals(package,afterWarm),
+            "settled Warm keeps unique package");
+    }
+
+    private static void MainChecks()
+    {
+        Check(PalaceCapitalRuntime.VerifyWarm(OpenAll,_names,out var package,out string loadReason),"actual package loads: "+loadReason);
+        Check(package.Source.Placements.Count==452&&package.Source.Assets.Count==86,"actual source counts");
+
+        Check(PalaceCapitalRuntime.ActorYScaleById.Count==10,"10 actor scale keys");
+        Check(PalaceCapitalRuntime.ActorYScaleById["patrol-guard-lance"]==0.9,"lance scale .9");
+        Check(Math.Abs(PalaceCapitalRuntime.ActorYScaleById["patrol-guard-shield"]-21.6/26.0)<1e-12,"shield 21.6/26");
+        Check(Math.Abs(PalaceCapitalRuntime.ActorYScaleById["court-dancer"]-21.6/26.0)<1e-12,"dancer 21.6/26");
+        foreach(string id in new[]{"guardian-orb","guardian-lute","guardian-sword","guardian-pole",
+            "resident-cream","resident-pink","resident-brown"})
+            Check(PalaceCapitalRuntime.ActorYScaleById[id]==1.2,"scale "+id);
+
+        Check(PalaceCapitalRuntime.ClipByAssetId.Count==14,"14 clip keys");
+        foreach(string id in new[]{"patrol-guard-lance","patrol-guard-shield","guardian-orb","guardian-lute",
+            "guardian-sword","guardian-pole","resident-cream","resident-pink","resident-brown"})
+            Check(PalaceCapitalRuntime.ClipByAssetId[id]=="idle","idle "+id);
+        Check(PalaceCapitalRuntime.ClipByAssetId["court-dancer"]=="dance","dancer dance");
+        foreach(string id in new[]{"lotus-flower-open","lotus-flower-bud","lotus-leaf-flat","lotus-leaf-curl"})
+            Check(PalaceCapitalRuntime.ClipByAssetId[id]=="calm","calm "+id);
+
+        Check(PalaceCapitalRuntime.BackgroundFollowRatioByGroup.Count==4,"4 background groups");
+        foreach(var pair in PalaceCapitalRuntime.BackgroundFollowRatioByGroup)
+            Check(pair.Value==0d,"background ratio zero "+pair.Key);
+
+        Check(PalaceCapitalRuntime.ClassifyVisualRoute(false,false,null)
+            ==PalaceCapitalRuntime.PalaceCapitalVisualRoute.Legacy48,"dispatch legacy48");
+        Check(PalaceCapitalRuntime.ClassifyVisualRoute(true,false,null)
+            ==PalaceCapitalRuntime.PalaceCapitalVisualRoute.Fault,"dispatch invalid dedicated");
+        Check(PalaceCapitalRuntime.ClassifyVisualRoute(true,true,null)
+            ==PalaceCapitalRuntime.PalaceCapitalVisualRoute.Fault,"dispatch null recipe");
+        Check(PalaceCapitalRuntime.ClassifyVisualRoute(true,true,PalaceLayoutRecipe.Capital400)
+            ==PalaceCapitalRuntime.PalaceCapitalVisualRoute.Capital400,"dispatch capital400");
+        Check(PalaceCapitalRuntime.ClassifyVisualRoute(true,true,PalaceLayoutRecipe.Known44)
+            ==PalaceCapitalRuntime.PalaceCapitalVisualRoute.Known44,"dispatch known44");
+
+        var descriptor=PalaceCapitalRuntime.CapitalDescriptor;
+        Check(ReferenceEquals(descriptor.Recipe,PalaceLayoutRecipe.Capital400),"descriptor recipe");
+        Check(descriptor.MasterWidthPx==12840&&descriptor.MasterHeightPx==252,"descriptor master");
+        Check(descriptor.AxisPixelX==6420&&descriptor.FootlinePixelY==224,"descriptor axis/footline");
+        Check(descriptor.TransportLeftPx==0&&descriptor.TransportTopPx==0
+            &&descriptor.TransportRightPx==12840&&descriptor.TransportBottomPx==252,"descriptor transport");
+        var calibration=new PalaceScrollCalibration(descriptor,1d/32d,PalaceLayoutRecipe.Capital400.GateWorldX,0.885);
+        Check(calibration.UnitsPerPixel==1d/32d,"calibration s");
+
+        Check(PalaceCapitalRuntime.TryBuildDepthMap(package.Source,UnitZ,0.21875f,0.03125f,-0.03125f,-0.0703125f,
+            CameraZ,NearClip,FarClip,out var depth,out string depthReason),"depth map: "+depthReason);
+        Check(depth.Count==452,"452 depth entries");
+        foreach(var placement in package.Source.Placements)
+            Check(depth.ContainsKey(placement.Id),"depth key "+placement.Id);
+        Check(PalaceCapitalRuntime.TryGetWorldZEnvelope(depth,out float minWorldZ,out float maxWorldZ,
+            out string envelopeReason),"worldZ envelope: "+envelopeReason);
+        Close(minWorldZ,(float)((double)UnitZ-0.0703125d),"envelope front worldZ");
+        Close(maxWorldZ,(float)((double)UnitZ+0.21875d),"envelope rear worldZ");
+        float minDepth=minWorldZ-CameraZ,maxDepth=maxWorldZ-CameraZ;
+        Check(minDepth>NearClip&&maxDepth<FarClip,"computed view depth inside near/far");
+        Check(!PalaceCapitalRuntime.TryGetWorldZEnvelope(null,out _,out _,out string nullEnvelope),
+            "null worldZ envelope rejected");
+        CheckRejected(nullEnvelope,"envelope-count","null envelope reason");
+
+        var ordered=package.Source.Placements
+            .Select((placement,index)=>new Ordered(placement,index,
+                PalaceCapitalRuntime.ReviewedDrawOrderHints[placement.DrawRole]))
+            .OrderBy(entry=>entry.Hint).ThenBy(entry=>entry.SourceIndex).ToList();
+        Check(ordered.Count==452,"ordered count");
+        var seenWorld=new HashSet<float>();
+        var seenView=new HashSet<float>();
+        float previousWorld=0f,previousView=0f;
+        int previousHint=-1;
+        float unitFloat=UnitZ;
+        for(int i=0;i<ordered.Count;i++)
+        {
+            Ordered entry=ordered[i];
+            float world=(float)depth[entry.Placement.Id];
+            float view=world-CameraZ;
+            Check(entry.Hint>=previousHint,"hint monotonic at "+entry.Placement.Id);
+            if(i>0)Check(previousWorld>world,"worldZ strict at "+entry.Placement.Id);
+            Check(seenWorld.Add(world),"worldZ unique at "+entry.Placement.Id);
+            Check(seenView.Add(view),"viewDepth unique at "+entry.Placement.Id);
+            Check(entry.Hint<=50?world>unitFloat:world<unitFloat,"world side at "+entry.Placement.Id);
+            Check(entry.Hint<=50?view>unitFloat-CameraZ:view<unitFloat-CameraZ,"view side at "+entry.Placement.Id);
+            Check(view>NearClip&&view<FarClip,"near/far at "+entry.Placement.Id);
+            if(i>0)Check(previousView>view,"viewDepth strict at "+entry.Placement.Id);
+            previousWorld=world;previousView=view;previousHint=entry.Hint;
+        }
+        Close((float)depth[ordered[0].Placement.Id],(float)((double)UnitZ+0.21875d),"rear far endpoint");
+        Close((float)depth[ordered[392].Placement.Id],(float)((double)UnitZ+0.03125d),"rear near endpoint");
+        Close((float)depth[ordered[393].Placement.Id],(float)((double)UnitZ+0.003125d),"actor far endpoint");
+        Close((float)depth[ordered[402].Placement.Id],(float)((double)UnitZ+0.0003125d),"actor near endpoint");
+        Close((float)depth[ordered[403].Placement.Id],(float)((double)UnitZ-0.03125d),"front far endpoint");
+        Close((float)depth[ordered[451].Placement.Id],(float)((double)UnitZ-0.0703125d),"front near endpoint");
+
+        Check(!PalaceCapitalRuntime.TryBuildDepthMap(package.Source,16777216f,0.21875f,0.03125f,-0.03125f,-0.0703125f,
+            CameraZ,0.3f,float.MaxValue,out var collapsed,out string collapseReason),"large unitZ collapse rejected");
+        Check(collapsed==null,"collapse publishes nothing");
+        CheckRejected(collapseReason,"depth","collapse reason");
+        Check(!PalaceCapitalRuntime.TryBuildDepthMap(package.Source,UnitZ,0.21875f,0.03125f,-0.03125f,-0.0703125f,
+            1e8f,0.3f,1e9f,out _,out string cameraCollapse),"large cameraZ collapse rejected");
+        CheckRejected(cameraCollapse,"depth","camera collapse reason");
+        Check(!PalaceCapitalRuntime.TryBuildDepthMap(package.Source,UnitZ,0.21875f,0.03125f,-0.03125f,-0.0703125f,
+            -2000f,0.3f,1000f,out _,out string clipReason),"outside near/far rejected");
+        CheckRejected(clipReason,"depth-clip","clip reason");
+        Check(!PalaceCapitalRuntime.TryBuildDepthMap(package.Source,UnitZ,0.2f,0.03125f,-0.03125f,-0.0703125f,
+            CameraZ,NearClip,FarClip,out _,out string endpointReason),"endpoint drift rejected");
+        CheckRejected(endpointReason,"depth-endpoints","endpoint reason");
+        Check(!PalaceCapitalRuntime.TryBuildDepthMap(package.Source,double.NaN,0.21875f,0.03125f,-0.03125f,-0.0703125f,
+            CameraZ,NearClip,FarClip,out _,out string unitReason),"NaN unit rejected");
+        CheckRejected(unitReason,"depth-unit","unit reason");
+        Check(!PalaceCapitalRuntime.TryBuildDepthMap(package.Source,UnitZ,0.21875f,0.03125f,-0.03125f,-0.0703125f,
+            CameraZ,0f,FarClip,out _,out string nearReason),"non-positive near rejected");
+        CheckRejected(nearReason,"depth-clip","near reason");
+        Check(!PalaceCapitalRuntime.TryBuildDepthMap(null,UnitZ,0.21875f,0.03125f,-0.03125f,-0.0703125f,
+            CameraZ,NearClip,FarClip,out _,out string sourceReason),"null source rejected");
+        CheckRejected(sourceReason,"depth-source","source reason");
+
+        double elapsed=0d;
+        Check(PalaceCapitalRuntime.AdvanceElapsed(ref elapsed,true,0.5d,out _)&&elapsed==0.5d,"playing delta advances");
+        Check(PalaceCapitalRuntime.AdvanceElapsed(ref elapsed,false,99d,out _)&&elapsed==0.5d,"menu freezes");
+        Check(!PalaceCapitalRuntime.AdvanceElapsed(ref elapsed,true,-0.1d,out string negative),"negative delta rejected");
+        CheckRejected(negative,"elapsed-delta","negative reason");
+        Check(!PalaceCapitalRuntime.AdvanceElapsed(ref elapsed,true,double.NaN,out string nan),"NaN delta rejected");
+        CheckRejected(nan,"elapsed-delta","NaN reason");
+        elapsed=double.MaxValue;
+        Check(!PalaceCapitalRuntime.AdvanceElapsed(ref elapsed,true,double.MaxValue,out string overflow),"overflow rejected");
+        CheckRejected(overflow,"elapsed-overflow","overflow reason");
+        Check(elapsed==double.MaxValue,"overflow keeps elapsed");
+    }
+
+    private static void Close(float actual,float expected,string name)
+        =>Check(Math.Abs(actual-expected)<=1e-7f,name+" actual="+actual.ToString("R")+" expected="+expected.ToString("R"));
+
+    private sealed class Ordered
+    {
+        internal readonly PalaceProductionSource.Placement Placement;
+        internal readonly int SourceIndex;
+        internal readonly int Hint;
+
+        internal Ordered(PalaceProductionSource.Placement placement,int sourceIndex,int hint)
+        {Placement=placement;SourceIndex=sourceIndex;Hint=hint;}
+    }
+}

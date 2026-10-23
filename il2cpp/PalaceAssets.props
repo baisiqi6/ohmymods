@@ -1,4 +1,5 @@
 <Project>
+    <Import Project="$(MSBuildThisFileDirectory)PalaceCapitalAssets.props" />
     <ItemGroup>
         <EmbeddedResource Include="$(MSBuildThisFileDirectory)Assets/Palace/PalaceCourt/colonnade.png" LogicalName="KingdomEnhancedMod.KEM_PalaceCourt/colonnade.png" />
         <EmbeddedResource Include="$(MSBuildThisFileDirectory)Assets/Palace/PalaceCourt/far-scenery.png" LogicalName="KingdomEnhancedMod.KEM_PalaceCourt/far-scenery.png" />

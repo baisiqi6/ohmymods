@@ -123,6 +123,7 @@ internal sealed class PalaceCourtScene : MonoBehaviour
     private bool _actorsR7; // private actors-only owner, no legacy architecture/stage
     private PalaceScrollScene _scroll;
     private PalaceDepthScene _depth; // sole R5 owner; mutually exclusive with R4/legacy
+    private PalaceCapitalRuntimeScene _capital; // sole Capital400 owner; mutually exclusive with R4/R5/legacy
     private bool _cleanupRetained;
     private bool _created;
     private float _deadline, _nextProbe;
@@ -246,6 +247,12 @@ internal sealed class PalaceCourtScene : MonoBehaviour
         { Cleanup("world ended"); return; }
         Transform parent = _root.transform.parent;
         if (parent == null || parent.Pointer != _layer.Pointer) { Cleanup("court root parent/layer changed"); return; }
+        if (_capital != null)
+        {
+            if (!_capital.Tick(m.game, m.game.state == Game.State.Playing ? Time.deltaTime : 0d, out string capitalReason))
+            { Cleanup("capital tick stopped: " + capitalReason); return; }
+            return;
+        }
         if (m.game.state == Game.State.Playing)
         {
             if (_depth != null && !_depth.Tick(m.game, out string depthReason))
@@ -592,6 +599,32 @@ internal sealed class PalaceCourtScene : MonoBehaviour
     [HideFromIl2Cpp]
     private void Create(Kingdom kingdom, Transform layer, Vector3 position, SpriteRenderer reference, string anchorSource)
     {
+        // Dedicated whole-island dispatch is three-state: valid Capital400 -> new owner, valid
+        // Known44 -> legacy path, unknown/unavailable -> fault stop (never a legacy fallback).
+        // Non-dedicated Legacy48 keeps its original path without any layout probe.
+        if (PalaceCourtArea.DedicatedWholeEnabled)
+        {
+            Managers managers = Managers.Inst;
+            PalaceCourtLayoutView layoutView = null;
+            string layoutReason = "";
+            bool viewValid = managers != null && managers.level != null
+                && PalaceCourtArea.TryGetLayout(managers.level, out layoutView, out layoutReason);
+            PalaceLayoutRecipe recipe = viewValid && layoutView != null ? layoutView.Recipe : null;
+            PalaceCapitalRuntime.PalaceCapitalVisualRoute route =
+                PalaceCapitalRuntime.ClassifyVisualRoute(true, viewValid, recipe);
+            if (route == PalaceCapitalRuntime.PalaceCapitalVisualRoute.Fault)
+            {
+                PalaceCourtVisuals.SetReturnDoor(null);
+                PalaceCourtVisuals.Log("dedicated layout fault: no valid exact view ("
+                    + (string.IsNullOrEmpty(layoutReason) ? "unknown" : layoutReason) + "); no legacy fallback");
+                return;
+            }
+            if (route == PalaceCapitalRuntime.PalaceCapitalVisualRoute.Capital400)
+            {
+                CreateCapital(kingdom, layer, position, reference, layoutView, anchorSource);
+                return;
+            }
+        }
         _kingdom = kingdom; _layer = layer;
         bool r4 = PalaceRuntimeProfile.Capability("PALACE_SCROLL_R4_PRIVATE");
         PalaceCourtAssets assets = r4 ? null : new PalaceCourtAssets();
@@ -789,6 +822,91 @@ internal sealed class PalaceCourtScene : MonoBehaviour
         }
     }
 
+    /// <summary>Capital400 sole owner. Explicit descriptor calibration + package plan/scene; only a complete
+    /// Create+Activate publishes ReturnDoor. No fee/wallet/position/journal write; failure never fallbacks.</summary>
+    [HideFromIl2Cpp]
+    private void CreateCapital(Kingdom kingdom, Transform layer, Vector3 position, SpriteRenderer reference,
+        PalaceCourtLayoutView view, string anchorSource)
+    {
+        _kingdom = kingdom; _layer = layer; _actorsR7 = false;
+        _root = null;
+        PalaceCourtVisuals.SetAssets(null);
+        GameObject root = null;
+        PalaceCapitalRuntimeScene capital = null;
+        try
+        {
+            int goLayer = reference.gameObject.layer;
+            int layerId = reference.sortingLayerID;
+            int baseOrder = reference.sortingOrder;
+            Material material = reference.sharedMaterial;
+            if (material == null) throw new InvalidOperationException("capital borrowed material unavailable");
+            PalaceCourtVisuals.Log("capital layout=" + view.Recipe.LayoutId + " anchor=" + anchorSource
+                + " center=" + Vec(position) + " goLayer=" + goLayer + " sortingLayerID=" + layerId
+                + " baseOrder=" + baseOrder + " material=" + material.name
+                + " unitZ=" + reference.transform.position.z.ToString("F3")
+                + "; descriptor=" + PalaceCapitalRuntime.CapitalDescriptor.MasterWidthPx + "x"
+                + PalaceCapitalRuntime.CapitalDescriptor.MasterHeightPx + " axis="
+                + PalaceCapitalRuntime.CapitalDescriptor.AxisPixelX + " footline="
+                + PalaceCapitalRuntime.CapitalDescriptor.FootlinePixelY);
+            root = new GameObject("KEM_PalaceCourt");
+            _root = root; // owned immediately; deactivate/destroy faults must retain it
+            root.SetActive(false);
+            root.layer = goLayer;
+            root.transform.SetParent(layer, false);
+            root.transform.position = position;
+            var binding = new CourtBinding
+            {
+                Assets = null,
+                Parent = root.transform,
+                GoLayer = goLayer,
+                LayerId = layerId,
+                BaseOrder = baseOrder,
+                Material = material,
+                Reference = reference
+            };
+            PalaceScrollCalibration calibration = PalaceScrollNativeBinding.Calibrate(binding, view,
+                PalaceCapitalRuntime.CapitalDescriptor, position.y);
+            if (!PalaceCapitalRuntimeScene.TryCreate(kingdom, layer, binding, view, calibration, reference,
+                out capital, out string reason))
+            {
+                PalaceCourtVisuals.SetReturnDoor(null);
+                if (capital != null)
+                {
+                    _capital = capital; _created = false; _cleanupRetained = true;
+                    PalaceCourtVisuals.Log("capital create failed with retained owner/outer root; no activation/retry/fallback: " + reason);
+                    return;
+                }
+                throw new InvalidOperationException("capital create rejected: " + reason);
+            }
+            _capital = capital; _created = true;
+            root.SetActive(true);
+            PalaceCourtVisuals.SetReturnDoor(capital.GateAnchor);
+            PalaceCourtVisuals.Log("capital root created: sprites=" + capital.PlacedSprites
+                + " textures=" + capital.UniqueTextures + " depthFloats=452; screen/Native acceptance pending");
+        }
+        catch (Exception e)
+        {
+            PalaceCourtVisuals.SetReturnDoor(null);
+            if (capital != null && !capital.TryClear(out string clearReason))
+            {
+                _capital = capital; _created = false; _cleanupRetained = true;
+                PalaceCourtVisuals.Log("capital create cleanup unknown; owner/outer root retained: " + clearReason + "; " + e.Message);
+                return;
+            }
+            _capital = null;
+            if (!PalaceCapitalOuterRoot.TryClear(ref _root, out string outerDetail))
+            {
+                _created = false; _cleanupRetained = true;
+                PalaceCourtVisuals.Log("capital outer cleanup unknown; owner/root retained, not rolled back: "
+                    + outerDetail + "; " + e.Message);
+                return;
+            }
+            _created = false;
+            PalaceCourtVisuals.Log("capital create failed; owned capital and outer root cleared; no legacy44 fallback: "
+                + e.Message + (string.IsNullOrEmpty(outerDetail) ? "" : "; outer=" + outerDetail));
+        }
+    }
+
     // R7 shared art coordinates, actor-specific visible-height factors from fixed idle0 semantics.
     // One CourtBinding calibration; no Native actor scan, no old stage/building placement.
     [HideFromIl2Cpp]
@@ -829,6 +947,34 @@ internal sealed class PalaceCourtScene : MonoBehaviour
         PalaceCourtVisuals.SetReturnDoor(null);
         if (_cleanupRetained) return;
         bool had = _created;
+        bool capitalOwned = _capital != null;
+        if (_capital != null)
+        {
+            if (!_capital.TryClear(out string capitalClearReason))
+            {
+                _created = false; _pending = null; _awaitPlaying = false; _cleanupRetained = true;
+                PalaceCourtVisuals.Log("capital cleanup owner/outer root retained: " + reason + "; " + capitalClearReason);
+                return;
+            }
+            _capital = null;
+        }
+        if (capitalOwned)
+        {
+            if (!PalaceCapitalOuterRoot.TryClear(ref _root, out string outerDetail))
+            {
+                _created = false; _pending = null; _awaitPlaying = false; _cleanupRetained = true;
+                PalaceCourtVisuals.Log("capital outer cleanup unknown; owner/root retained: " + reason
+                    + "; " + outerDetail);
+                return;
+            }
+            _created = false;
+            _kingdom = null;
+            _layer = null;
+            PalaceCourtVisuals.SetAssets(null);
+            if (had) PalaceCourtVisuals.Log("capital removed: " + reason
+                + (string.IsNullOrEmpty(outerDetail) ? "" : "; outer=" + outerDetail));
+            return;
+        }
         if (_actorsR7 && _worldExpansion != null)
         {
             if (!_worldExpansion.TryClear(out string actorClearReason))

@@ -1,0 +1,68 @@
+// Fake host for the extracted ScaleRegistryHolder.LateUpdate method only.
+// Records call order so the compile-time guard and the post-maintain position are observable.
+using System;
+using System.Collections.Generic;
+
+namespace KingdomEnhancedMod
+{
+    internal static class WorkerOrder
+    {
+        internal static readonly List<string> Calls = new List<string>();
+        internal static bool ThrowMaintain;
+    }
+
+    internal static class GreekScaleScope
+    {
+        internal static void MaintainRegisteredY()
+        {
+            WorkerOrder.Calls.Add("maintain");
+            if (WorkerOrder.ThrowMaintain) throw new InvalidOperationException("maintain-fault");
+        }
+    }
+
+    internal static class PalaceAdultBodyMetrics
+    {
+        internal static void ObserveAfterRegisteredY() => WorkerOrder.Calls.Add("observe");
+    }
+}
+
+internal static class Program
+{
+    private static int _failures;
+
+    private static void Check(bool condition, string message)
+    {
+        if (condition) return;
+        _failures++;
+        Console.WriteLine("FAIL " + message);
+    }
+
+    private static int Main(string[] args)
+    {
+        string mode = args.Length > 0 ? args[0] : "";
+        var probe = new KingdomEnhancedMod.ScaleRegistryHolderProbe();
+        var method = typeof(KingdomEnhancedMod.ScaleRegistryHolderProbe)
+            .GetMethod("LateUpdate", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+        Check(method != null, "LateUpdate method extracted");
+        if (method == null) return 1;
+
+        KingdomEnhancedMod.WorkerOrder.Calls.Clear();
+        method.Invoke(probe, null);
+        string expected = mode == "diagnostic" ? "maintain,observe" : "maintain";
+        Check(string.Join(",", KingdomEnhancedMod.WorkerOrder.Calls) == expected,
+            "order for " + mode + ": " + string.Join(",", KingdomEnhancedMod.WorkerOrder.Calls) + " expected " + expected);
+
+        KingdomEnhancedMod.WorkerOrder.Calls.Clear();
+        KingdomEnhancedMod.WorkerOrder.ThrowMaintain = true;
+        bool caught = false;
+        try { method.Invoke(probe, null); }
+        catch (System.Reflection.TargetInvocationException) { caught = true; }
+        KingdomEnhancedMod.WorkerOrder.ThrowMaintain = false;
+        Check(caught, "maintain fault propagates (call is not wrapped in finally)");
+        Check(string.Join(",", KingdomEnhancedMod.WorkerOrder.Calls) == "maintain",
+            "observer is skipped when maintain throws; calls=" + string.Join(",", KingdomEnhancedMod.WorkerOrder.Calls));
+
+        Console.WriteLine("mode=" + mode + " failures=" + _failures);
+        return _failures == 0 ? 0 : 1;
+    }
+}

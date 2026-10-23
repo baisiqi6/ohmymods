@@ -1,6 +1,6 @@
-## 2026-10-23 — #101 400u核心接线已验源码，完整素材与Native仍待完成
+## 2026-10-23 — #101 400u完整接线完成源级检查，隔离实机待验
 
-已实现100×4u/门0、schema3地面、journal2/trip4同layout接线，以及首币前四证freeze和共享表Ready前置；旧44不自动迁移、旧pending不重扣/改账。Root独立针对复跑及default/diagnostic×net6/net8四完整构建均0W0E；正式PC输入无测试桩，Android236输入未变复用Phase A。完整R12的54主体/registry/layout仍在制作，scene消费者和实际相机/水/脚点未齐，400资源门保持拒收费。未启动Native、未合并安装；PR265仍Draft，#101进行中，正常DLL保持原SHA，未写正常存档/配置，Windows测试暂停。详见[连续检查点](tasks/issue-101/r12-runtime-foundation-20261023.md#phase-b--400u源级接线检查点2026-10-23)。下文为历史记录。
+完整R12的92项资源、452绘制节点、100×4u地面和唯一CourtScene已接入。资源全包一次校验，首币前四证与布局冻结、旧44/Legacy分流及失败清理守卫保留。Root完整四变体构建均0W0E，实际DLL资源逐字节核对/275检查通过；Astra最终增量20/20及独立资源/创建清理复审通过。新的单次隔离自然10币进入→400u画面→原生保存退出已通过阶段决策审查，尚未运行；冷进与返回仍待新的实际后像和凭据。PR265保持Draft，#101进行中；正常存档/配置与正常DLL未动，Windows测试暂停。详见[连续检查点](tasks/issue-101/r12-runtime-foundation-20261023.md)。下文为历史记录。
 
 ## 2026-10-22 — #260 已交付修复收尾，旧 PR #264 撤回
 
@@ -2257,4 +2257,4 @@ PR229发布后仅进展文档追加段冲突；已保留主线与Android两端�
 - Android #232 G18只读存储诊断随后完成：新具名objective源码/29host经独审、最终producer1+6由Root在c148重跑后，正常计划58161139登记、独立读回及本分支镜像一致，其他任务/计划、lease及既有doctor边界保持。单次30.21s中boot1/CEtrue时emulated卷仍checking，随后全部祖先与562B旁档stat可见；这提供启动/存储时序线索，未读取正文或定上例唯一根因。8查询/10stat无unknown/timeout，cat0/game0/无设备文件写命令，Root真reap及后host/端口/8345保护已核，原生窗口提前交还。完整232的真实付款/保存/load及池重建兼容组仍待验；当前906的232具名职业/弓弩闭环未发现确认源码缺口，旧相同input构建与106注册证据复用，后续场景按producer和池依赖合并，不为每字段重复全交付。详见[G18记录](tasks/issue-232/g5-main106-preflight.md)。
 
 
-2026-10-23 #101 / R12 宫廷：用户已认可约400u画卷并授权素材制作与隔离接入。独立任务树已整合当前完整release与Palace既有修订，保留最新19个坐骑源/资源字节及原脏树；四个来源已核的私有default/diagnostic net6/net8构建均0W0E，当前源Paid/Fresh及负对照、admission/preparation/clock、coin/map-result回归通过，Android probe1W0E（既有CS0169）、Adapter1265/0。新增诊断默认排除，构建/host不代替Native组合。当前宫廷仍44u；400u真实地面、相机和布局版本/收费记录绑定尚未实施，付费进入→保存退出→冷读→免费返回完整实机闭环仍待验证。未合并发布或安装正常游玩版；正常存档不变，Windows性能测试继续暂停。详见[本轮基底记录](tasks/issue-101/r12-runtime-foundation-20261023.md)。
+2026-10-23 #101 / R12 宫廷：400u 配方/100×4u 地面与收费布局记录已接线；本轮又接入冻结 R12 的 92 项资源、452 个绘制节点和唯一 CourtScene 生命周期。资源一次完整校验后发布，CanPay 不读文件；新布局不回退旧44，旧44/Legacy路径保留。创建失败对象所有权、world/view 深度、失活借用对象、Level/镜头绑定与 outer-root 清理已补定向回归；最终增量复审通过。当前完整源 default/diagnostic × net6/net8 四构建均0W0E，实际DLL新92项逐字节核对/275检查通过；旧DLL缺包负例及Android资源边界独立复核通过，均不代替实机。当前尚未启动这一完整候选的自然10币进入→保存退出→新进程重进→免费返回流程；水线/人物比例是待实机初值。#101与PR265仍进行中/Draft，未合并安装，正常存档/配置与正常DLL保持，Windows性能测试继续暂停。详见[任务记录](tasks/issue-101/r12-runtime-foundation-20261023.md)。
