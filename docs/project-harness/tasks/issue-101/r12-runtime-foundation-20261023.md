@@ -103,3 +103,23 @@ cold01从该实际原生自动保存后像新进程加载12，失败于postPop `
 复用既有Bootstrap原生Pop调用边界，在prePop严格校验保存几何；同次original/result成功且无原生异常才发布凭据，绑定owner/Trip/recipe/Level/Game/World/layer/scene及代次。新exact尝试（含skip）撤旧proof、cold缓存与in-flight代次；不清fresh span，不阻原调用/改clock，不写回保存。独立审查抓出的skip复活与World替换反例已补齐：Root产品方法抽取81/0、Astra原55断言55/0。首次完整R3构建7条新增nullable警告，已保留failed receipt；准确注解修正后R4四变体均0W0E。diagnostic-net6 SHA `62a5fa1f9af5cad83400b264aaadc29bd906248cfd182cc0558d5e03f5db27b7`，完整源/资源冻结前后不变，实际92嵌入/275检查、FileProps15检查通过。
 
 右岸仅forest-74内收X198.8125、far-palace-34内收X196，forest域内标志同步；86PNG、其余450实例不变。最终index `49b99d18f959f08c7ba9b165713358fca56ffb533e31514a7f0c1d3a2d61c43b`与loader同步，独立增量approved；Native落脚与动画仍待。新cold04/05/06工具仅参数化案例/构建，Root和独立各32/32，必须逐案读取实际前案后像并发新凭据，不seed/复用旧许可。此记录只代表源级/构建通过，尚未完成R4冷进、真实UI保存退出/返回，PR仍Draft，未合并安装。完整回执留本机 `.local/tasks/palace400-runtime-20261023/phase-c/`，不将批量过程文件加入仓库。
+
+
+### R4隔离往返推进（非最终交付）
+
+cold04实际冷读land12成功：prePop严格几何凭据、live Ground1/Tile100、400u及452/86绘制成立；实际菜单SaveQuit后自然exit0，新的gzip存档完整。独立复核原来源岛8的2639对象JSON与Entered proof未变，P1=130、steed36保持。cold05再次冷读成功及右岸两处P2实际图增量通过；舞女/一朵荷花确有动作、Menu两独立PNG逐字停帧，仅为有限采样，不代替完整连续动画。cold05到900秒边界143退出，不记第二次UI保存/回程通过。
+
+后续自动输入的eventDelivery始终UNKNOWN，实际位移和菜单导航不可靠。Root曾把grep截断误判为回程未挂载，独立R4 DLL Cecil14/14与真实日志259行已排除；门X0/near1.7，而cold07保存P1=-1.895，在范围外。几次Down因Root未再次核对Menu而在Playing投币招募，只改私人档，记录为操作错误、不补币、不当产品缺陷。cold07后来实际Menu SaveQuit/exit0；08未启动。
+
+cold09由用户明确接手并完成免费回程，随后确认停手并手动UI保存退出：同trip一次Reload12→8、到达P1=128与回程前相同、落位53.86969/.88、真实source checkpoint=True；实际终态VisitCommitted rev9（不是Returned中间态），原收费capture/fileProof未改。源加载ApplyData/TryPop期间raw34不变，Playing后原生setter34→35、getter+1对应HUD36，未将宫廷local计日写回。终态钱包132作为新冷读基线，不把退出前的收钱/现场操作反推成回程费用。独立后像审核通过，可作cold10新输入；11/12额外开窗安排因用户已在09完成回程而撤回，未启动。
+
+cold10已用新exact凭据从09真实后像冷读source8：raw35在原生加载前后保持、Hero2席bound2，16随从/4侍从保持；初始HUD弓手/弩手等待重算由原生Crossbowman重分类日志解释，不能按瞬间HUD认定丢兵。最终实际SaveQuit/终态独立复核仍待。正常6对象/15文件备份与物理游戏71文件持续核验一致，没有正常存档恢复或安装写入。
+
+
+### 完整隔离往返链通过（2026-10-23；合并/安装另记）
+
+用户实际完成cold10最后一次SaveQuit，natural exit0/errors=[]。最终独立核对19/19终态文件SHA一致：source8，P1落位53.86969/.88，原生加载raw35保持，Playing期间自然35→37；Hero两席bound2、Knight身份附档未变、VisitCommitted rev9与原capture/fileProof保持，无新收费或回程。终态global SHA `c56eafeb4dee1f6c8b4e81b18aeaacdab6d75f2fc59a4d64b5182da965420858`。源世界等待期间正常收钱和战斗变化不当作冷读丢档，也不称全军静止。
+
+本轮明确通过的链为：paid02真实10币/原生结算→fresh400u创建→cold04真实保存退出与完整disk→新进程宫廷冷读→cold09用户自然免费回程/一次Reload8/钱包128→128/真实原生提交及UI退出→cold10来源新进程冷读与UI退出。cold05的900秒超时、Root输入误操作、工具EventDeliveryUNKNOWN及被证伪的未挂载推测均保留原始证据，不把失败改写成功。两端旧P2静帧已闭合；连续60fps动画观感、全部动作、Windows2.4.3、Android和联机没有在这条Mac ARM64 2.4.0单机链代验。
+
+R4产品/source未再改，default-net6 SHA `055368a3964d307b9a3155160d6a2036cd554f8765c7ea79bdac198b6e59fcaf`。正常DLL `25d9…c156`及正常15数据备份和物理游戏71文件保持；合并与正常包安装仍须独立最终决策和回执，未将私人测试存档移到正常版。
