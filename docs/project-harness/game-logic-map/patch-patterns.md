@@ -985,3 +985,21 @@ ExactSave和初始化Enrollment是两个明确协议，共用真实PrefsPrepare 
 `Player.UpdatePayState`的 d<=.5 && d<=playerPayDistance 只是当前selected的retention fast-path（ARM0x7d9fbc–0x7da054），失败仍有GetClosestPayable(x,.5,本玩家)（0x7da058–0x7da09c）；None按下入Holding不再重复窄门。RetrievePayableIndices邻候选为严格减法d-r<range（0x7b4528–4538/0x7b4790–47a0），最近center没有hard radius，不能将任何一段冒充全部选择空间。
 
 Mod连续hold使用该邻关系作保守有限上限，entry另核fast保留或fallback返回捕获pointer+实例；fast成立勿无条件closest以更近别店错误否决。RPC forceBlock期CanSelectfalse/普通querynull不等于离开；待回执核身份/空间/既有期限。query不写选择或付款，但维护原生sort/scratch，不冒称纯函数。Payable.Awake cachedTransform是商店自身transform，读取朝向不要用最高祖先Transform.root。依据真实2.4链与prefab，原82+21行为回归/ARM构建；用户现场及联机仍待实机。
+
+
+### Android 2.4 / Lemon-Melon HarmonySupport 的诊断异常边界（#232/#262，2026-10-19）
+
+适用本次 `Il2CppInterop.HarmonySupport.dll` SHA `bf102683…`、Runtime `c80e8e88…` 与Unity6000.0.61f1，不能推广为所有未来后端。GenerateNativeToManagedTrampoline在调用managed替身外捕获System.Exception、ReportException后无rethrow；新增callee detour可能改变原生异常传播。void Prefix、不写参数及没有finalizer都不等于传播保真。需要保真时先复用现有边界或单独验证native方案；若实验只接受入口观测，明确隔离与语义差异，不以instrumented世界进入、无原连续栈或evidenceReportable当修复/兼容证明。
+
+`Il2CppObjectBase.Pointer`在该Runtime通过GCHandle取得目标，可抛ObjectCollectedException，并非普通字段。诊断自身读取失败应单独unknown，不伪造零/false样本、不捕获目标游戏异常；managed null用ReferenceEquals，避免Unity对象判空混入语义。NativeMethodInfoPtr不是代码指针，复用UnityVersionHandler.Wrap读取name/参数数/token/MethodPointer，再核真实映射与地址折叠，不能仅凭managed名字唯一判断detour安全。
+
+本次实际RVA `0x24F1E24`入口样本证实receiver非空、loosePart为空、dummyPart=false；只定位入口，不证明Prefab/Pool根因。独立NRE/ANE日志块须分别记录。源码/依赖IL、实际SHA与原生观察边界见 [任务证据](../tasks/issue-262/verification.md#g20-boat-entry-arguments)，原未部署“异常透传”方案已撤回但留档；此项不构成新增业务fallback或全局禁用Harmony的规则。
+
+
+### Android 2.4：原始 prefab 池表与自然初始化边界（#232/#262，2026-10-21）
+
+当前 Android2.4 ELF：Wharf.StackPart 用 boatPartPrefab 进入 Pool.Spawn<T>；SpawnGO先 GetAssetSwap 再查池，`0x24d5544` 可调用 FastSpawn `0x24d58a0`。因此 raw prefab 查不到池、没有目标 FastSpawn postfix，均不足以排除 swap/前段异常/采样过滤，也不足以确定返回 null 的责任；GetComponent另有null路径。实际 FieldInfo 已确认 Managers.world=0x20、World.gameLayer=0x140、Wharf.boatPartPrefab=0x148。不要调用带懒初始化的 GetAssetSwap 来“补读”现场。
+
+PoolManager.Init 仅在 scene loaded 条件成立时 InitPools；OnLevelLoaded 的 cachedPools.Count 非零分支会跳过 InitPools。自定义模板准备与向该缓存注册是两个职责，不能用外层 Init 返回、Holder 存在或任意非空池表代替原生池完成证据。OnDisable→ResetPools也可能调用InitPools，完成回调须结合实际生命周期解释。N9阶段仅有ApplyToScene时Count=9与Norse1/Bank8源码候选；N12现已完整采到同PM OnLevelLoaded入口9池为银行助手8个30120..30127及Archer_norselands30000，随后Apply仍同PM/Count9。N12入口诊断成立，缺Init回调仍unknown，静态分支合同不代独立运行分支遥测，raw-key不代实际swap-key。后续N13已在原writer交接处修复：仅以原生InitPools正常返回记录同一PM定义完成，World只消费，active/当前Managers校验阻止teardown写入；未强制初始化。当前c1e43自然Init入口0、native返回109、自定义后118，九名池具备，船池命中/三次FastSpawn非空，进入Playing8。此例私有OnLevel新callee仍改变异常边界，诊断枚举上限及mode-schema聚合false保留，不能升级成无额外detour兼容、完整根因或全部玩法验收。详见 [G20入口边界](../tasks/issue-262/verification.md#g20-boat-upstream-pool-phase)和 [N13修复验证](../tasks/issue-262/verification.md#g20-native-definitions-fix)。
+
+Android ps的NAME不是PID存活证明：独立用例中同PID3654由包名暂变成 `<pre-initialized>`。观察器须在同一checked表区分“包名未就绪”“绑定PID缺失”“身份未知”；pending-name不归属fresh日志，不新增启动或宽限。自有QEMU停止和回收由同一Popen owner协调，成功wait后不再额外要求退出收尾阶段的argv/ps消失；身份异常不向陌生PID发信号，原失败回执不追改。这些是诊断控制器规则，不能代替游戏兼容验收。

@@ -18,6 +18,50 @@ namespace MusketeerRuntimeTests
             Case.Run("native-hide release failure keeps a receipt and retries on Sync", ReleaseFailureKeepsReceipt);
             Case.Run("own visual carries the shared 0.9 appearance scale (absolute; Z stays 1)", OwnVisualAppearanceScale);
             Case.Run("leisure Stand overlay yields immediately to shot, target, night and pause", LeisurePriority);
+            Case.Run("renderer look follows the platform flipY contract without dropping other fields", RendererLookFlipYContract);
+        }
+
+        private static void RendererLookFlipYContract()
+        {
+            Archer archer = ArmedMusketeerWithVisuals(out _);
+            SpriteRenderer own = FindOwn(archer);
+            SpriteRenderer native = archer._spriteRenderer;
+            Check.True(own != null && native != null, "own and native renderers exist");
+            native.sortingLayerID = 7;
+            native.sortingOrder = -3;
+            native.flipX = true;
+            native.color = new Color { r = 0.25f, g = 0.5f, b = 0.75f, a = 0.8f };
+            native.sharedMaterial = new Material();
+            native.gameObject.layer = 9;
+            native.PropertyBlockColor = new Color { r = 0.1f, g = 0.2f, b = 0.3f, a = 0.4f };
+            Sync();
+
+#if !ANDROID
+            native.flipY = true; Sync();
+            Check.True(own.flipY, "positive native Y copied");
+            native.flipY = false; Sync();
+            Check.False(own.flipY, "negative native Y copied");
+#endif
+            bool fields = own.flipX
+                && own.color.r == native.color.r && own.color.g == native.color.g
+                && own.color.b == native.color.b && own.color.a == native.color.a
+                && own.sortingLayerID == native.sortingLayerID && own.sortingOrder == native.sortingOrder
+                && own.gameObject.layer == native.gameObject.layer
+                && ReferenceEquals(own.sharedMaterial, native.sharedMaterial)
+                && own.PropertyBlockColor.r == native.PropertyBlockColor.r
+                && own.PropertyBlockColor.g == native.PropertyBlockColor.g
+                && own.PropertyBlockColor.b == native.PropertyBlockColor.b
+                && own.PropertyBlockColor.a == native.PropertyBlockColor.a;
+#if ANDROID
+            Check.True(SpriteRenderer.FlipYReads == 0 && SpriteRenderer.FlipYWrites == 0 && fields,
+                "Android reads=" + SpriteRenderer.FlipYReads + " writes=" + SpriteRenderer.FlipYWrites
+                + " color=" + (own.color.r == native.color.r && own.color.a == native.color.a)
+                + " layer=" + (own.gameObject.layer == native.gameObject.layer)
+                + " material=" + ReferenceEquals(own.sharedMaterial, native.sharedMaterial)
+                + " block=" + (own.PropertyBlockColor.r == native.PropertyBlockColor.r));
+#else
+            Check.True(fields, "non-Y renderer fields copied");
+#endif
         }
 
         private static void OwnVisualAppearanceScale()

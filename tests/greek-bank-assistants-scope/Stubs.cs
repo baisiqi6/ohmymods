@@ -15,6 +15,11 @@
 using Il2CppInterop.Runtime.InteropTypes.Arrays;
 using UnityEngine;
 using Object = UnityEngine.Object;
+#if ANDROID
+using CoatsinkFixture = Il2CppCoatsink.Common;
+#else
+using CoatsinkFixture = Coatsink.Common;
+#endif
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -78,9 +83,14 @@ namespace HarmonyLib
     { public HarmonyPriority(int priority) { } }
 }
 
+#if ANDROID
+namespace Il2CppCoatsink.Common
+#else
 namespace Coatsink.Common
+#endif
 {
-    // Marker namespace so production `using Coatsink.Common;` resolves.
+    // Marker namespace so production `using Coatsink.Common;` (PC) /
+    // `using Il2CppCoatsink.Common;` (ANDROID) resolves to the same fixture types.
     /// <summary>原生保存回执位（与真实 2.4 位值一致）：Save|Failure = 0x88。</summary>
     [Flags]
     public enum SaveLoadResult
@@ -298,12 +308,16 @@ namespace UnityEngine
     public static class Resources
     {
         public static readonly List<Object> Assets = new List<Object>();
+        public static int FindCalls;
 
         public static Il2CppArrayBase<T> LoadAll<T>(string path) where T : Object
             => new Il2CppArrayBase<T>(Assets.OfType<T>().Where(item => !Object.IsNull(item)).ToArray());
 
         public static Il2CppArrayBase<T> FindObjectsOfTypeAll<T>() where T : Object
-            => new Il2CppArrayBase<T>(Object.All.OfType<T>().Where(item => !Object.IsNull(item)).ToArray());
+        {
+            FindCalls++;
+            return new Il2CppArrayBase<T>(Object.All.OfType<T>().Where(item => !Object.IsNull(item)).ToArray());
+        }
     }
 
     public class Component : Object
@@ -530,18 +544,71 @@ namespace UnityEngine
 
     public class AnimatorOverrideController : RuntimeAnimatorController
     {
-        public RuntimeAnimatorController runtimeAnimatorController;
+        /// <summary>
+        /// Test hook for the captured runtime path: the current Android 2.4 runtime failed
+        /// to resolve the AOC base-controller getter (MissingICall). Tests enable this to
+        /// prove the Android branch never calls it; no claim about other Android/PC builds.
+        /// </summary>
+        public static bool ThrowOnRuntimeControllerGet;
+        private RuntimeAnimatorController _runtimeController;
+
+        public RuntimeAnimatorController runtimeAnimatorController
+        {
+            get => ThrowOnRuntimeControllerGet
+                ? throw new MissingMethodException("UnityEngine.AnimatorOverrideController::get_runtimeAnimatorController_Injected")
+                : _runtimeController;
+            set => _runtimeController = value;
+        }
+
         public AnimatorOverrideController(string name) : base(name) { }
     }
 
     public class Animator : Behaviour
     {
+        /// <summary>
+        /// Android 2.4 实测缺失的 API 钩子（仅测试）：当前运行时 avatar/applyRootMotion
+        /// setter 与 updateMode getter 经注入层抛 MissingMethodException。只模拟这些成员，
+        /// avatar getter、updateMode/cullingMode setter 保持可用，不声称其它平台行为。
+        /// </summary>
+        public static bool ThrowOnAvatarSet;
+        public static bool ThrowOnApplyRootMotionSet;
+        public static bool ThrowOnUpdateModeGet;
+        public static int UpdateModeSetCalls;
+
         public RuntimeAnimatorController runtimeAnimatorController;
-        public Avatar avatar;
-        public bool applyRootMotion;
-        public AnimatorUpdateMode updateMode;
+        private Avatar _avatar;
+        private bool _applyRootMotion;
+        private AnimatorUpdateMode _updateMode;
         public AnimatorCullingMode cullingMode;
         public readonly Dictionary<int, float> Floats = new Dictionary<int, float>();
+
+        public Avatar avatar
+        {
+            get => _avatar;
+            set => _avatar = ThrowOnAvatarSet
+                ? throw new MissingMethodException("UnityEngine.Animator::set_avatar_Injected")
+                : value;
+        }
+
+        public bool applyRootMotion
+        {
+            get => _applyRootMotion;
+            set => _applyRootMotion = ThrowOnApplyRootMotionSet
+                ? throw new MissingMethodException("UnityEngine.Animator::set_applyRootMotion_Injected")
+                : value;
+        }
+
+        public AnimatorUpdateMode updateMode
+        {
+            get => ThrowOnUpdateModeGet
+                ? throw new MissingMethodException("UnityEngine.Animator::get_updateMode_Injected")
+                : _updateMode;
+            set
+            {
+                _updateMode = value;
+                UpdateModeSetCalls++;
+            }
+        }
 
         public void SetFloat(int hash, float value) => Floats[hash] = value;
         public static int StringToHash(string name) => name.GetHashCode();
@@ -549,11 +616,26 @@ namespace UnityEngine
 
     public class SpriteRenderer : Behaviour
     {
+        /// <summary>Android 2.4 实测缺失的 flipY getter/setter 测试钩子。</summary>
+        public static bool ThrowOnFlipYGet;
+        public static bool ThrowOnFlipYSet;
+
         public Sprite sprite;
         public Material sharedMaterial;
         public Color color;
-        public bool flipX, flipY;
+        public bool flipX;
+        private bool _flipY;
         public int sortingLayerID, sortingOrder;
+
+        public bool flipY
+        {
+            get => ThrowOnFlipYGet
+                ? throw new MissingMethodException("UnityEngine.SpriteRenderer::get_flipY_Injected")
+                : _flipY;
+            set => _flipY = ThrowOnFlipYSet
+                ? throw new MissingMethodException("UnityEngine.SpriteRenderer::set_flipY_Injected")
+                : value;
+        }
     }
 
     public struct Keyframe
@@ -754,15 +836,15 @@ public class GlobalSaveData : UnityEngine.Object
         => currentChallenge == 0 ? campaigns[currentCampaign] : challenges[currentChallenge - 1];
 
     /// <summary>原生 SaveAsync 的最小形状（SharedBankNative.AsyncGate 的门控目标）。</summary>
-    public void SaveAsync(Il2CppSystem.Action<Coatsink.Common.SaveLoadResult> callback) { }
+    public void SaveAsync(Il2CppSystem.Action<CoatsinkFixture.SaveLoadResult> callback) { }
 
     /// <summary>真实 _Save_d__89 的最小形状（SharedBankNative.SyncGate 读取 state/@return）。</summary>
     public sealed class _Save_d__89
     {
         public int __1__state;
         public GlobalSaveData __4__this;
-        private Coatsink.Common.Routine.Return<Coatsink.Common.SaveLoadResult> _stored = new();
-        public Coatsink.Common.Routine.Return<Coatsink.Common.SaveLoadResult> @return
+        private CoatsinkFixture.Routine.Return<CoatsinkFixture.SaveLoadResult> _stored = new();
+        public CoatsinkFixture.Routine.Return<CoatsinkFixture.SaveLoadResult> @return
         {
             get => new() { value = _stored.value }; // boxed copy, as the interop Return slot behaves
             set => _stored = new() { value = value.value };
@@ -1381,3 +1463,13 @@ namespace KingdomEnhancedMod {
 internal static class CoinCourierBankScope {
  internal static bool IsCurrentAuthorityBanker(Banker banker) => throw new System.NotSupportedException("coin courier scope is not covered by the greek bank assistants fixture");
 } }
+
+// Data-only game boundary: MainBankerFixedDomain excludes the production wall-spot marker.
+// The selection algorithm remains linked production code; no wall-placement logic is modelled.
+namespace KingdomEnhancedMod
+{
+    internal static class PatchWorld_WallSpots
+    {
+        internal const string MarkerPrefix = "KEM_WallSpot";
+    }
+}

@@ -51,6 +51,7 @@ internal static class Program
         VisitAndLifecycleDiagnosticsAreBoundedAndEventTriggered();
         LeisureOverlayPriorityAndPause();
         LeisureClockPolicy();
+        RendererLookFollowsPlatformFlipYContract();
 
         Console.WriteLine();
         Console.WriteLine(_failed == 0
@@ -178,6 +179,46 @@ internal static class Program
     }
 
     // ---------------------------------------------------------------- tests
+
+    private static void RendererLookFollowsPlatformFlipYContract()
+    {
+        FreshWorld();
+        Fixture fixture = CreateFixture();
+        SpriteRenderer native = fixture.Native;
+        native.sortingLayerID = 7;
+        native.sortingOrder = -3;
+        native.flipX = true;
+        native.color = new Color(0.25f, 0.5f, 0.75f, 0.8f);
+        native.sharedMaterial = new Material();
+        native.gameObject.layer = 9;
+
+        HeroArcherVisuals.Apply(fixture.Archer);
+        SpriteRenderer own = OwnOf(fixture);
+        Check("flipY.own", own != null, "own renderer created");
+        if (own == null) return;
+
+#if ANDROID
+        Check("flipY.android.noAccess", SpriteRenderer.FlipYReads == 0 && SpriteRenderer.FlipYWrites == 0,
+            "reads=" + SpriteRenderer.FlipYReads + " writes=" + SpriteRenderer.FlipYWrites);
+#else
+        fixture.Native.flipY = true;
+        AdvanceFrame(); HeroArcherVisuals.Sync("flipY");
+        Check("flipY.pc.true", own.flipY, "positive native Y copied");
+        fixture.Native.flipY = false;
+        AdvanceFrame(); HeroArcherVisuals.Sync("flipY");
+        Check("flipY.pc.false", !own.flipY, "negative native Y copied");
+#endif
+        Check("flipY.sameFrame.flipX", own.flipX, "flipX still copied");
+        Check("flipY.sameFrame.color", own.color.r == native.color.r && own.color.g == native.color.g
+            && own.color.b == native.color.b && own.color.a == native.color.a, "color still copied");
+        Check("flipY.sameFrame.layer", own.gameObject.layer == native.gameObject.layer, "layer still copied");
+        Check("flipY.sameFrame.material", ReferenceEquals(own.sharedMaterial, native.sharedMaterial),
+            "shared material still copied");
+        var block = typeof(SpriteRenderer).GetField("_block",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        Check("flipY.sameFrame.propertyBlock", block != null && block.GetValue(own) != null,
+            "property block still written");
+    }
 
     private static void ApplyTakesOverSupportedState()
     {

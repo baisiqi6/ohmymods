@@ -6,6 +6,8 @@ MelonLoader 0.7.3（net6 loader 目录）。产物 `OhMyMods.AndroidProbe.dll` �
 
 ## 构建
 
+产品工程默认目标为 `net6.0`，与已部署 loader 一致；SDK10 负责编译，host 测试仍为 net10。以往未覆盖目标框架的 net10 编译诊断不作为设备产物。
+
     <dotnet10>/dotnet build -c Release \
         -p:GameInteropDir=<INTEROP_DIR> \
         -p:LoaderRuntimeDir=<LOADER_NET6_DIR> \
@@ -450,9 +452,9 @@ Android 只读诊断按实际可观测面输出 `unavailable`，保留其他物�
 适配层（先构建测试工程与产物，再直接执行已构建的测试程序；每行末尾都接产物路径）：
 
     <dotnet10>/dotnet run -c Release --project android/tests/AdapterTests.csproj \
-        -- android/bin/Release/net10.0/OhMyMods.AndroidProbe.dll
+        -- android/bin/Release/net6.0/OhMyMods.AndroidProbe.dll
     <dotnet10>/dotnet android/tests/bin/Release/net10.0/AdapterTests.dll --seed-speed=9 \
-        android/bin/Release/net10.0/OhMyMods.AndroidProbe.dll
+        android/bin/Release/net6.0/OhMyMods.AndroidProbe.dll
 
 加载边界矩阵（各场景一次运行，期望 0 failed）：`--seed-speed=0|3`、`--oldcfg`、
 `--seed-fast-build`、`--seed-enemy-count=NaN|Infinity|0.5|9`、`--seed-enemy-timeline=NaN|Infinity|0.5|9`、
@@ -920,3 +922,8 @@ PR229发布后仅进展文档追加段冲突；已保留主线与Android两端�
 ## Issue #230 — 公共存档 namespace 编译兼容
 
 两个共享存档源在 ANDROID 分支直接导入真实 `Il2CppCoatsink.Common`，PC 原导入保持。默认全量诊断22条声明错误消除20条，剩Hook/INativeDetour2项平台边界；仅诊断opt-in桌面metadata后进入body阶段，仍有96条错误（76配置引用/37成员、1弩手身份缺口、19混合metadata歧义）。这不是全功能编译通过或玩法验收。现有Android66输入没有加入这两个文件，SDK10产品构建0W0E，0.0.30装机成果保持，未新启保存hooks或重打包安装。详情见[本批记录](../docs/project-harness/tasks/issue-230/implementation.md)。
+
+
+## Issue #262 — 经济与九类自动补货（源码候选）
+
+世界页增加经济子页，沿用PC中文/公共样式、小浮球与触屏滚动；九类开关默认关闭、目标15，数量±1且范围1..200。共享银行、八助手、对象池及保存入口直接复用PC源，不是Android重写。当前58项配置、133 owner/141关联、206 Compile / 176真实net6引用 / 25资源；原106顺序保持，银行ID/装载/世界确认复用原Msk五桥。实际D/R各1504 Adapter、oldcfg661与载入边界821通过，尚未装机或验证原生扣款/保存/读档/池重建。详见[本批验证](../docs/project-harness/tasks/issue-262/verification.md)。

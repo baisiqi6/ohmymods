@@ -413,7 +413,17 @@ namespace UnityEngine
         public Sprite sprite;
         public Color color = Color.white;
         public bool flipX;
+#if ANDROID
+        // Android 2.4 has no SpriteRenderer.flipY getter/setter (MissingICall).
+        public static int FlipYReads, FlipYWrites;
+        public bool flipY
+        {
+            get { FlipYReads++; throw new InvalidOperationException("Android 2.4 SpriteRenderer has no flipY getter"); }
+            set { FlipYWrites++; throw new InvalidOperationException("Android 2.4 SpriteRenderer has no flipY setter"); }
+        }
+#else
         public bool flipY;
+#endif
     }
 
     public struct AnimatorStateInfo

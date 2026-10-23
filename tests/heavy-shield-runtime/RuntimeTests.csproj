@@ -3,7 +3,11 @@
     <OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>disable</Nullable>
     <DefaultItemExcludes>$(DefaultItemExcludes);**/obj/**;**/bin/**</DefaultItemExcludes>
     <RuntimeOwnerSourceRoot Condition="'$(RuntimeOwnerSourceRoot)'==''">$(MSBuildThisFileDirectory)../../il2cpp</RuntimeOwnerSourceRoot>
+    <HeavyShieldActorVisualsSource Condition="'$(HeavyShieldActorVisualsSource)'==''">../../il2cpp/HeavyShieldActorVisuals.cs</HeavyShieldActorVisualsSource>
     <DefineConstants>HEAVY_SHIELD_ART_CORE_ONLY</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(AndroidFlipYTest)'=='true'">
+    <DefineConstants>$(DefineConstants);ANDROID</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../../il2cpp/Patch_HeavyShieldBanner.cs" Link="Production/Patch_HeavyShieldBanner.cs" />
@@ -19,7 +23,7 @@
     <Compile Include="../../il2cpp/HeavyShieldBlockPolicy.cs" Link="Production/HeavyShieldBlockPolicy.cs" />
     <Compile Include="../../il2cpp/Patch_HeavyShieldLeapBash.cs" Link="Production/Patch_HeavyShieldLeapBash.cs" />
     <Compile Include="../../il2cpp/Patch_HeavyShieldGait.cs" Link="Production/Patch_HeavyShieldGait.cs" />
-    <Compile Include="../../il2cpp/HeavyShieldActorVisuals.cs" Link="Production/HeavyShieldActorVisuals.cs" />
+    <Compile Include="$(HeavyShieldActorVisualsSource)" Link="Production/HeavyShieldActorVisuals.cs" />
     <Compile Include="../../il2cpp/HeavyShieldContracts.cs" Link="Production/HeavyShieldContracts.cs" />
     <Compile Include="../../il2cpp/HeavyShieldQuota.cs" Link="Production/HeavyShieldQuota.cs" />
     <Compile Include="../../il2cpp/PatchRoles_HeavyShieldArt.cs" Link="Production/ArtLayout.cs" />

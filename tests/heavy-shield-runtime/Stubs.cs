@@ -64,14 +64,28 @@ namespace UnityEngine
     public class Material : Object {}
     public class MaterialPropertyBlock {}
     public class SpriteRenderer : Behaviour { private bool Off;public int VisibilityWrites;public bool forceRenderingOff {get=>Off;set{NativeBoundaryWrites.Count++;VisibilityWrites++;Off=value;}}
-        public bool flipX,flipY;public int sortingLayerID,sortingOrder;public Color color;
+        public bool flipX;
+#if ANDROID
+        public static int FlipYReads,FlipYWrites;
+        public bool flipY{get{FlipYReads++;throw new Exception("Android 2.4 SpriteRenderer has no flipY getter");}set{FlipYWrites++;throw new Exception("Android 2.4 SpriteRenderer has no flipY setter");}}
+#else
+        public bool flipY;
+#endif
+        public int sortingLayerID,sortingOrder;public Color color;
         public Sprite sprite;public Material sharedMaterial=new(); public void GetPropertyBlock(MaterialPropertyBlock b){}public void SetPropertyBlock(MaterialPropertyBlock b){NativeBoundaryWrites.Count++;} }
     public class Rigidbody2D : Component {public bool VelocityReadFails;public int VelocityReads;private Vector2 Velocity;
         public Vector2 velocity {get{VelocityReads++;if(VelocityReadFails)throw new Exception("physical velocity unavailable");return Velocity;}set=>Velocity=value;} }
     public static class Time {public static float time,deltaTime=.2f,timeScale=1;public static int frameCount {get;set;}public static double unscaledTimeAsDouble {get;set;}}
 }
+#if ANDROID
+namespace Il2CppCoatsink.Common { public class IHaglet : Il2CppInterop.Runtime.InteropTypes.Il2CppObjectBase {}
+    public class Haglet : IHaglet {public bool stopped,completed,executing;} }
+namespace Coatsink.Common { public class IHaglet : Il2CppCoatsink.Common.Haglet {}
+    public class Haglet : IHaglet {} }
+#else
 namespace Coatsink.Common { public class IHaglet : Il2CppInterop.Runtime.InteropTypes.Il2CppObjectBase {}
     public class Haglet : IHaglet {public bool stopped,completed,executing;} }
+#endif
 public enum Side {Left=-1,Right=1}
 public enum EnemyType {TrollWeak,TrollMedium,ToughTroll,Archer=12,Boss=5}
 [Flags] public enum DamageSource {Troll=1,Knight=2,Fire=512,GreedProjectile=32768,Boulder=16,Arrow=8}

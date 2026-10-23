@@ -184,7 +184,15 @@ internal static class CoinCourierTeleportBodyBox
             float offsetY = (pixelCenterY - pivot.y) / ppu * sy;
             if (!float.IsFinite(offsetX) || !float.IsFinite(offsetY)) return false;
             if (renderer.flipX) offsetX = -offsetX;
+#if ANDROID
+            // Android 2.4 的 UnityEngine.SpriteRenderer 没有 flipY getter（缺失 ICall）。
+            // 本分支仅服务 Android 当前在编唯一 sized caller：BankAssistant 自建的
+            // SpriteRenderer（构造不写 Y，动画也无 Y track），故按未翻转处理。
+            // 未来新增 Android caller 或游戏版本出现 Y 写入时，必须先重验本契约。
+            // 全 repo 另有 CoinCourierRuntime 的 PC caller，不随本边界删除。
+#else
             if (renderer.flipY) offsetY = -offsetY;
+#endif
             float width = (local.MaxX - local.MinX) / ppu * Math.Abs(sx);
             float height = (local.MaxY - local.MinY) / ppu * Math.Abs(sy);
             if (!(width > 0f) || !(height > 0f)) return false;
@@ -307,7 +315,19 @@ internal static class CoinCourierTeleportBodyBox
                 Cache[key] = InvalidEntry;   // 不可读：记录失败，避免每次重试抛异常（安全降级由调用方处理）
                 return false;
             }
+#if ANDROID
+            // Current Android GetPixels ICall is stripped. Only this module's four owned
+            // readable PNGs satisfy the existing no-mip pixel helper's contract.
+            if (!BankAssistantAtlasVisuals.OwnsTexture(texture))
+            {
+                Cache[key] = InvalidEntry;
+                return false;
+            }
+            int textureWidth = texture.width;
+            Color32[] pixels = AndroidTexturePixels.ReadOwnedPng(texture, textureWidth, texture.height);
+#else
             Color[] pixels = texture.GetPixels(x, y, w, h);
+#endif
             if (pixels == null || pixels.Length < w * h)
             {
                 Cache[key] = InvalidEntry;
@@ -316,10 +336,18 @@ internal static class CoinCourierTeleportBodyBox
             int minX = int.MaxValue, minY = int.MaxValue, maxX = -1, maxY = -1;
             for (int row = 0; row < h; row++)
             {
+#if ANDROID
+                int rowBase = (y + row) * textureWidth + x;
+#else
                 int rowBase = row * w;
+#endif
                 for (int col = 0; col < w; col++)
                 {
+#if ANDROID
+                    if (pixels[rowBase + col].a < 8) continue; // byte alpha == 8f / 255f
+#else
                     if (pixels[rowBase + col].a < AlphaThreshold) continue;
+#endif
                     if (col < minX) minX = col;
                     if (col + 1 > maxX) maxX = col + 1;
                     if (row < minY) minY = row;

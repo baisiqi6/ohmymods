@@ -249,8 +249,16 @@ public static class PatchRoles_KnightStyle
             BiomeHolder holder = BiomeHolder.Inst;
             if (holder == null || holder.biomePathStrings == null) return;
 
+#if ANDROID
+            // The first ResolveFromSet in the same synchronous EnsureStyleAssets
+            // call just filled the base slots; two more full FindAll scans are
+            // redundant. The exact original-name checks below stay in place.
+            RuntimeAnimatorController baseKnight = KnightControllers[0];
+            RuntimeAnimatorController baseSoldier = SoldierControllers[0];
+#else
             RuntimeAnimatorController baseKnight = FindControllerByName("knight");
             RuntimeAnimatorController baseSoldier = FindControllerByName("archer_soldier");
+#endif
             // index 0 is the base medieval controller; the other styles come from
             // their native biome swap tables (Bamboo=1, Deadlands=2, Norse=3,
             // Greece=5).
@@ -294,6 +302,9 @@ public static class PatchRoles_KnightStyle
                         SoldierControllers[style] = entry.swap;
                 }
             }
+#if ANDROID
+            ResolveNorseKnightFromPrefabSwapPool(holder);
+#endif
         }
         catch (Exception e)
         {
@@ -301,6 +312,54 @@ public static class PatchRoles_KnightStyle
         }
     }
 
+#if ANDROID
+    /// <summary>
+    /// Norselands registers its knight through BiomeData.swapData.prefabSwapPool
+    /// (base "Knight" prefab -> Knight_norselands prefab); its animatorSwapPool
+    /// has no base-knight entry, so the loop above can never fill the Norse slot.
+    /// Read the swapped prefab root Animator controller only when the slot is
+    /// still empty, matching the exact base Knight instance. No instantiation,
+    /// pool registration, or name-based prefab guessing.
+    /// </summary>
+    private static void ResolveNorseKnightFromPrefabSwapPool(BiomeHolder holder)
+    {
+        if (KnightControllers[NorseStyleIndex] != null) return;
+        if (holder == null || holder.biomePathStrings == null) return;
+        int norseIndex = BiomeHolder.NorselandsBiomeIndex;
+        if (norseIndex < 0 || norseIndex >= holder.biomePathStrings.Length) return;
+        string norsePath = holder.biomePathStrings[norseIndex];
+        if (string.IsNullOrEmpty(norsePath)) return;
+
+        // The preload table can be lightweight; the full BiomeData carries the
+        // prefab table (same reason the animator loop reloads the full asset).
+        BiomeData norseBiomeData = Resources.Load<BiomeData>(norsePath);
+        if (norseBiomeData == null || norseBiomeData.swapData == null) return;
+        var prefabSwapPool = norseBiomeData.swapData.prefabSwapPool;
+        if (prefabSwapPool == null) return;
+
+        Managers managers = Managers.Inst;
+        Holder characterHolder = managers != null ? managers.holder : null;
+        if (characterHolder == null) return;
+        Character baseKnight = characterHolder.GetCharacterByTag("Knight");
+        if (baseKnight == null || baseKnight.gameObject == null) return;
+
+        GameObject baseKnightGO = baseKnight.gameObject;
+        for (int i = 0; i < prefabSwapPool.Count; i++)
+        {
+            var swap = prefabSwapPool[i];
+            if (swap == null || swap.original == null || swap.swap == null) continue;
+            if (swap.original != baseKnightGO) continue;
+            Animator animator = swap.swap.GetComponent<Animator>();
+            if (animator == null) return;
+            RuntimeAnimatorController controller = animator.runtimeAnimatorController;
+            if (controller == null) return;
+            if (controller.name != KnightControllerNames[NorseStyleIndex]) return;
+            KnightControllers[NorseStyleIndex] = controller;
+            return;
+        }
+    }
+
+#endif
     private static RuntimeAnimatorController FindControllerByName(string name)
     {
         RuntimeAnimatorController[] all = Resources.FindObjectsOfTypeAll<RuntimeAnimatorController>();
@@ -960,6 +1019,14 @@ public static class PatchRoles_KnightStyle
     /// 判定成本：GetComponent&lt;NpcShieldUser&gt; 只在骑士风格非北境且控制器已解析
     /// 时才发生（5s×随从数，reviewer 认定可接受；北境骑士名下的随从零额外开销）。
     /// </summary>
+#if ANDROID
+    private static int ResolveEffectiveFollowerStyleIndex(KnightStyleState state, bool isNorse)
+    {
+        return state.StyleIndex != NorseStyleIndex
+            && SoldierControllers[NorseStyleIndex] != null && isNorse
+            ? NorseStyleIndex : state.StyleIndex;
+    }
+#else
     private static int ResolveEffectiveFollowerStyleIndex(Archer archer, KnightStyleState state)
     {
         try
@@ -976,6 +1043,7 @@ public static class PatchRoles_KnightStyle
             return state.StyleIndex;
         }
     }
+#endif
 
     internal static bool ApplyFollowerSkinTo(Archer archer)
     {
@@ -990,6 +1058,10 @@ public static class PatchRoles_KnightStyle
             // 无自愈路径）。弩手不入骑士队，正常流程到不了这里；弩手上塔/上船
             // 同样触发 ConvertToSoldier → 本 postfix，此检查是必须的防御。
             if (PatchRoles_Crossbowman.IsCrossbowman(archer)) return false;
+#if ANDROID
+            bool isNorse;
+            if (!PatchRoles_NorseSquad.TryGetNorseArcherIdentity(archer, out isNorse)) return false;
+#endif
 
             Knight knight = archer._knight;
             if (knight == null || knight.gameObject == null)
@@ -1016,7 +1088,11 @@ public static class PatchRoles_KnightStyle
             }
 
             // 有效风格（Reviewer Q1）：跨队回收的北境随从按北境款，近战行为自洽
+#if ANDROID
+            int styleIndex = ResolveEffectiveFollowerStyleIndex(state, isNorse);
+#else
             int styleIndex = ResolveEffectiveFollowerStyleIndex(archer, state);
+#endif
 
             // 死地随从弩手化包：Apply 幂等（SO 指针判重）；非死地随从撤包（换队到
             // 非死地骑士时战斗数值跟随还原）。北境 prefab 随从走有效 index → 永不
@@ -1104,7 +1180,12 @@ public static class PatchRoles_KnightStyle
     {
         try
         {
+#if ANDROID
+            bool isNorse;
+            if (!PatchRoles_NorseSquad.TryGetNorseArcherIdentity(archer, out isNorse) || isNorse) return;
+#else
             if (PatchRoles_NorseSquad.IsNorseArcherInstance(archer)) return;
+#endif
             RestoreFollowerSoldierAnimator(archer);
             RepairLeakedFollowerSkin(archer);
         }
@@ -1130,7 +1211,12 @@ public static class PatchRoles_KnightStyle
             if (current == null || !IsStyleSoldierController(current)) return;
             // 北境近战/盾墙族的皮肤由 PatchRoles_NorseSquad 语义管理（非北境皮会冻结
             // attack/defend 近战 clip），泄漏修复不碰北境 prefab 实例。
+#if ANDROID
+            bool isNorse;
+            if (!PatchRoles_NorseSquad.TryGetNorseArcherIdentity(archer, out isNorse) || isNorse) return;
+#else
             if (PatchRoles_NorseSquad.IsNorseArcherInstance(archer)) return;
+#endif
 
             RuntimeAnimatorController baseAnimator = PatchRoles_Crossbowman.BaseSoldierAnimator;
             BiomeData biome = BiomeData.Current;
@@ -1339,6 +1425,14 @@ public static class PatchRoles_KnightStyle
                         continue;
                     }
 
+#if ANDROID
+                    bool isNorse;
+                    if (!PatchRoles_NorseSquad.TryGetNorseArcherIdentity(archer, out isNorse))
+                    {
+                        diagSkippedOther++;
+                        continue;
+                    }
+#endif
                     Knight knight = archer._knight;
                     if (knight == null || knight.gameObject == null)
                     {
@@ -1402,7 +1496,11 @@ public static class PatchRoles_KnightStyle
                     // 盾组件，被非北境骑士收编）按北境款——近战 clip 只在北境族，
                     // 写非北境皮近战时视觉冻结。后续 diag 计数/缩放/弩包/目标控制器
                     // 全部走有效 index；北境款未解析时回落骑士风格（现行逻辑）
+#if ANDROID
+                    int effectiveStyleIndex = ResolveEffectiveFollowerStyleIndex(state, isNorse);
+#else
                     int effectiveStyleIndex = ResolveEffectiveFollowerStyleIndex(archer, state);
+#endif
                     if (effectiveStyleIndex >= 0 && effectiveStyleIndex < StyleCount)
                         diagStyleTargets[effectiveStyleIndex]++; // 按实际穿的皮计（reviewer 拍板）
 

@@ -7,6 +7,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+#if ANDROID
+using System.Runtime.InteropServices;
+#endif
 using UnityEngine;
 
 namespace UnityEngine
@@ -36,6 +39,13 @@ namespace UnityEngine
         public static int DestroyCalls;
         public bool nativeAlive = true;
         public HideFlags hideFlags = HideFlags.None;
+
+        // Unity 原生对象身份的最小替身：同一 native 实例的不同托管包装共享 InstanceId
+        // （测试用 InstanceIdOverride 模拟），仅用于身份契约；不是 IL2CPP ABI 证据。
+        public static int InstanceIdSeq = 1000;
+        public readonly int InstanceId = ++InstanceIdSeq;
+        public int InstanceIdOverride;
+        public int GetInstanceID() => InstanceIdOverride != 0 ? InstanceIdOverride : InstanceId;
 
         public static void Destroy(Object target)
         {
@@ -96,12 +106,9 @@ namespace UnityEngine
 
     public class GameObject : Object
     {
-        public static int InstanceIdSeq = 1000;
         public static int AddComponentCalls;
 
         public readonly List<Component> Components = new();
-        public readonly int InstanceId = ++InstanceIdSeq;
-        public int InstanceIdOverride;
         public IntPtr Pointer;
         public Transform transform;
         private bool active = true;
@@ -117,7 +124,6 @@ namespace UnityEngine
         public bool activeSelf => active;
         public bool activeInHierarchy => active && (transform.parent == null || transform.parent.gameObject.activeInHierarchy);
         public void SetActive(bool value) => active = value;
-        public int GetInstanceID() => InstanceIdOverride != 0 ? InstanceIdOverride : InstanceId;
 
         public T AddComponent<T>() where T : Component, new()
         {
@@ -221,7 +227,7 @@ namespace UnityEngine
         public Color32(byte r, byte g, byte b, byte a) { this.r = r; this.g = g; this.b = b; this.a = a; }
     }
 
-    public enum TextureFormat { RGBA32 = 4 }
+    public enum TextureFormat { RGBA32 = 4, ARGB32 = 5, BGRA32 = 14 }
     public enum FilterMode { Point = 0, Bilinear = 1 }
     public enum TextureWrapMode { Repeat = 0, Clamp = 1 }
     public enum SpriteMeshType { FullRect = 0, Tight = 1 }
@@ -239,30 +245,84 @@ namespace UnityEngine
         public static byte FillAlpha;
 
         public int width, height;
+        public TextureFormat format;
         public FilterMode filterMode;
         public TextureWrapMode wrapMode;
         public int anisoLevel;
+
+        /// <summary>Android 原生像素面：真实 AllocHGlobal 缓冲区，owner 为 stub（Destroy/Reset 释放）。</summary>
+        public IntPtr imageData;
+        public ulong imageDataSize;
+        public bool imageDataPointerNull;
+        public static bool ThrowOnGetPixels32;
+        public static int GetPixels32Calls;
+        public static int LiveImageDataCount;
 
         public Texture2D(int width, int height, TextureFormat format, bool mipChain)
         {
             this.width = width;
             this.height = height;
+            this.format = format;
             CreatedCount++;
             Created.Add(this);
         }
 
         public Color32[] GetPixels32()
         {
+            GetPixels32Calls++;
+            if (ThrowOnGetPixels32)
+                throw new MissingMethodException("MissingICall: Texture2D.GetPixels32");
             var pixels = new Color32[width * height];
             for (int i = 0; i < pixels.Length; i++) pixels[i] = new Color32(0, 0, 0, FillAlpha);
             return pixels;
         }
 
-        protected override void OnDestroyedHook() => DestroyedCount++;
+        public ulong GetImageDataSize() => imageDataSize;
+        public IntPtr GetWritableImageData(int element = 0) => imageDataPointerNull ? IntPtr.Zero : imageData;
+
+        /// <summary>测试布置原生字节；分配/复制/旧缓冲释放都由 stub owner 完成。</summary>
+        public void SetImageData(byte[] bytes)
+        {
+#if ANDROID
+            FreeImageData();
+            imageDataSize = (ulong)bytes.Length;
+            if (bytes.Length == 0 || imageDataPointerNull) return;
+            imageData = Marshal.AllocHGlobal(bytes.Length);
+            LiveImageDataCount++;
+            Marshal.Copy(bytes, 0, imageData, bytes.Length);
+#else
+            throw new NotSupportedException("native image data is an Android-only stub surface");
+#endif
+        }
+
+        internal void FreeImageData()
+        {
+#if ANDROID
+            if (imageData != IntPtr.Zero)
+            {
+                Marshal.FreeHGlobal(imageData);
+                imageData = IntPtr.Zero;
+                LiveImageDataCount--;
+            }
+#endif
+            imageDataSize = 0;
+        }
+
+        protected override void OnDestroyedHook()
+        {
+            DestroyedCount++;
+            FreeImageData();
+        }
 
         public static void ResetCounters()
         {
+#if ANDROID
+            foreach (Texture2D texture in Created) texture?.FreeImageData();
+#endif
             CreatedCount = DestroyedCount = 0;
+            GetPixels32Calls = 0;
+            ThrowOnGetPixels32 = false;
+            LiveImageDataCount = 0;
             Created.Clear();
         }
     }
@@ -300,12 +360,32 @@ namespace UnityEngine
     {
         public static bool Result;
         public static int SimulatedWidth = 1774, SimulatedHeight = 887;
+        // Android 像素面：显式字节（RGBA/ARGB 原始布局）或按 FillAlpha 生成 RGBA。
+        public static byte[] SimulatedPixels;
+        public static TextureFormat SimulatedFormat = TextureFormat.RGBA32;
+        public static bool SimulatedPointerNull;
 
         public static bool LoadImage(Texture2D texture, byte[] data, bool markNonReadable)
         {
             if (!Result) return false;
             texture.width = SimulatedWidth;
             texture.height = SimulatedHeight;
+#if ANDROID
+            if (SimulatedPixels != null)
+            {
+                texture.format = SimulatedFormat;
+                texture.imageDataPointerNull = SimulatedPointerNull;
+                texture.SetImageData(SimulatedPixels);
+            }
+            else
+            {
+                texture.format = TextureFormat.RGBA32;
+                var pixels = new byte[checked(texture.width * texture.height * 4)];
+                for (int i = 0; i < pixels.Length; i += 4) pixels[i + 3] = Texture2D.FillAlpha;
+                texture.imageDataPointerNull = SimulatedPointerNull;
+                texture.SetImageData(pixels);
+            }
+#endif
             return true;
         }
 
@@ -314,6 +394,9 @@ namespace UnityEngine
             Result = false;
             SimulatedWidth = 1774;
             SimulatedHeight = 887;
+            SimulatedPixels = null;
+            SimulatedFormat = TextureFormat.RGBA32;
+            SimulatedPointerNull = false;
         }
     }
 

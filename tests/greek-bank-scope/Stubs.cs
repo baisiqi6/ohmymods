@@ -1132,3 +1132,13 @@ namespace KingdomEnhancedMod {
 internal static class CoinCourierBankScope {
  internal static bool IsCurrentAuthorityBanker(Banker banker) => throw new System.NotSupportedException("coin courier scope is not covered by the greek bank fixture");
 } }
+
+// Data-only game boundary: MainBankerFixedDomain excludes the production wall-spot marker.
+// The selection algorithm remains linked production code; no wall-placement logic is modelled.
+namespace KingdomEnhancedMod
+{
+    internal static class PatchWorld_WallSpots
+    {
+        internal const string MarkerPrefix = "KEM_WallSpot";
+    }
+}

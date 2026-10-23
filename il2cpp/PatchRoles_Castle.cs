@@ -522,6 +522,9 @@ public static class PatchRoles_Castle
 
             if (Pool.GetPoolFromPrefabAsset(prefab.gameObject) != null) return;
 
+#if ANDROID
+            if (!AndroidProfessionPoolLifecycle.CanRegisterCustomPools(pm)) return;
+#endif
             DestroyOrphanPools(pm, prefab.gameObject);
             RegisterSyncedPool(pm, prefab.gameObject, toolName);
         }
@@ -551,6 +554,9 @@ public static class PatchRoles_Castle
 
             if (Pool.GetPoolFromPrefabAsset(prefab.gameObject) != null) return;
 
+#if ANDROID
+            if (!AndroidProfessionPoolLifecycle.CanRegisterCustomPools(pm)) return;
+#endif
             DestroyOrphanPools(pm, prefab.gameObject);
             RegisterSyncedPool(pm, prefab.gameObject, "char:" + tag);
         }

@@ -151,6 +151,7 @@ static class Harness
         UnityEngine.Object.Destroyed.Clear();
         UnityEngine.Object.DestroyListener = null;
         UnityEngine.Resources.Assets.Clear();
+        AnimatorOverrideController.ThrowOnRuntimeControllerGet = false;
         PlayerPrefs.ResetAll();
         Pool.ByPrefab.Clear();
         Pool.ByInstance.Clear();

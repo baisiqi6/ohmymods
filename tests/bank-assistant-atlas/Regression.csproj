@@ -4,10 +4,13 @@
         <TargetFramework>net8.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>disable</Nullable>
+        <!-- 负控可用 -p:BankAtlasSource=... 指向旧版生产源；默认保持原路径语义。 -->
+        <BankAtlasSource Condition="'$(BankAtlasSource)' == ''">../../il2cpp/BankAssistantAtlasVisuals.cs</BankAtlasSource>
     </PropertyGroup>
     <ItemGroup>
         <Compile Include="../../il2cpp/BankAssistantAtlasMetadata.cs" />
-        <Compile Include="../../il2cpp/BankAssistantAtlasVisuals.cs" />
+        <Compile Include="$(BankAtlasSource)" />
+        <Compile Include="../../android/AndroidTexturePixels.cs" />
         <Compile Include="../../il2cpp/CharacterLeisureClock.cs" />
     </ItemGroup>
 </Project>

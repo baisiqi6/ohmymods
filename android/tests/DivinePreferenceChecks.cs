@@ -30,7 +30,7 @@ internal static class DivinePreferenceChecks
             old.Add(field, field.FieldType.GetField("Value", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
                 .GetValue(field.GetValue(null)));
         }
-        Checks.Check(old.Count == 39, "divine toggle retains the other thirty-nine real preferences");
+        Checks.Check(old.Count == 57, "divine toggle retains the other fifty-seven real preferences");
         int saves = MelonPreferencesStub.SaveCalls;
         Config.ToggleDivineParameters();
         Checks.Check(Config.DivineParametersEnabled.Value == !seeded && MelonPreferencesStub.SaveCalls == saves + 1,

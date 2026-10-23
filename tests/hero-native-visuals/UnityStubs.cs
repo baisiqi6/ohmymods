@@ -282,7 +282,18 @@ namespace UnityEngine
 
         public Sprite sprite;
         public bool flipX;
+#if ANDROID
+        // Android 2.4 metadata has no SpriteRenderer.flipY getter/setter: any read or write is a
+        // MissingICall fault. Counters prove the production boundary never touches it.
+        public static int FlipYReads, FlipYWrites;
+        public bool flipY
+        {
+            get { FlipYReads++; throw new InvalidOperationException("Android 2.4 SpriteRenderer has no flipY getter"); }
+            set { FlipYWrites++; throw new InvalidOperationException("Android 2.4 SpriteRenderer has no flipY setter"); }
+        }
+#else
         public bool flipY;
+#endif
         public Color color = Color.white;
 
         /// <summary>下一次 forceRenderingOff 读取抛异常（模拟半销毁对象）。</summary>
