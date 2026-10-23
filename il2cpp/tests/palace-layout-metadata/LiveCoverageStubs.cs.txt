@@ -1,0 +1,9 @@
+using System; using System.Collections.Generic; using KingdomEnhancedMod;
+public struct Quaternion { public int value; public static Quaternion identity=>new(); public static bool operator==(Quaternion a,Quaternion b)=>a.value==b.value; public static bool operator!=(Quaternion a,Quaternion b)=>a.value!=b.value; public override bool Equals(object obj)=>obj is Quaternion q&&q==this; public override int GetHashCode()=>value; }
+public class Vector3 { public float x,y,z; }
+public class Transform { public Quaternion rotation; public Vector3 position=new(); public Vector3 localPosition=new(); public Vector3 localScale=new(){x=1,y=1,z=1}; public Vector3 lossyScale=new(){x=1,y=1,z=1}; public List<Transform> children=new(); public int childCount=>children.Count; public Transform GetChild(int i)=>children[i]; public GameObject gameObject=new(); }
+public class GameObject { public bool activeInHierarchy=true; public Tile tile; public Beach beach; public T GetComponent<T>() where T:class => typeof(T)==typeof(Tile)?tile as T:beach as T; }
+public class Beach { }
+public class Tile { public float left; public float GetLeft()=>left; public float GetRight()=>left+4; }
+public class World { public Transform gameLayer=new(); }
+public class Managers { public static Managers Inst=new(); public World world=new(); }

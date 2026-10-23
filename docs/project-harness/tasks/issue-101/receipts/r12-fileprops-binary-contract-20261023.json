@@ -1,0 +1,119 @@
+{
+  "passed": true,
+  "scope": "Read-only Cecil binary contract and bounded byte-array MODEL; no Native acceptance",
+  "inputs": [
+    {
+      "path": "/Applications/ohmymods/arm64/BepInEx/interop/Assembly-CSharp.dll",
+      "sha256": "d6b249a4c5d7c833bec733d172df9a6083e87e5fc203c466d9195f0b7bc7041f"
+    },
+    {
+      "path": "/Applications/ohmymods/arm64/BepInEx/interop/Il2Cppmscorlib.dll",
+      "sha256": "2f4cc1a32e3ca068eb5823b9daa3e976f4dd113bca42bc9ec6167b44bb1110f5"
+    },
+    {
+      "path": "/Applications/ohmymods/arm64/BepInEx/core/Il2CppInterop.Runtime.dll",
+      "sha256": "4dae2520ea6d36701a92f622f62a339e9c4c58b7bf5bf4744e8154f7fa0c67e2"
+    }
+  ],
+  "runtimeVersion": "1.5.3.0",
+  "checks": [
+    {
+      "name": "FileProps CLR class / native ValueType wrapper",
+      "passed": true,
+      "evidence": "IslandSaveData/FileProps : Il2CppSystem.ValueType"
+    },
+    {
+      "name": "FilePropsKey explicit 12-byte field extent",
+      "passed": true,
+      "evidence": "challengeId:System.Int32@0,campaign:System.Int32@4,land:System.Int32@8; extent=8\u002B4; ClassSize=-1"
+    },
+    {
+      "name": "fileProps actual Dictionary signature",
+      "passed": true,
+      "evidence": "Il2CppSystem.Collections.Generic.Dictionary\u00602\u003CIslandSaveData/FilePropsKey,IslandSaveData/FileProps\u003E"
+    },
+    {
+      "name": "TryGetValue dangerous CLR TValue branch uses single native-int local",
+      "passed": true,
+      "evidence": "IL_005c: ldtoken TValue | IL_0061: call System.Type System.Type::GetTypeFromHandle(System.RuntimeTypeHandle) | IL_0066: callvirt System.Boolean System.Type::get_IsValueType() | IL_006b: brtrue.s IL_0075 | IL_006d: ldc.i4.0 | IL_006e: stloc.s V_4 | IL_0070: ldloca.s V_4 | IL_0072: conv.i | IL_0073: br.s IL_0077 | IL_0075: nop | IL_0076: ldarg.2 | IL_0077: nop"
+    },
+    {
+      "name": "TryGetValue feeds unboxed false,false conversion",
+      "passed": true,
+      "evidence": "runtime_invoke \u002B PointerToValueGeneric(false,false)"
+    },
+    {
+      "name": "get_Item boxed runtime invoke contract",
+      "passed": true,
+      "evidence": "runtime_invoke \u002B PointerToValueGeneric(false,true), no out parameter"
+    },
+    {
+      "name": "Runtime converter tests native value type and boxes",
+      "passed": true,
+      "evidence": "Read actual runtime IL; native-value/class distinction retained"
+    },
+    {
+      "name": "Runtime true boxed flag bypasses value_box",
+      "passed": true,
+      "evidence": "IL_0027: ldarg.2 | IL_0028: brtrue.s IL_0043 | IL_002a: ldsfld System.IntPtr Il2CppInterop.Runtime.Il2CppClassPointerStore\u00601\u003CT\u003E::NativeClassPtr | IL_002f: call System.Boolean Il2CppInterop.Runtime.IL2CPP::il2cpp_class_is_valuetype(System.IntPtr) | IL_0034: brfalse.s IL_0043 | IL_0036: ldsfld System.IntPtr Il2CppInterop.Runtime.Il2CppClassPointerStore\u00601\u003CT\u003E::NativeClassPtr | IL_003b: ldarg.0 | IL_003c: call System.IntPtr Il2CppInterop.Runtime.IL2CPP::il2cpp_value_box(System.IntPtr,System.IntPtr) | IL_0041: starg.s objectPointer | IL_0043: ldtoken T | IL_0048: call System.Type System.Type::GetTypeFromHandle(System.RuntimeTypeHandle) | IL_004d: ldtoken System.String | IL_0052: call System.Type System.Type::GetTypeFromHandle(System.RuntimeTypeHandle) | IL_0057: call System.Boolean System.Type::op_Equality(System.Type,System.Type) | IL_005c: brfalse.s IL_006a | IL_005e: ldarg.0"
+    },
+    {
+      "name": "MODEL 16B native write crosses 8B out slot hit",
+      "passed": true,
+      "evidence": "Controlled byte array: bytes 8..15 changed; 16..23 intact. Not Native execution."
+    },
+    {
+      "name": "MODEL 16B native write crosses 8B out slot miss",
+      "passed": true,
+      "evidence": "Controlled byte array: bytes 8..15 changed; 16..23 intact. Not Native execution."
+    },
+    {
+      "name": "MODEL boxed object header differs from unboxed payload",
+      "passed": true,
+      "evidence": "Header-as-payload reproduces wrong field values, without dereference."
+    },
+    {
+      "name": "MODEL value array inline stride is 16B",
+      "passed": true,
+      "evidence": "Not a reference array; does not claim fileProps itself is an array."
+    },
+    {
+      "name": "PRODUCT exact dictionary read operations",
+      "passed": true,
+      "evidence": "System.Boolean Il2CppSystem.Collections.Generic.Dictionary\u00602\u003CIslandSaveData/FilePropsKey,IslandSaveData/FileProps\u003E::ContainsKey(!0) | !1 Il2CppSystem.Collections.Generic.Dictionary\u00602\u003CIslandSaveData/FilePropsKey,IslandSaveData/FileProps\u003E::get_Item(!0)"
+    },
+    {
+      "name": "PRODUCT no TryGetValue or Remove(out)",
+      "passed": true,
+      "evidence": "TryTargetFile callsite scan"
+    },
+    {
+      "name": "PRODUCT exactly one FileProps filename getter",
+      "passed": true,
+      "evidence": "count=1"
+    }
+  ],
+  "product": {
+    "path": "/Users/Admin/projects/ohmymods/.local/tasks/palace400-runtime-20261023/phase-c/f-source8-build/bin-diagnostic-net6.0/KingdomEnhancedMod.dll",
+    "sha256": "91c257b9e35facd8e7214212ae33f9dccd664e6bbed8aac0ff29f8c9eed9e959",
+    "method": "System.Boolean KingdomEnhancedMod.PalaceDestinationAdmission::TryTargetFile(CampaignSaveData,KingdomEnhancedMod.PalaceSaveBinding,System.IntPtr\u0026,System.Int32\u0026,System.String\u0026,System.String\u0026)",
+    "calls": [
+      "System.Boolean KingdomEnhancedMod.PalaceSaveBindingSource::CurrentMatches(System.String\u0026)",
+      "System.Boolean KingdomEnhancedMod.ExtensionIslandRuntime::IsFilePropsPrepared()",
+      "System.Boolean IslandSaveData::get_isSavingGame()",
+      "System.String System.String::Concat(System.String,System.String)",
+      "Il2CppSystem.Collections.Generic.Dictionary\u00602\u003CIslandSaveData/FilePropsKey,IslandSaveData/FileProps\u003E IslandSaveData::get_fileProps()",
+      "System.Int32 IslandSaveData::get_MAX_BIOME_ISLANDS()",
+      "System.Boolean Il2CppSystem.Collections.Generic.Dictionary\u00602\u003CIslandSaveData/FilePropsKey,IslandSaveData/FileProps\u003E::ContainsKey(!0)",
+      "!1 Il2CppSystem.Collections.Generic.Dictionary\u00602\u003CIslandSaveData/FilePropsKey,IslandSaveData/FileProps\u003E::get_Item(!0)",
+      "System.String IslandSaveData/FileProps::get_filename()",
+      "System.Boolean System.String::IsNullOrEmpty(System.String)",
+      "System.IntPtr Il2CppInterop.Runtime.InteropTypes.Il2CppObjectBase::get_Pointer()",
+      "System.String Filer::get_folder()",
+      "System.Boolean System.String::op_Inequality(System.String,System.String)",
+      "System.String Filer/DotNetAgent::get_folder()",
+      "System.Boolean System.String::op_Inequality(System.String,System.String)",
+      "KingdomEnhancedMod.PalaceSaveBinding KingdomEnhancedMod.PalaceSaveBindingSource::get_Current()"
+    ]
+  }
+}

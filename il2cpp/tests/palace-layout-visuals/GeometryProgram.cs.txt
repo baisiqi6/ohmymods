@@ -1,0 +1,20 @@
+using KingdomEnhancedMod;
+int checks=0;void Check(bool b,string n){checks++;if(!b)throw new Exception(n);}void Close(double a,double b,string n)=>Check(Math.Abs(a-b)<1e-10,n);
+void Throws(Action a,string n){try{a();throw new Exception("not refused: "+n);}catch(ArgumentException){checks++;}}
+var old=new PalaceScrollCalibration(.25,10,2);Close(old.WorldX(645),10,"old axis");Close(old.WorldY(187),2,"old footline");Close(old.WorldX(0),10-.25*645,"old left");
+var oldPivot=old.SharedPivot(0,0,1448,252);Close(oldPivot.X,645d/1448,"old pivotX");Close(oldPivot.Y,65d/252,"old pivotY");old.RequireUnityCanvas();checks++;
+Check(PalaceScrollCalibration.CanvasWidth==1448&&PalaceScrollCalibration.AnchorPixelX==645&&PalaceScrollCalibration.FootlinePixelY==187,"old constants unchanged");
+PalaceScrollCalibration.RequireReviewedRearEnvelope(-16,16,0);checks++;Throws(()=>PalaceScrollCalibration.RequireReviewedRearEnvelope(-17,16,0),"legacy envelope");
+Throws(()=>new PalaceScrollCalibration(null,1d/32,0,.885),"unknown descriptor");
+Throws(()=>new PalaceScrollDescriptor(null,12840,252,224,0,0,12840,252),"unknown recipe");
+Throws(()=>new PalaceScrollDescriptor(PalaceLayoutRecipe.Capital400,1448,252,224,0,0,12840,252),"wrong master");
+Throws(()=>new PalaceScrollDescriptor(PalaceLayoutRecipe.Capital400,12840,252,0,0,0,12840,252),"missing footline");
+Throws(()=>new PalaceScrollDescriptor(PalaceLayoutRecipe.Capital400,12840,252,224,1,0,12840,252),"transport excludes master");
+Throws(()=>new PalaceScrollDescriptor(PalaceLayoutRecipe.Capital400,12840,252,224,int.MinValue,0,int.MaxValue,252),"transport overflow");
+// 224 is the explicit authored street reference in consumer-layout-r12.md. No complete scene/art readiness is claimed.
+var d=new PalaceScrollDescriptor(PalaceLayoutRecipe.Capital400,12840,252,224,0,0,12840,252);
+var c=new PalaceScrollCalibration(d,1d/32,0,.885);Close(c.WorldX(20),-200,"400 left physical probe");Close(c.WorldX(6420),0,"400 gate probe");Close(c.WorldX(12820),200,"400 right physical probe");Close(c.WorldY(224),.885,"explicit224");Close(c.WorldY(225),.885-1d/32,"new WorldY");c.RequireUnityCanvas();checks++;
+var pivot=c.SharedPivot(6400,200,100,52);Close(pivot.X,.2,"new shared pivotX");Close(pivot.Y,28d/52,"new shared pivotY");
+Close(c.StreetWorldX(6420,20,0),-20d/32,"semantic support X");Close(c.StreetWorldY(60,0,.125),.885+.125+60d/32,"semantic local support Y independent sourceRectY");
+Throws(()=>new PalaceScrollCalibration(d,1d/16,0,.885),"not stretch400");Throws(()=>new PalaceScrollCalibration(d,1d/32,1,.885),"wrong gate");Throws(()=>c.WorldY(double.NaN),"nonfinite Y");Throws(()=>c.StreetWorldY(60,double.PositiveInfinity,0),"nonfinite support");
+Console.WriteLine("PASS "+checks+" actual geometry checks; authored224 is design-only");

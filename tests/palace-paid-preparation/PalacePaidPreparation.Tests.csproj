@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <UseSharedCompilation>false</UseSharedCompilation>
+    <NodeReuse>false</NodeReuse>
+    <CheckEolTargetFramework>false</CheckEolTargetFramework>
+    <NuGetAudit>false</NuGetAudit>
+    <GeneratedSourceDir>$(MSBuildProjectDirectory)/obj/$(Configuration)/$(TargetFramework)/generated</GeneratedSourceDir>
+    <PaidSource>$(MSBuildProjectDirectory)/../../il2cpp/Patch_PalacePaidResponsibility.cs</PaidSource>
+    <VisibleSource>$(MSBuildProjectDirectory)/../../il2cpp/Patch_PalaceVisibleEntry.cs</VisibleSource>
+  </PropertyGroup>
+  <Target Name="ExtractPreparationSurface" BeforeTargets="BeforeCompile">
+    <Exec Command="dotnet run --project &quot;$(MSBuildProjectDirectory)/Extractor/Extractor.csproj&quot; -c Release -p:UseSharedCompilation=false -p:NuGetAudit=false -p:CheckEolTargetFramework=false -- &quot;$(PaidSource)&quot; &quot;$(VisibleSource)&quot; &quot;$(GeneratedSourceDir)&quot;"
+          EnvironmentVariables="MSBUILDDISABLENODEREUSE=1" />
+  </Target>
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <Compile Include="HostStubs.cs" />
+    <Compile Include="$(GeneratedSourceDir)/PalacePaidPreparation.Extracted.cs" />
+    <Compile Include="$(GeneratedSourceDir)/PalacePaidPreparation.Caller.cs" />
+    <Compile Include="$(GeneratedSourceDir)/PalacePaidPreparation.Digests.cs" />
+    <AssemblyMetadata Include="PaidSourcePath" Value="$(PaidSource)" />
+    <AssemblyMetadata Include="VisibleSourcePath" Value="$(VisibleSource)" />
+    <AssemblyMetadata Include="PreparationExtractionMetadata" Value="$(GeneratedSourceDir)/extraction.json" />
+    <AssemblyMetadata Include="PreparationGeneratedEngine" Value="$(GeneratedSourceDir)/PalacePaidPreparation.Extracted.cs" />
+    <AssemblyMetadata Include="PreparationGeneratedCaller" Value="$(GeneratedSourceDir)/PalacePaidPreparation.Caller.cs" />
+  </ItemGroup>
+</Project>

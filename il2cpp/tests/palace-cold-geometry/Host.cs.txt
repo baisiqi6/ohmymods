@@ -1,0 +1,475 @@
+#nullable enable annotations
+using System;
+using System.Collections.Generic;
+using System.Text.Json;
+
+namespace KingdomEnhancedMod;
+
+// Host-only native boundary values. They carry pointers and controlled outcomes; they are not
+// native execution evidence and do not implement Unity serialization.
+internal sealed class IslandSaveData
+{
+    internal static bool isSavingGame;
+    internal IntPtr Pointer;
+    internal string Json = "{\"objects\":[]}";
+    internal bool ThrowOnSerialize;
+    internal SavedObjects? objects;
+    internal IntRange _levelEdges = new IntRange();
+}
+
+internal sealed class SavedObjects { internal IntPtr Pointer; internal int Count; }
+internal sealed class IntRange { internal int min, max; }
+internal sealed class Scene { internal int handle; }
+internal sealed class GameObject { internal Scene scene = new Scene(); }
+internal sealed class Transform { internal IntPtr Pointer; internal GameObject gameObject = new GameObject(); }
+internal sealed class World
+{
+    internal IntPtr Pointer;
+    internal Transform gameLayer = new Transform();
+    internal GameObject gameObject = new GameObject();
+}
+internal sealed class BiomeHolderType { internal IntPtr Pointer; }
+internal static class BiomeHolder { internal static BiomeHolderType Inst = new BiomeHolderType(); }
+internal sealed class DedicatedScope { internal PalaceLayoutRecipe? Recipe; }
+
+internal sealed class CampaignSaveData
+{
+    internal static CampaignSaveData current = null!;
+    internal IntPtr Pointer;
+    internal List<IslandSaveData> _islands = new List<IslandSaveData>();
+    internal IslandSaveData CurrentIsland = null!;
+    internal int CurrentLand = 12;
+    internal int reign, biomeIndex, realStartDateTime, totalGameDays;
+    internal Reign currentReign = new Reign();
+}
+
+internal sealed class GlobalSaveData
+{
+    internal static GlobalSaveData loaded = null!;
+    internal IntPtr Pointer;
+    internal CampaignSaveData GetCurrentCampaign() => Host.Campaign;
+}
+
+internal sealed class Game
+{
+    internal enum State { Playing, Loading }
+    internal IntPtr Pointer;
+    internal State state;
+    internal int currentLand;
+}
+
+internal sealed class Level { internal IntPtr Pointer; }
+internal sealed class Reign { internal int daysSurvived; }
+internal sealed class Managers
+{
+    internal static Managers Inst = null!;
+    internal Game game = null!;
+    internal Level level = null!;
+    internal World world = null!;
+}
+
+internal static class JsonUtility
+{
+    internal static string ToJson(object obj, bool prettyPrint)
+    {
+        IslandSaveData island = obj as IslandSaveData;
+        if (island == null) throw new InvalidOperationException("host-only-island");
+        if (island.ThrowOnSerialize) throw new InvalidOperationException("snapshot");
+        return island.Json;
+    }
+}
+
+internal sealed class PalacePaidScope
+{
+    internal const int RequiredPlayerSlot = 1;
+    internal string Profile { get; }
+    internal Guid CampaignGuid { get; }
+    internal int CampaignSlot { get; }
+    internal int Biome { get; }
+    internal int Reign { get; }
+    internal int Start { get; }
+    internal int PlayerSlot { get; }
+
+    internal PalacePaidScope(string profile, Guid guid, int slot, int biome, int reign, int start, int playerSlot)
+    { Profile = profile; CampaignGuid = guid; CampaignSlot = slot; Biome = biome; Reign = reign; Start = start; PlayerSlot = playerSlot; }
+
+    internal bool ContentEquals(PalacePaidScope? other)
+        => other != null && Profile == other.Profile && CampaignGuid == other.CampaignGuid
+            && CampaignSlot == other.CampaignSlot && Biome == other.Biome && Reign == other.Reign
+            && Start == other.Start && PlayerSlot == other.PlayerSlot;
+}
+
+internal static class PalaceRuntimeProfile { internal static string Id = "profile-a"; }
+
+internal enum PalacePaidStage { ChargeIntent, DepartureClaimed, Entered }
+internal sealed class PalacePaidHandle
+{
+    internal PalacePaidScope Owner = null!;
+    internal Guid TripId;
+    internal int SourceLand;
+    internal PalacePaidStage Stage;
+    internal PalaceSourceClockReceipt SourceClockReceipt = null!;
+}
+
+internal readonly struct PalaceClockScope
+{
+    internal readonly string Guid;
+    internal readonly int Slot, Biome, Reign, Start, SourceLand;
+    internal PalaceClockScope(string guid, int slot, int biome, int reign, int start, int sourceLand)
+    { Guid = guid; Slot = slot; Biome = biome; Reign = reign; Start = start; SourceLand = sourceLand; }
+}
+
+internal sealed class PalaceSourceClockReceipt
+{
+    internal string TripId = "";
+    internal string SourceObjectsSha = "";
+    internal PalaceClockScope Scope;
+    internal bool SameTripId(string id) => TripId == id;
+    internal bool SameScope(PalaceClockScope scope) => Scope.Equals(scope);
+    internal string WriteCanonicalStrict() => "receipt:" + TripId;
+}
+
+internal sealed class PalaceTripRecord
+{
+    internal int Version = 4;
+    internal string TripId = "";
+    internal string Phase = PalaceTripContext.PhasePalaceSelected;
+    internal string CampaignGuid = "";
+    internal int CampaignSlot, Biome, Reign, Start;
+    internal int SourceLand = 8;
+    internal PalaceLayoutRecipe? DestinationLayout;
+}
+
+internal sealed class PalaceReloadHandoffFacts
+{
+    internal string TripId = "", Phase = "";
+    internal int TargetLand, RecordSourceLand;
+    internal ulong OldGame;
+}
+
+internal sealed class PalaceClockReturnFacts
+{
+    internal PalaceClockReturnFacts(string tripId, PalaceSourceClockReceipt receipt, long campaignPtr,
+        long ownerPtr, long globalPtr, long gamePtr, long sourceIslandPtr, int total, int reign, string sha) { }
+}
+
+internal static class PalaceTripContext
+{
+    internal const string PhasePalaceSelected = "PalaceSelected";
+    internal const string PhaseReturnSelected = "ReturnSelected";
+    internal enum ReadStatus { Ok, Missing, Fault, Invalid }
+
+    internal static ReadStatus Read(GlobalSaveData global, out PalaceTripRecord record, out string detail)
+    { record = Host.Trip; detail = ""; return Host.TripOk ? ReadStatus.Ok : ReadStatus.Invalid; }
+
+    internal static bool TryBinding(GlobalSaveData global, CampaignSaveData campaign,
+        out string guid, out int slot, out string reason)
+    { guid = Host.GuidText; slot = Host.Slot; reason = ""; return Host.BindingOk; }
+}
+
+internal static class ExtensionIslandRuntime
+{
+    internal static bool TryScope(out CampaignSaveData campaign)
+    { campaign = Host.Campaign; return true; }
+}
+
+internal static class PalaceLand12Runtime
+{
+    internal static bool HasActiveReloadHandoff => Host.ActiveHandoff;
+    internal static bool TryDescribeVerifiedReloadHandoff(ulong gamePtr,
+        out PalaceReloadHandoffFacts facts, out string reason)
+    { facts = Host.HandoffFacts; reason = ""; return Host.HandoffOk; }
+}
+
+internal static class PalaceSaveBindingSource
+{
+    internal static bool TryAdoptReloadBoundary(Game game, out string reason)
+    { reason = ""; return Host.AdoptOk; }
+    internal static bool TryCaptureAtColdPalacePop(Game game, IslandSaveData island, out string reason)
+    { reason = ""; return Host.CaptureOk; }
+}
+
+internal static class PalaceVisitClock
+{
+    internal static bool Armed => Host.Armed;
+    internal static bool TryConfirmOutboundArmed(PalaceSourceClockReceipt receipt, string tripId, long oldGame,
+        out string reason) { reason = ""; return Host.OutboundOk; }
+    internal static bool TryArmCold(PalaceSourceClockReceipt receipt, string tripId, PalaceClockScope scope,
+        int total, int reign, out string reason) { reason = ""; return Host.ArmColdOk; }
+    internal static bool TryArmReturnOrConfirmExact(PalaceClockReturnFacts facts, out string reason)
+    { reason = ""; return Host.ReturnConfirmOk; }
+}
+
+internal static class PalacePaidResponsibility
+{
+    internal static bool TryReadExistingForBootstrap(PalacePaidScope owner, string tripId, int sourceLand,
+        out PalacePaidHandle handle, out string reason)
+    { handle = Host.Existing; reason = ""; return Host.ExistingOk; }
+}
+
+internal static class Host
+{
+    internal static bool Enabled = true, OrderOk = true, CurrentOk = true, OwnerOk = true;
+    internal static bool HandleOk = true, SourceDigestOk = true, CaptureOk = true, ArmColdOk = true;
+    internal static bool OutboundOk = true, ReturnConfirmOk = true, TripOk = true, BindingOk = true;
+    internal static bool AdoptOk = true, ExistingOk = true, Armed, ActiveHandoff, HandoffOk;
+    internal static bool GroundOk = true, CurrentPrivateLand12 = true;
+    internal static string GuidText = "11111111-2222-3333-4444-555555555555";
+    internal static int Slot;
+    internal static Game GameRef = null!;
+    internal static GlobalSaveData Global = null!;
+    internal static CampaignSaveData Campaign = null!;
+    internal static IslandSaveData Island = null!;
+    internal static Managers ManagersRef = null!;
+    internal static Level Level = null!;
+    internal static World WorldRef = null!;
+    internal static PalaceTripRecord Trip = null!;
+    internal static PalaceSourceClockReceipt Receipt = null!;
+    internal static PalacePaidScope Owner = null!;
+    internal static PalacePaidHandle Existing = null!;
+    internal static PalaceReloadHandoffFacts HandoffFacts = null!;
+    internal static readonly List<string> Holds = new List<string>();
+    internal static int OriginalRuns;
+
+    internal static string Saved(PalaceLayoutRecipe recipe, int? count = null, int? colliderWidth = null,
+        bool duplicate = false, bool noGround = false, bool withGround = true, string tilePrefix = "Tile-test-")
+    {
+        int tiles = count ?? recipe.TileCount;
+        int width = colliderWidth ?? recipe.Width;
+        var objects = new List<object>();
+        if (withGround)
+            objects.Add(new
+            {
+                uniqueID = "Ground-test",
+                prefabPath = "Prefabs/Environment/Ground",
+                localPosition = new { x = 0, y = 0, z = 0 },
+                localScale = new { x = 1, y = 1, z = 1 },
+                componentData2 = new[]
+                {
+                    new { name = "Ground", type = "GroundData",
+                        data = JsonSerializer.Serialize(new
+                        {
+                            colliderOffset = new { x = 0, y = .4375 },
+                            colliderSize = new { x = width, y = .875 }
+                        }) }
+                }
+            });
+        for (int i = 0; i < tiles; i++)
+            objects.Add(new
+            {
+                uniqueID = tilePrefix + (duplicate ? 0 : i),
+                prefabPath = "Prefabs/Environment/Tile Big",
+                localPosition = new { x = recipe.Left + 4 * i, y = 0, z = .01 },
+                localScale = new { x = 1, y = 1, z = 1 },
+                componentData2 = new[]
+                {
+                    new { name = "Tile", type = "TileData",
+                        data = JsonSerializer.Serialize(new { noGround, noSnow = false, snow = new { linkedObjectID = "" } }) }
+                }
+            });
+        return JsonSerializer.Serialize(new { objects });
+    }
+
+    internal static void Reset(bool active, int land = 12, string? json = null)
+    {
+        GuidText = "11111111-2222-3333-4444-555555555555";
+        Slot = 0;
+        System.Guid id = System.Guid.Parse(GuidText);
+        GameRef = new Game { Pointer = (IntPtr)1, currentLand = land, state = Game.State.Loading };
+        var islands = new List<IslandSaveData>();
+        for (int i = 0; i < 13; i++) islands.Add(new IslandSaveData { Pointer = (IntPtr)(100 + i) });
+        Island = islands[land];
+        Island.Json = json ?? Saved(PalaceLayoutRecipe.Capital400);
+        Campaign = new CampaignSaveData
+        {
+            Pointer = (IntPtr)2, _islands = islands, CurrentIsland = Island, CurrentLand = land,
+            reign = 7, biomeIndex = 5, realStartDateTime = 1750000000, totalGameDays = 34,
+            currentReign = new Reign { daysSurvived = 34 }
+        };
+        Global = new GlobalSaveData { Pointer = (IntPtr)3 };
+        Level = new Level { Pointer = (IntPtr)4 };
+        WorldRef = new World { Pointer = (IntPtr)5, gameLayer = new Transform { Pointer = (IntPtr)6 } };
+        WorldRef.gameObject.scene.handle = 501;
+        WorldRef.gameLayer.gameObject.scene.handle = 502;
+        BiomeHolder.Inst = new BiomeHolderType { Pointer = (IntPtr)8 };
+        Island.objects = new SavedObjects { Pointer = (IntPtr)7, Count = 3 };
+        Island._levelEdges = new IntRange { min = PalaceLayoutRecipe.Capital400.Left, max = PalaceLayoutRecipe.Capital400.Right };
+        ManagersRef = new Managers { game = GameRef, level = Level, world = WorldRef };
+        Managers.Inst = ManagersRef;
+        GlobalSaveData.loaded = Global;
+        CampaignSaveData.current = Campaign;
+        Owner = new PalacePaidScope("profile-a", id, 0, 5, 7, 1750000000, 1);
+        Trip = new PalaceTripRecord
+        {
+            Version = 4, TripId = GuidText, Phase = PalaceTripContext.PhasePalaceSelected,
+            SourceLand = 8, DestinationLayout = PalaceLayoutRecipe.Capital400
+        };
+        Receipt = new PalaceSourceClockReceipt
+        {
+            TripId = GuidText, SourceObjectsSha = new string('a', 64),
+            Scope = new PalaceClockScope(GuidText, 0, 5, 7, 1750000000, 8)
+        };
+        Existing = new PalacePaidHandle
+        {
+            Owner = Owner, TripId = id, SourceLand = 8, Stage = PalacePaidStage.Entered,
+            SourceClockReceipt = Receipt
+        };
+        HandoffFacts = new PalaceReloadHandoffFacts
+        {
+            TripId = GuidText, Phase = PalaceTripContext.PhasePalaceSelected,
+            TargetLand = 12, RecordSourceLand = 8, OldGame = 77
+        };
+        ActiveHandoff = active; HandoffOk = active; CurrentOk = true; OwnerOk = true;
+        HandleOk = true; SourceDigestOk = true; CaptureOk = true; ArmColdOk = true;
+        OutboundOk = true; ReturnConfirmOk = true; TripOk = true; BindingOk = true;
+        AdoptOk = true; ExistingOk = true; Armed = false; Enabled = true; OrderOk = true;
+        Holds.Clear(); OriginalRuns = 0;
+        BootstrapProbe.Reset();
+        PalaceCourtArea.TestReset();
+    }
+}
+
+internal static partial class BootstrapProbe
+{
+    private static readonly object Gate = new object();
+    private static bool _installed = true, _coldAttempted;
+    private static PalacePaidHandle? _paid;
+    private static ColdPopCall? _coldPop;
+    private static long _sequence;
+    internal static string Status { get; private set; } = "reset";
+
+    internal static void Reset()
+    { _installed = true; _coldAttempted = false; _paid = null; _coldPop = null; _sequence = 0; Status = "reset"; }
+    internal static void SetPaid(PalacePaidHandle paid) { _paid = paid; }
+    internal static ColdPopCall? RunPrefix(IslandSaveData island, bool runOriginal)
+    { PreparePopPrefix(island, runOriginal, out ColdPopCall? state); return state; }
+
+    private static bool VerifyOrder(out string reason) { reason = ""; return Host.OrderOk; }
+    private static void Hold(string reason) { Host.Holds.Add(reason); Status = "held:" + reason; }
+    private static void Trace(string boundary, string details) { _sequence++; }
+
+    private static bool TryCurrent(Game game, IslandSaveData pop, out GlobalSaveData global,
+        out CampaignSaveData campaign, out string reason)
+    { global = Host.Global; campaign = Host.Campaign; reason = ""; return Host.CurrentOk; }
+
+    private static bool ReadTrip(GlobalSaveData global, CampaignSaveData campaign, out PalaceTripRecord trip,
+        out PalaceSourceClockReceipt receipt, out PalacePaidScope owner, out string reason)
+    { trip = Host.Trip; receipt = Host.Receipt; owner = Host.Owner; reason = ""; return Host.TripOk; }
+
+    private static bool OwnerMatches(PalacePaidScope owner, out string reason)
+    { reason = ""; return Host.OwnerOk; }
+
+    private static bool HandleMatches(PalacePaidHandle? paid, PalacePaidScope owner, PalaceTripRecord trip,
+        PalaceSourceClockReceipt receipt, out string reason)
+    { reason = ""; return Host.HandleOk; }
+
+    private static bool TrySourceDigest(CampaignSaveData campaign, int source, PalacePaidScope owner,
+        PalaceSourceClockReceipt receipt, out string reason)
+    { reason = ""; return Host.SourceDigestOk; }
+}
+
+internal sealed class PalaceCourtLayoutView
+{
+    internal PalaceLayoutRecipe Recipe { get; }
+    internal float Left { get; }
+    internal float Right { get; }
+    internal ulong LevelPointer { get; }
+    internal ulong GamePointer { get; }
+    internal ulong WorldPointer { get; }
+    internal ulong WorldLayerPointer { get; }
+    internal int WorldScene { get; }
+    internal int WorldLayerScene { get; }
+    internal ulong HolderPointer { get; }
+    internal ulong GlobalPointer { get; }
+    internal ulong CampaignPointer { get; }
+    internal ulong SavedIslandPointer { get; }
+    internal ulong SavedObjectsPointer { get; }
+    internal int SavedObjectCount { get; }
+    internal string CampaignGuid { get; }
+    internal int CampaignSlot { get; }
+    internal int Reign { get; }
+    internal int Generation { get; }
+    internal bool FreshGeneration { get; }
+    internal PalaceCourtLayoutView(PalaceLayoutRecipe recipe, ulong level, ulong game, ulong world, ulong layer,
+        int worldScene, int worldLayerScene, ulong holder, ulong global, ulong campaign,
+        ulong savedIsland, ulong savedObjects, int objectCount, string guid, int slot, int reign,
+        int generation, bool freshGeneration)
+    {
+        Recipe=recipe; Left=recipe.Left; Right=recipe.Right; LevelPointer=level; GamePointer=game;
+        WorldPointer=world; WorldLayerPointer=layer; WorldScene=worldScene; WorldLayerScene=worldLayerScene;
+        HolderPointer=holder; GlobalPointer=global; CampaignPointer=campaign;
+        SavedIslandPointer=savedIsland; SavedObjectsPointer=savedObjects; SavedObjectCount=objectCount;
+        CampaignGuid=guid; CampaignSlot=slot; Reign=reign; Generation=generation; FreshGeneration=freshGeneration;
+    }
+}
+
+internal static partial class PalaceCourtArea
+{
+    internal const int LandIndex = 12;
+    internal static bool DedicatedWholeEnabled => Host.Enabled;
+    private static PalaceCourtLayoutView? _layoutView;
+    private static PalaceLayoutRecipe? _servedRecipe;
+    private static int _spanGeneration;
+    private static bool _spanValid;
+    private static ulong _spanLevelPtr;
+    private static DedicatedScope? _dedicatedSpanScope;
+    private static void RequireDedicatedOwner(DedicatedScope? scope) { }
+    private static bool TryGetSpanCore(Level level, out float left, out float right, out string reason)
+    { left = 0; right = 0; reason = "cold proof missing"; return false; }
+    private static bool TryDescribeGround(Level level, float left, float right, PalaceLayoutRecipe? recipe, out string detail)
+    { detail = "ground-ok"; return Host.GroundOk; }
+    private static bool CurrentPrivateLand12(Level level) => Host.CurrentPrivateLand12;
+    private static ulong PointerOf(Level v) => (ulong)v.Pointer.ToInt64();
+    private static ulong PointerOf(Game v) => (ulong)v.Pointer.ToInt64();
+    private static ulong PointerOf(World v) => (ulong)v.Pointer.ToInt64();
+    private static ulong PointerOf(Transform v) => (ulong)v.Pointer.ToInt64();
+    private static ulong PointerOf(BiomeHolderType v) => (ulong)v.Pointer.ToInt64();
+    private static ulong PointerOf(GlobalSaveData v) => (ulong)v.Pointer.ToInt64();
+    private static ulong PointerOf(CampaignSaveData v) => (ulong)v.Pointer.ToInt64();
+    private static ulong PointerOf(IslandSaveData v) => (ulong)v.Pointer.ToInt64();
+    private static ulong PointerOf(SavedObjects v) => (ulong)v.Pointer.ToInt64();
+    internal static void TestSetColdView()
+    {
+        SavedObjects objects = Host.Island.objects!;
+        _layoutView = new PalaceCourtLayoutView(PalaceLayoutRecipe.Capital400,
+            (ulong)Host.Level.Pointer.ToInt64(), (ulong)Host.GameRef.Pointer.ToInt64(),
+            (ulong)Host.WorldRef.Pointer.ToInt64(), (ulong)Host.WorldRef.gameLayer.Pointer.ToInt64(),
+            Host.WorldRef.gameObject.scene.handle, Host.WorldRef.gameLayer.gameObject.scene.handle,
+            (ulong)BiomeHolder.Inst.Pointer.ToInt64(), (ulong)Host.Global.Pointer.ToInt64(),
+            (ulong)Host.Campaign.Pointer.ToInt64(), (ulong)Host.Island.Pointer.ToInt64(),
+            (ulong)objects.Pointer.ToInt64(), objects.Count, Host.GuidText, Host.Slot,
+            Host.Campaign.reign, _spanGeneration, false);
+    }
+    internal static bool TestCachedLayout()
+    { return TryGetLayout(Host.Level, out _, out _); }
+    internal static void TestClearLayout() { _layoutView = null; }
+    private static readonly object SavedGeometryGate = new object();
+    private static long _savedGeometrySequence;
+    private static PalaceSavedGeometryProof? _savedGeometryProof;
+    private static string _savedGeometryFailure = "";
+    internal static bool Enabled => Host.Enabled;
+
+    internal static void TestReset()
+    {
+        lock (SavedGeometryGate) { _savedGeometryProof = null; _savedGeometrySequence = 0; _savedGeometryFailure = ""; }
+        _layoutView = null; _servedRecipe = null; _spanGeneration = 0; _spanValid = false; _spanLevelPtr = 0;
+    }
+    internal static long TestPublishedSequence
+    {
+        get { lock (SavedGeometryGate) { return _savedGeometryProof?.PopSequence ?? 0; } }
+    }
+    internal static string TestPublishedSha
+    {
+        get { lock (SavedGeometryGate) { return _savedGeometryProof?.Candidate.SnapshotSha256 ?? ""; } }
+    }
+    internal static bool Accept(PalaceLayoutRecipe recipe)
+    { return TryAcceptColdGeometry(Host.Level, Host.Campaign, Host.GuidText, Host.Slot, recipe, out _); }
+    internal static bool Accept(string recipe)
+    { return Accept(recipe == "44" ? PalaceLayoutRecipe.Known44 : PalaceLayoutRecipe.Capital400); }
+    internal static bool Capture(PalaceLayoutRecipe recipe, long sequence, out string reason)
+    {
+        PalaceSavedGeometryCandidate? candidate = CaptureSavedGeometry(Host.Island, recipe, Host.GameRef,
+            Host.Global, Host.Campaign, Host.Owner, Host.Trip.TripId, sequence, out reason);
+        return candidate != null;
+    }
+}

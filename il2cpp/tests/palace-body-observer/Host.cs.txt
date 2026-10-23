@@ -1,0 +1,771 @@
+// Explicit fake host for the read-only source-8 observer. No Unity runtime, no native calls.
+// Compiled together with the real il2cpp/Patch_PalaceAdultBodyMetrics.cs in both conditional modes.
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Globalization;
+using Il2CppInterop.Runtime.InteropTypes;
+using Il2CppInterop.Runtime.InteropTypes.Arrays;
+using UnityEngine;
+
+namespace Il2CppInterop.Runtime.InteropTypes
+{
+    public class Il2CppObjectBase
+    {
+        public IntPtr Pointer;
+        public Il2CppObjectBase() { }
+        public Il2CppObjectBase(IntPtr pointer) { Pointer = pointer; }
+        public T TryCast<T>() where T : class => this as T;
+    }
+}
+
+namespace Il2CppInterop.Runtime.InteropTypes.Arrays
+{
+    public sealed class Il2CppReferenceArray<T> : IEnumerable<T>
+    {
+        private readonly T[] _items;
+        public Il2CppReferenceArray(int length) { _items = new T[length]; }
+        public Il2CppReferenceArray(params T[] items) { _items = items; }
+        public int Length => _items.Length;
+        public T this[int index] { get => _items[index]; set => _items[index] = value; }
+        public IEnumerator<T> GetEnumerator() { foreach (T item in _items) yield return item; }
+        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+    }
+}
+
+namespace Il2CppSystem.Collections.Generic
+{
+    public interface ICollection<T> : IEnumerable<T>
+    {
+        int Count { get; }
+        void CopyTo(Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppReferenceArray<T> array, int arrayIndex);
+    }
+
+    public sealed class HashSet<T> : IEnumerable<T>
+    {
+        private readonly List<T> _items = new List<T>();
+        public int Count => _items.Count;
+        public void Add(T item) { _items.Add(item); }
+        public IEnumerator<T> GetEnumerator() { foreach (T item in _items) yield return item; }
+        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+    }
+}
+
+namespace UnityEngine
+{
+    public struct Vector2
+    {
+        public float x, y;
+        public Vector2(float x, float y) { this.x = x; this.y = y; }
+    }
+
+    public struct Vector3
+    {
+        public float x, y, z;
+        public Vector3(float x, float y, float z) { this.x = x; this.y = y; this.z = z; }
+    }
+
+    public struct Vector4
+    {
+        public float x, y, z, w;
+        public Vector4(float x, float y, float z, float w) { this.x = x; this.y = y; this.z = z; this.w = w; }
+    }
+
+    public struct Quaternion
+    {
+        public float x, y, z, w;
+        public Quaternion(float x, float y, float z, float w) { this.x = x; this.y = y; this.z = z; this.w = w; }
+    }
+
+    public struct Matrix4x4
+    {
+        public float m00, m01, m02, m03, m10, m11, m12, m13, m20, m21, m22, m23, m30, m31, m32, m33;
+        public static Matrix4x4 TRS(Vector3 t, Vector3 s)
+        {
+            return new Matrix4x4
+            {
+                m00 = s.x, m01 = 0, m02 = 0, m03 = t.x,
+                m10 = 0, m11 = s.y, m12 = 0, m13 = t.y,
+                m20 = 0, m21 = 0, m22 = s.z, m23 = t.z,
+                m30 = 0, m31 = 0, m32 = 0, m33 = 1,
+            };
+        }
+        public Vector3 MultiplyPoint3x4(Vector3 p)
+        {
+            return new Vector3(
+                m00 * p.x + m01 * p.y + m02 * p.z + m03,
+                m10 * p.x + m11 * p.y + m12 * p.z + m13,
+                m20 * p.x + m21 * p.y + m22 * p.z + m23);
+        }
+    }
+
+    public struct Rect
+    {
+        public float x, y, width, height;
+        public Rect(float x, float y, float width, float height)
+        { this.x = x; this.y = y; this.width = width; this.height = height; }
+    }
+
+    public struct Scene
+    {
+        public int handle;
+        public bool IsValid() => handle != 0;
+    }
+
+    public struct AnimatorStateInfo
+    {
+        public int shortNameHash;
+        public int fullPathHash;
+        public float normalizedTime;
+        public float length;
+        public bool loop;
+    }
+
+    public class Object : Il2CppObjectBase
+    {
+        public string name = "";
+        public static implicit operator bool(Object value) => value != null;
+    }
+
+    public class GameObject : Object
+    {
+        public bool activeInHierarchy = true;
+        public Scene scene = new Scene { handle = 1 };
+        public Transform transform;
+        public int layer;
+        internal readonly List<Component> Components = new List<Component>();
+        public GameObject() { transform = new Transform(); transform.gameObject = this; }
+        public T Get<T>() where T : class
+        {
+            foreach (Component component in Components) if (component is T typed) return typed;
+            return null;
+        }
+        public void Add(Component component) { component.gameObject = this; Components.Add(component); }
+        public int GetInstanceID() => (int)Pointer.ToInt64();
+    }
+
+    public class Component : Object
+    {
+        public GameObject gameObject;
+        public Transform transform => gameObject != null ? gameObject.transform : null;
+        public T GetComponent<T>() where T : class => gameObject != null ? gameObject.Get<T>() : null;
+    }
+
+    public class Behaviour : Component
+    {
+        public bool enabled = true;
+    }
+
+    public class MonoBehaviour : Behaviour
+    {
+        public MonoBehaviour() { }
+        public MonoBehaviour(IntPtr pointer) { Pointer = pointer; }
+    }
+
+    public class Transform : Component
+    {
+        public new Transform transform => this;
+        public Vector3 position;
+        public Vector3 localScale = new Vector3(1, 1, 1);
+        public Quaternion rotation;
+        public Matrix4x4 localToWorldMatrix = Matrix4x4.TRS(new Vector3(0, 0, 0), new Vector3(1, 1, 1));
+        public Transform parent;
+        public Vector3 lossyScale = new Vector3(1, 1, 1);
+        public Vector3 TransformPoint(Vector3 point) => localToWorldMatrix.MultiplyPoint3x4(point);
+        public bool IsChildOf(Transform root)
+        {
+            for (Transform node = this; node != null; node = node.parent) if (ReferenceEquals(node, root)) return true;
+            return false;
+        }
+    }
+
+    public class Texture : Object
+    {
+        public int width;
+        public int height;
+    }
+
+    public class Texture2D : Texture
+    {
+        public bool isReadable;
+    }
+
+    public class RenderTexture : Texture
+    {
+    }
+
+    public class Shader : Object
+    {
+    }
+
+    public class Material : Object
+    {
+        public Shader shader;
+        public int renderQueue = 2000;
+        public int passCount = 1;
+        public bool hasProperty;
+        public int hasPropertyCalls;
+        public int getVectorCalls;
+        public Vector4 propertyVector;
+        public bool HasProperty(int propertyId) { hasPropertyCalls++; return hasProperty; }
+        public Vector4 GetVector(int propertyId) { getVectorCalls++; return propertyVector; }
+    }
+
+    public class Sprite : Object
+    {
+        public Rect rect;
+        public Vector2 pivot;
+        public Texture2D texture;
+        public float pixelsPerUnit = 32f;
+    }
+
+    public class Renderer : Behaviour
+    {
+        public Matrix4x4 localToWorldMatrix = Matrix4x4.TRS(new Vector3(0, 0, 0), new Vector3(1, 1, 1));
+    }
+
+    public class SpriteRenderer : Renderer
+    {
+        public bool flipX;
+        public bool flipY;
+        public Sprite sprite;
+    }
+
+    public class MeshRenderer : Renderer
+    {
+    }
+
+    public class Animator : Behaviour
+    {
+        public float speed = 1f;
+        public int stateCalls;
+        public AnimatorStateInfo state;
+        public bool inTransition;
+        public AnimatorStateInfo GetCurrentAnimatorStateInfo(int layer) { stateCalls++; return state; }
+        public bool IsInTransition(int layer) { stateCalls++; return inTransition; }
+        public AnimatorStateInfo GetNextAnimatorStateInfo(int layer) { stateCalls++; return state; }
+    }
+
+    public class Camera : Behaviour
+    {
+        public bool orthographic = true;
+        public float orthographicSize = 10f;
+        public float aspect = 2.5f;
+        public float nearClipPlane = 0.3f;
+        public float farClipPlane = 1000f;
+        public float depth;
+        public int pixelWidth = 640;
+        public int pixelHeight = 256;
+        public int cullingMask = -1;
+        public Rect pixelRect = new Rect(0, 0, 640, 256);
+        public Matrix4x4 worldToCameraMatrix = Matrix4x4.TRS(new Vector3(0, 0, -10), new Vector3(1, 1, 1));
+        public Matrix4x4 projectionMatrix = Matrix4x4.TRS(new Vector3(0, 0, 0), new Vector3(1, 1, 1));
+    }
+
+    public static class Time
+    {
+        public static float unscaledTime = 12.5f;
+    }
+}
+
+namespace KingdomEnhancedMod
+{
+    using Il2CppInterop.Runtime.InteropTypes;
+    using Il2CppInterop.Runtime.InteropTypes.Arrays;
+    using Il2CppSystem.Collections.Generic;
+    using UnityEngine;
+
+    internal static class FixtureCounters
+    {
+        internal static int TripRead, TripBinding, TripMatch, WorkerCountRead, WorkerCopy, PeasantEnumerate;
+        internal static int ForbiddenWaterCalls, DebugRendererReads;
+        internal static void Reset()
+        {
+            TripRead = TripBinding = TripMatch = WorkerCountRead = WorkerCopy = PeasantEnumerate = 0;
+            ForbiddenWaterCalls = DebugRendererReads = 0;
+        }
+    }
+
+    internal static class HostLog
+    {
+        internal static readonly List<string> Lines = new List<string>();
+        internal static void Clear() => Lines.Clear();
+        internal static string All => string.Join("\n", Lines);
+        internal static int Count => Lines.Count;
+    }
+
+    internal sealed class WorkerRoster : ICollection<Worker>
+    {
+        private readonly List<Worker> _items = new List<Worker>();
+        public int Count { get { FixtureCounters.WorkerCountRead++; return _items.Count; } }
+        public void Add(Worker worker) => _items.Add(worker);
+        public void CopyTo(Il2CppReferenceArray<Worker> array, int arrayIndex)
+        {
+            FixtureCounters.WorkerCopy++;
+            for (int i = 0; i < _items.Count; i++) array[arrayIndex + i] = _items[i];
+        }
+        public IEnumerator<Worker> GetEnumerator() { foreach (Worker item in _items) yield return item; }
+        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+    }
+
+    internal sealed class CharacterSet : IEnumerable<Character>
+    {
+        private readonly List<Character> _items = new List<Character>();
+        public int Count => _items.Count;
+        public void Add(Character character) => _items.Add(character);
+        public IEnumerator<Character> GetEnumerator()
+        {
+            FixtureCounters.PeasantEnumerate++;
+            foreach (Character item in _items) yield return item;
+        }
+        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+    }
+
+    internal sealed class Fixture
+    {
+        internal static Game Game;
+        internal static Managers Managers;
+        internal static Kingdom Kingdom;
+        internal static Level Level;
+        internal static World World;
+        internal static Transform Layer;
+        internal static GlobalSaveData Global;
+        internal static CampaignSaveData Campaign;
+        internal static Filer.DotNetAgent Agent;
+        internal static Worker WorkerActor;
+        internal static Peasant PeasantActor;
+        internal static Mover WorkerMover, PeasantMover;
+        internal static WorkerRoster WorkerRoster;
+        internal static CharacterSet Characters;
+        internal static Player PlayerOne;
+        internal static MainCamera MainCameraActor;
+        internal static Camera CameraActor;
+        internal static Camera ReflectionCameraActor;
+        internal static RenderTexture ReflectionTexture;
+        internal static Water WaterActor;
+        internal static Rendering RenderingActor;
+        internal static Material MaterialA, MaterialB, MaterialC;
+        internal static bool AgentMatches = true;
+        internal static string AgentMatchReason = "";
+
+        internal const int SceneHandle = 7;
+
+        internal static GameObject NewGameObject(int pointer, string name, int scene = SceneHandle)
+        {
+            var go = new GameObject { Pointer = (IntPtr)pointer, name = name, scene = new Scene { handle = scene } };
+            go.transform.Pointer = (IntPtr)(pointer + 5000);
+            return go;
+        }
+
+        internal static void ResetPerfect()
+        {
+            HostLog.Clear();
+            FixtureCounters.Reset();
+
+            var gameGo = NewGameObject(100, "Game");
+            var kingdomGo = NewGameObject(101, "Kingdom");
+            var levelGo = NewGameObject(102, "Level");
+            var layerGo = NewGameObject(103, "GameLayer");
+            Layer = layerGo.transform;
+
+            Game = new Game { Pointer = (IntPtr)1, state = Game.State.Playing, currentLand = 8 };
+            Kingdom = new Kingdom
+            {
+                Pointer = (IntPtr)2,
+                gameObject = kingdomGo,
+                cameraMinX = NewGameObject(110, "CameraMinX"),
+                cameraMaxX = NewGameObject(111, "CameraMaxX"),
+            };
+            Level = new Level { Pointer = (IntPtr)3, gameObject = levelGo };
+            World = new World { Pointer = (IntPtr)4, gameLayer = Layer };
+            Managers = new Managers { Pointer = (IntPtr)5, game = Game, kingdom = Kingdom, level = Level, world = World };
+            Managers.Inst = Managers;
+
+            Campaign = new CampaignSaveData { Pointer = (IntPtr)6, CurrentLand = 8 };
+            CampaignSaveData.current = Campaign;
+            Global = new GlobalSaveData { Pointer = (IntPtr)7, InChallenge = false, Owner = Campaign };
+            GlobalSaveData.loaded = Global;
+            BiomeHolder.Inst = new BiomeHolder { BiomeIndex = BiomeHolder.GreeceBiomeIndex };
+            NetworkBigBoss.IsOnline = false;
+            NetworkBigBoss.HasWorldAuth = true;
+            IslandSaveData.isSavingGame = false;
+            PalaceScrollNativeBinding.Enabled = true;
+
+            Agent = new Filer.DotNetAgent { Pointer = (IntPtr)8, folder = "/private/root" };
+            Filer.agent = Agent;
+            PalaceSaveBindingSource.SetBinding(Agent.Pointer, Agent.folder);
+            AgentMatches = true;
+            AgentMatchReason = "";
+
+            CameraActor = new Camera { Pointer = (IntPtr)200, enabled = true, gameObject = NewGameObject(201, "MainCameraGo") };
+            CameraActor.transform.position = new Vector3(10f, 5f, -20f);
+            ReflectionCameraActor = new Camera { Pointer = (IntPtr)202, enabled = true, gameObject = NewGameObject(203, "ReflectionGo") };
+            ReflectionTexture = new RenderTexture { Pointer = (IntPtr)204, name = "ReflectionRT", width = 512, height = 128 };
+            WaterActor = new Water { Pointer = (IntPtr)300, name = "Water", gameObject = NewGameObject(301, "WaterGo") };
+            WaterActor.transform.localToWorldMatrix = Matrix4x4.TRS(new Vector3(0f, 2f, 0f), new Vector3(100f, 4f, 1f));
+            WaterActor.waterTopOffset = 0.25f;
+            WaterActor.reflectionScale = 0.5f;
+            WaterActor._reflectionProperties = new Vector4(1f, 2f, 3f, 4f);
+            WaterActor._maxDisplacement = new Vector4(5f, 6f, 7f, 8f);
+            WaterActor.maxDisplacement = new Vector2(0.1f, 0.2f);
+            WaterActor.isLeadPlayer = true;
+            WaterActor._targetCameraId = 0;
+
+            MaterialA = new Material { Pointer = (IntPtr)400, name = "WaterMat", shader = new Shader { name = "KTC/Water" }, hasProperty = true, propertyVector = new Vector4(9f, 10f, 11f, 12f) };
+            MaterialB = new Material { Pointer = (IntPtr)401, name = "WaterMat2", shader = new Shader { name = "KTC/Water2" }, hasProperty = true, propertyVector = new Vector4(13f, 14f, 15f, 16f) };
+            MaterialC = new Material { Pointer = (IntPtr)399, name = "WaterMatBase", shader = new Shader { name = "KTC/WaterBase" }, hasProperty = true, propertyVector = new Vector4(17f, 18f, 19f, 20f) };
+            RenderingActor = new Rendering { Pointer = (IntPtr)402, waterMaterial = MaterialC, waterMaterialInstance = MaterialA, waterMaterialInstance2 = MaterialB };
+            Rendering.Inst = RenderingActor;
+
+            MainCameraActor = new MainCamera
+            {
+                Pointer = (IntPtr)210,
+                cameraId = 0,
+                _camera = CameraActor,
+                cameraTargets = new Il2CppReferenceArray<GameObject>(1),
+                CamWater = WaterActor,
+                _water = WaterActor,
+                reflectionCamera = ReflectionCameraActor,
+                ReflectionRendTexture = ReflectionTexture,
+            };
+            MainCameraActor.cameraTargets[0] = new GameObject { Pointer = (IntPtr)220, name = "PlayerOneGo" };
+            CameraMarshaller.Inst = new CameraMarshaller
+            {
+                Pointer = (IntPtr)211,
+                cameraRefs = new Il2CppReferenceArray<MainCamera>(1),
+            };
+            CameraMarshaller.Inst.cameraRefs[0] = MainCameraActor;
+
+            PlayerOne = new Player { Pointer = (IntPtr)221, gameObject = MainCameraActor.cameraTargets[0] };
+            Kingdom.playerOne = PlayerOne;
+
+            BuildActors();
+        }
+
+        private static void BuildActors()
+        {
+            WorkerRoster = new WorkerRoster();
+            Characters = new CharacterSet();
+            Kingdom.Workers = WorkerRoster;
+            Kingdom._characters = Characters;
+
+            var workerGo = NewGameObject(120, "Worker");
+            var workerCharacterGo = workerGo;
+            var workerRenderer = new SpriteRenderer { Pointer = (IntPtr)121, enabled = true, gameObject = workerGo, sprite = NewSprite(122) };
+            workerRenderer.transform.Pointer = workerGo.transform.Pointer;
+            var workerAnimator = new Animator { Pointer = (IntPtr)123, enabled = true, gameObject = workerGo, state = new AnimatorStateInfo { shortNameHash = 77, fullPathHash = 78, normalizedTime = 0.5f, length = 1f, loop = true } };
+            workerAnimator.transform.Pointer = workerGo.transform.Pointer;
+            var workerCharacter = new Character { Pointer = (IntPtr)124, gameObject = workerCharacterGo, inert = false, grabbed = false, isStationary = true, spriteFX = new SpriteRendererFX { Pointer = (IntPtr)125, Renderer = workerRenderer } };
+            WorkerMover = new Mover { Pointer = (IntPtr)126, enabled = true, gameObject = workerGo };
+            workerGo.Add(workerRenderer);
+            workerGo.Add(workerAnimator);
+            workerGo.Add(workerCharacter);
+            workerGo.Add(WorkerMover);
+            WorkerActor = new Worker { Pointer = (IntPtr)127, gameObject = workerGo, _spriteRenderer = workerRenderer, _character = workerCharacter, _animator = workerAnimator };
+            GreekScaleScope.Register(WorkerMover, 1.075f);
+            WorkerRoster.Add(WorkerActor);
+
+            var peasantGo = NewGameObject(130, "Peasant");
+            var peasantRenderer = new SpriteRenderer { Pointer = (IntPtr)131, enabled = true, gameObject = peasantGo, sprite = NewSprite(132) };
+            var peasantAnimator = new Animator { Pointer = (IntPtr)133, enabled = true, gameObject = peasantGo, state = new AnimatorStateInfo { shortNameHash = 88, fullPathHash = 89, normalizedTime = 0.25f, length = 0.8f, loop = false } };
+            peasantAnimator.transform.Pointer = peasantGo.transform.Pointer;
+            var peasantCharacter = new Character { Pointer = (IntPtr)134, gameObject = peasantGo, inert = false, grabbed = false, isStationary = false, spriteFX = new SpriteRendererFX { Pointer = (IntPtr)135, Renderer = peasantRenderer } };
+            PeasantMover = new Mover { Pointer = (IntPtr)136, enabled = true, gameObject = peasantGo };
+            PeasantActor = new Peasant { Pointer = (IntPtr)137, gameObject = peasantGo, _spriteRenderer = peasantRenderer, _character = peasantCharacter, _animator = peasantAnimator };
+            peasantGo.Add(peasantRenderer);
+            peasantGo.Add(peasantAnimator);
+            peasantGo.Add(peasantCharacter);
+            peasantGo.Add(PeasantMover);
+            peasantGo.Add(PeasantActor);
+            GreekScaleScope.Register(PeasantMover, 1.05f);
+            Characters.Add(peasantCharacter);
+        }
+
+        internal static Sprite NewSprite(int pointer)
+        {
+            return new Sprite
+            {
+                Pointer = (IntPtr)pointer,
+                name = "sprite",
+                rect = new Rect(0, 0, 16, 32),
+                pivot = new Vector2(8, 0),
+                pixelsPerUnit = 32f,
+                texture = new Texture2D { Pointer = (IntPtr)(pointer + 1000), name = "tex", width = 256, height = 256, isReadable = true },
+            };
+        }
+    }
+
+    internal sealed class Game : Il2CppObjectBase
+    {
+        internal enum State { Loading, Playing }
+        internal State state;
+        internal int currentLand;
+    }
+
+    internal sealed class Managers : Il2CppObjectBase
+    {
+        internal static Managers Inst;
+        internal Game game;
+        internal Kingdom kingdom;
+        internal Level level;
+        internal World world;
+    }
+
+    internal sealed class Kingdom : Il2CppObjectBase
+    {
+        internal GameObject gameObject;
+        internal GameObject cameraMinX;
+        internal GameObject cameraMaxX;
+        internal WorkerRoster Workers;
+        internal CharacterSet _characters;
+        internal Player playerOne;
+    }
+
+    internal sealed class Level : Il2CppObjectBase
+    {
+        internal GameObject gameObject;
+    }
+
+    internal sealed class World : Il2CppObjectBase
+    {
+        internal Transform gameLayer;
+    }
+
+    internal sealed class GlobalSaveData : Il2CppObjectBase
+    {
+        internal static GlobalSaveData loaded;
+        internal bool InChallenge;
+        internal CampaignSaveData Owner;
+        internal CampaignSaveData GetCurrentCampaign() => Owner;
+    }
+
+    internal sealed class CampaignSaveData : Il2CppObjectBase
+    {
+        internal static CampaignSaveData current;
+        internal int CurrentLand;
+    }
+
+    internal sealed class BiomeHolder
+    {
+        internal static BiomeHolder Inst;
+        internal const int GreeceBiomeIndex = 5;
+        internal int BiomeIndex;
+    }
+
+    internal static class NetworkBigBoss
+    {
+        internal static bool IsOnline;
+        internal static bool HasWorldAuth;
+    }
+
+    internal static class IslandSaveData
+    {
+        internal static bool isSavingGame;
+    }
+
+    internal sealed class Player : MonoBehaviour
+    {
+    }
+
+    internal sealed class Filer
+    {
+        internal static object agent;
+
+        internal sealed class DotNetAgent : Il2CppObjectBase
+        {
+            internal string folder;
+        }
+    }
+
+    internal sealed class PalaceSaveBinding
+    {
+        internal IntPtr AgentPointer;
+        internal string Folder;
+    }
+
+    internal static class PalaceSaveBindingSource
+    {
+        internal static PalaceSaveBinding Binding;
+        internal static void SetBinding(IntPtr agentPointer, string folder)
+            => Binding = agentPointer == IntPtr.Zero ? null : new PalaceSaveBinding { AgentPointer = agentPointer, Folder = folder };
+        internal static PalaceSaveBinding Current => Binding;
+        internal static bool AgentMatchesCurrent(Filer.DotNetAgent agent, out string reason)
+        {
+            reason = Fixture.AgentMatchReason;
+            return Fixture.AgentMatches;
+        }
+    }
+
+    internal static class PalaceScrollNativeBinding
+    {
+        internal static bool Enabled;
+    }
+
+    internal static class PalaceRuntimeProfile
+    {
+        // Mirrors the sealed normal profile: PALACE_ADULT_BODY_METRICS_PRIVATE is fixed false.
+        internal static bool Capability(string name) => false;
+    }
+
+    internal static class PalaceCourtVisuals
+    {
+        internal static void Log(string message) => HostLog.Lines.Add(message);
+    }
+
+    internal sealed class PalaceTripRecord
+    {
+        internal int SourceLand = 8;
+        internal int PalaceLand = 12;
+        internal int Phase = 1;
+        internal string TripId = "trip";
+    }
+
+    internal static class PalaceTripContext
+    {
+        internal enum ReadStatus { Ok, Missing }
+        internal static ReadStatus Read(GlobalSaveData global, out PalaceTripRecord record, out string detail)
+        {
+            FixtureCounters.TripRead++;
+            record = new PalaceTripRecord();
+            detail = "fixture";
+            return ReadStatus.Ok;
+        }
+        internal static bool TryBinding(GlobalSaveData global, CampaignSaveData campaign, out string guid, out int slot, out string reason)
+        {
+            FixtureCounters.TripBinding++;
+            guid = "owner";
+            slot = 0;
+            reason = "";
+            return true;
+        }
+        internal static bool RecordMatches(CampaignSaveData campaign, string guid, int slot, PalaceTripRecord record, out string reason)
+        {
+            FixtureCounters.TripMatch++;
+            reason = "";
+            return true;
+        }
+    }
+
+    internal sealed class Character : MonoBehaviour
+    {
+        internal bool inert;
+        internal bool grabbed;
+        internal bool isStationary;
+        internal Damageable _damageable;
+        internal SpriteRendererFX spriteFX;
+    }
+
+    internal sealed class Worker : MonoBehaviour
+    {
+        internal static int ASStand = 77;
+        internal SpriteRenderer _spriteRenderer;
+        internal Character _character;
+        internal Animator _animator;
+    }
+
+    internal sealed class Peasant : MonoBehaviour
+    {
+        internal SpriteRenderer _spriteRenderer;
+        internal Character _character;
+        internal Animator _animator;
+    }
+
+    internal sealed class WarriorPeasant : MonoBehaviour { }
+
+    internal sealed class Mover : MonoBehaviour { }
+
+    internal sealed class Damageable : MonoBehaviour
+    {
+        internal bool isDead;
+    }
+
+    internal sealed class Embarkee : MonoBehaviour
+    {
+        internal bool IsEmbarked;
+        internal bool IsTargetingEmbarkable;
+    }
+
+    internal sealed class SpriteRendererFX : Il2CppObjectBase
+    {
+        internal SpriteRenderer Renderer;
+    }
+
+    internal static class GreekScaleScope
+    {
+        private static readonly Dictionary<IntPtr, float> Registered = new Dictionary<IntPtr, float>();
+        internal static void Register(Mover mover, float y) => Registered[mover.Pointer] = y;
+        internal static bool TryGet(Mover mover, out float y)
+        {
+            if (mover != null && Registered.TryGetValue(mover.Pointer, out y)) return true;
+            y = 0f;
+            return false;
+        }
+    }
+
+    internal sealed class CameraMarshaller : MonoBehaviour
+    {
+        internal static CameraMarshaller Inst;
+        internal Il2CppReferenceArray<MainCamera> cameraRefs;
+    }
+
+    internal sealed class MainCamera : MonoBehaviour
+    {
+        internal int cameraId;
+        internal Camera _camera;
+        internal Il2CppReferenceArray<GameObject> cameraTargets;
+        private Water _camWater;
+        internal int CamWaterReads;
+        internal bool ThrowCamWater;
+        internal Water CamWater
+        {
+            get { CamWaterReads++; if (ThrowCamWater) throw new InvalidOperationException("unsupported CamWater"); return _camWater; }
+            set { _camWater = value; }
+        }
+        internal Water _water;
+        internal Camera reflectionCamera;
+        internal RenderTexture ReflectionRendTexture;
+    }
+
+    internal sealed class Water : MonoBehaviour
+    {
+        internal static int SPReflectionProperties = 0x1234;
+        internal float waterTopOffset;
+        internal float reflectionScale;
+        internal Vector4 _reflectionProperties;
+        internal Vector4 _maxDisplacement;
+        internal Vector2 maxDisplacement;
+        internal bool isLeadPlayer;
+        internal int _targetCameraId;
+        internal int resizeWaterCalls;
+        internal int setReflectionBufferCalls;
+        internal int setPropertiesCalls;
+        internal int debugRendererReads;
+
+        internal MeshRenderer debugRenderer
+        {
+            get { debugRendererReads++; FixtureCounters.DebugRendererReads++; return null; }
+        }
+
+        internal void ResizeWater(int width, int height)
+        { resizeWaterCalls++; FixtureCounters.ForbiddenWaterCalls++; }
+        internal void SetReflectionBuffer(RenderTexture texture)
+        { setReflectionBufferCalls++; FixtureCounters.ForbiddenWaterCalls++; }
+        internal void SetPropertiesOnMaterial(Material material) { setPropertiesCalls++; FixtureCounters.ForbiddenWaterCalls++; }
+    }
+}
+
+internal sealed class Rendering : Il2CppObjectBase
+{
+    internal static Rendering Inst;
+    internal Material waterMaterial;
+    internal Material waterMaterialInstance;
+    internal Material waterMaterialInstance2;
+    internal bool renderReflections = true;
+    internal int getWaterMaterialInstanceCalls;
+    internal Material GetWaterMaterialInstance(int renderId)
+    {
+        getWaterMaterialInstanceCalls++;
+        KingdomEnhancedMod.FixtureCounters.ForbiddenWaterCalls++;
+        return null;
+    }
+}

@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <NoWarn>0649;8632</NoWarn>
+    <UseAppHost>false</UseAppHost>
+    <BepInExPluginsPath></BepInExPluginsPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Program.cs.txt" />
+    <Compile Include="Host.cs.txt" />
+    <Compile Include="$(GeneratedDir)/Extracted.cs" />
+    <Compile Include="../../Patch_PalaceLayoutRecipe.cs" />
+    <Compile Include="../../Patch_PalaceLayoutMetadata.cs" />
+    <Compile Include="../../PalaceColdGeometry.cs" />
+  </ItemGroup>
+  <Target Name="RequireExternalOutput" BeforeTargets="PrepareForBuild">
+    <Error Condition="'$(GeneratedDir)' == ''" Text="Use run-tests.py with an external task output; GeneratedDir is required." />
+  </Target>
+  <Target Name="ExtractProduction" BeforeTargets="CoreCompile">
+    <Exec Command="python3 &quot;$(MSBuildProjectDirectory)/extract.py&quot; &quot;$(MSBuildProjectDirectory)/../..&quot; &quot;$(GeneratedDir)&quot;" />
+  </Target>
+</Project>

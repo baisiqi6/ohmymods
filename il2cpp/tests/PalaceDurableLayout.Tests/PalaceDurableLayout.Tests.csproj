@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <UseAppHost>false</UseAppHost>
+    <NoWarn>0649</NoWarn><!-- full linked Clock DTOs are assigned by native adapters excluded from this CLR suite -->
+    <BepInExPluginsPath></BepInExPluginsPath>
+    <AnchorPureSource Condition="'$(AnchorPureSource)' == ''">$(BaseIntermediateOutputPath)ReturnAnchorPure.g.cs</AnchorPureSource>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Program.cs.txt" />
+    <Compile Include="../../Patch_PalacePaidJournal.cs" />
+    <Compile Include="../../Patch_PalaceLayoutRecipe.cs" />
+    <Compile Include="../../Patch_PalaceTripContext.cs" />
+    <Compile Include="../../Patch_PalaceClockReceipt.cs" />
+    <Compile Include="HostStubs.cs.txt" />
+    <Compile Include="$(AnchorPureSource)" />
+  </ItemGroup>
+  <Target Name="ExtractReturnAnchor" BeforeTargets="CoreCompile">
+    <Exec Command="python3 &quot;$(MSBuildProjectDirectory)/extract-anchor.py&quot; &quot;$(MSBuildProjectDirectory)/../../Patch_PalaceReturnAnchor.cs&quot; &quot;$(AnchorPureSource)&quot;" />
+  </Target>
+</Project>

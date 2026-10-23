@@ -1,0 +1,575 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using KingdomEnhancedMod;
+
+internal static class Program
+{
+    private static int _checks;
+    private static string _registry;
+    private static string _layout;
+    private static PalaceProductionSource _source;
+    private static readonly string RegistryHash="1263122e48ac98a5a9717cfce5c76c261c7b3d3675e0bd2c8f1843298cefaae2";
+    private static readonly string LayoutHash="ff18f6c45ae620c248c88f99d393d370c3330dc06b6c6afb30220e6d7a0a6a7d";
+    private static readonly int[] DistrictStarts={20,1348,2415,3485,4548,5780,6978,8292,9356,10464,11492,12820};
+
+    private static void Check(bool value,string name)
+    {
+        _checks++;
+        if(!value)throw new Exception("FAIL: "+name);
+    }
+
+    private static void CheckReason(bool parsed,string reason,string expected,string name)
+    {
+        _checks++;
+        if(parsed)throw new Exception("accepted: "+name);
+        if(expected!=null&&reason!=expected)throw new Exception("FAIL reason: "+name+" expected="+expected+" actual="+reason);
+    }
+
+    private static string Sha(string text)=>Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(text))).ToLowerInvariant();
+
+    private static int Main(string[] args)
+    {
+        if(args.Length!=2)
+        {
+            Console.Error.WriteLine("usage: PalaceProductionSource.Tests.dll <registry.json> <layout.json>");
+            return 2;
+        }
+        _registry=File.ReadAllText(args[0]);
+        _layout=File.ReadAllText(args[1]);
+        Check(PalaceProductionSource.TryParse(_registry,_layout,out _source,out string reason),"actual frozen r1 parse: "+reason);
+        CheckActual();
+        CheckSynthetic();
+        CheckMutations();
+        Console.WriteLine("PASS "+_checks+" frozen-r1 production reader checks; actual r1 + synthetic/mutation fixtures; no PNG IO, texture, Native or gate authority");
+        return 0;
+    }
+
+    private static void CheckActual()
+    {
+        Check(_source.Assets.Count==86&&_source.Placements.Count==452,"86 assets / 452 placements");
+        Check(_source.Assets.Sum(a=>a.Frames.Count)==358,"294 actor + 64 lotus frames");
+        Check(_source.Assets.Count(a=>a.Kind==PalaceProductionSource.AssetKinds.ActorAtlas)==10,"10 actor atlases");
+        Check(_source.Assets.Count(a=>a.Kind==PalaceProductionSource.AssetKinds.LocalEnvironmentMotionAtlas)==4,"4 local atlases");
+        Check(_source.RelativeDrawOrderHints.Count==10&&_source.RelativeDrawOrderHints["waterFront"]==80&&_source.RelativeDrawOrderHints["actor"]==50,"draw order hints");
+        Check(_source.RegistrySha256==RegistryHash&&_source.RegistrySha256==Sha(_registry),"registry hash");
+        Check(_source.LayoutSha256==LayoutHash&&_source.LayoutSha256==Sha(_layout),"layout hash");
+        Check(_source.NativeUnknowns.Count==7&&_source.NativeUnknowns.Contains("sorting acceptance"),"native unknowns");
+        Check(_source.DeclaredReadyForIsolatedIntegration&&_source.RuntimePaidEntryGateOwner=="main-runtime","declared offline ready + main owner");
+        Check(!_source.NativeAccepted&&!_source.PaidResourceGate,"reader grants no native/paid gate");
+        Check(_source.OfflineReviewPending.Count==0,"r1 offline review is empty");
+        Check(_source.BackgroundMotionRates==null,"rates stay null");
+        Check(_source.DesignPpu==32&&_source.WorldDomainMinX==-200&&_source.WorldDomainMaxX==200
+            &&_source.PhysicalPixelDomainMinX==20&&_source.PhysicalPixelDomainMaxX==12820
+            &&_source.GateAxisPixelX==6420&&_source.DesignStreetReferenceY==224,"r1 design constants");
+        Check(_source.PlacementFormula=="worldY=measuredNativeReferencePlaneY+supportOffsetYUnits+(supportLocalY-localY)/32","placement formula");
+
+        Check(_source.Districts.Count==11,"11 districts");
+        bool districtsOk=true;
+        for(int i=0;i<_source.Districts.Count;i++)
+        {
+            var district=_source.Districts[i];
+            districtsOk&=district.Id==i+1&&district.DesignPixelMinX==DistrictStarts[i]&&district.DesignPixelMaxX==DistrictStarts[i+1];
+        }
+        Check(districtsOk,"district ids/contiguous domains cover 20..12820");
+        Check(_source.Districts[0].DesignPixelMinX==20&&_source.Districts[_source.Districts.Count-1].DesignPixelMaxX==12820,"district full coverage");
+
+        int outsideCount=0,geometryFailures=0;
+        foreach(var placement in _source.Placements)
+        {
+            if(!_source.TryGetAsset(placement.AssetId,out var placementAsset)){geometryFailures++;continue;}
+            double expectedX=(placement.DesignSupportPixel.X-_source.GateAxisPixelX)/32.0;
+            double expectedY=_source.DesignStreetReferenceY-placement.SupportOffsetYUnits*32.0;
+            if(!double.IsFinite(placement.DesignSupportPixel.X)||!double.IsFinite(placement.DesignSupportPixel.Y)
+                ||!double.IsFinite(placement.SupportWorldX)||!double.IsFinite(placement.SupportOffsetYUnits)
+                ||Math.Abs(expectedX-placement.SupportWorldX)>1e-9||Math.Abs(expectedY-placement.DesignSupportPixel.Y)>1e-9)
+                geometryFailures++;
+            if(placementAsset.Support.TryGetProperty("designOffsetYUnits",out var assetOffset)
+                &&Math.Abs(assetOffset.GetDouble()-placement.SupportOffsetYUnits)>1e-9)
+                geometryFailures++;
+
+            bool designOutside=placement.DesignSupportPixel.X<20||placement.DesignSupportPixel.X>12820;
+            bool worldOutside=placement.SupportWorldX<-200||placement.SupportWorldX>200;
+            if(placement.AllowOutsideWalkDomain)
+            {
+                outsideCount++;
+                int edge=placement.DesignSupportPixel.X<20?1:11;
+                if(!designOutside||!worldOutside||placement.PlacementScope!="decorative-background-outside-walk-domain"
+                    ||placementAsset.Kind!=PalaceProductionSource.AssetKinds.BackgroundCompound||placement.District!=edge)
+                    geometryFailures++;
+            }
+            else
+            {
+                if(designOutside||worldOutside||placement.PlacementScope!=null)geometryFailures++;
+                int expectedDistrict=DistrictAt(_source,placement.DesignSupportPixel.X);
+                if(expectedDistrict==0||placement.District!=expectedDistrict)geometryFailures++;
+            }
+        }
+        Check(geometryFailures==0,"all r1 placement geometry/district/outside invariants");
+        Check(outsideCount==3,"exactly 3 decorative outside placements");
+
+        Check(_source.TryGetAsset("cargo-granary",out var cargo)&&cargo.Width==519&&cargo.Height==168&&cargo.AssetDrawRole=="actorBehind","cargo asset");
+        Check(_source.TryGetPlacement("cargo-granary",out var cargoPlacement)&&cargoPlacement.DesignSupportPixel.X==1721.0&&cargoPlacement.District==2,"cargo placement district");
+        Check(_source.TryGetAsset("street-stone-paving",out var paving)&&paving.AssetDrawRole=="groundSurface"&&paving.WaterFit.ValueKind==JsonValueKind.Object,"ground water-fit");
+        Check(_source.TryGetPlacement("street-stone-paving-0",out var pavingPlacement)&&pavingPlacement.DrawRole=="actorBehind"&&pavingPlacement.DesignSupportPixel.X==84.0,"asset/placement roles distinct");
+
+        Check(_source.TryGetAsset("quay-vertical-brick-wall",out var quayAsset)&&quayAsset.Support.GetProperty("kind").GetString()=="authored-construction-top-edge"
+            &&quayAsset.Support.GetProperty("point")[1].GetDouble()==0.0&&quayAsset.Support.GetProperty("designOffsetYUnits").GetDouble()==-0.3125,"quay top-edge support");
+        Check(_source.TryGetPlacement("quay-vertical-brick-wall-0",out var quay)&&quay.SupportOffsetYUnits==-0.3125
+            &&quay.DesignSupportPixel.Y==234.0&&quay.District==1,"quay layout offset once");
+        Check(_source.TryGetAsset("east-celestial-vista",out var vista)&&vista.Support.GetProperty("point")[0].GetDouble()==83
+            &&vista.Support.GetProperty("point")[1].GetDouble()==117&&!vista.Support.GetProperty("nativeConfirmed").GetBoolean(),"east airborne point");
+        Check(_source.TryGetAsset("timber-rainbow-bridge",out var bridge)&&bridge.Footprint.GetProperty("kind").GetString()=="bridge-abutments-design-only","bridge footprint");
+        Check(_source.TryGetPlacement("timber-rainbow-bridge",out var bridgePlacement)&&Math.Abs(bridgePlacement.DesignSupportPixel.Y-228.8)<1e-9&&bridgePlacement.District==8,"bridge design point");
+        Check(_source.TryGetPlacement("far-palace-34",out var far34)&&far34.DesignSupportPixel.X==12820.0&&far34.District==11&&!far34.AllowOutsideWalkDomain,"final district boundary inclusive");
+        Check(_source.TryGetPlacement("far-palace-0",out var far0)&&far0.SupportWorldX==-203.75&&far0.DesignSupportPixel.X==-100.0
+            &&far0.District==1&&far0.AllowOutsideWalkDomain&&far0.PlacementScope=="decorative-background-outside-walk-domain","left decorative outside");
+        Check(_source.TryGetPlacement("forest-74",out var forest74)&&forest74.SupportWorldX==203.25&&forest74.DesignSupportPixel.X==12924.0
+            &&forest74.District==11&&forest74.AllowOutsideWalkDomain,"right decorative outside");
+        Check(_source.TryGetAsset("rear-palace-twin-wing-court",out var rear)&&rear.Kind==PalaceProductionSource.AssetKinds.BackgroundCompound
+            &&rear.MotionGroup.ValueKind==JsonValueKind.Object&&rear.AmodalStatus.ValueKind==JsonValueKind.Object&&rear.Frames.Count==0,"background compound facts");
+
+        int nullFootprints=0,kindOnlyFootprints=0;
+        foreach(var asset in _source.Assets)
+        {
+            if(asset.Footprint.TryGetProperty("value",out var value)&&value.ValueKind==JsonValueKind.Null)nullFootprints++;
+            if(!asset.Footprint.TryGetProperty("value",out _)&&!asset.Footprint.TryGetProperty("span",out _)&&!asset.Footprint.TryGetProperty("points",out _))kindOnlyFootprints++;
+        }
+        Check(nullFootprints==14&&kindOnlyFootprints==41,"14 null + 41 kind-only footprints");
+        Check(_source.Assets.Count(a=>a.Support.TryGetProperty("point",out var point)&&point.ValueKind==JsonValueKind.Null)==0,"no null support point in r1");
+
+        Check(_source.TryGetAsset("central-palace-gate",out var gateAsset)&&gateAsset.InteractionAnchor!=null,"central gate interaction anchor");
+        var gate=gateAsset.InteractionAnchor;
+        Check(gate.Id=="return-to-source"&&gate.Purpose=="return-source-island"&&gate.CoordinateSystem=="asset-local-top-left-pixels","gate interaction identities");
+        Check(gate.Point.X==218&&gate.Point.Y==176&&!gate.NativeConfirmed&&gate.ChargeCoins==0,"gate interaction point/charge/native");
+        Check(gate.RuntimeTriggerExtent.ValueKind==JsonValueKind.Null&&gate.Meaning.Length>0&&gate.RuntimeResponsibility.Length>0,"gate extent null + bounded strings");
+        Check(gateAsset.Support.GetProperty("point")[0].GetDouble()==218&&gateAsset.Support.GetProperty("point")[1].GetDouble()==178,"gate support differs from interaction point");
+        Check(_source.Assets.Where(a=>a.Id!="central-palace-gate").All(a=>a.InteractionAnchor==null&&a.Interaction.GetArrayLength()==0),"other interactions empty");
+        Check(_source.Assets.Count(a=>a.Interaction.GetArrayLength()>0)==1,"only one non-empty interaction");
+
+        Check(_source.TryGetAsset("court-dancer",out var dancer)&&dancer.Actor!=null&&dancer.Frames.Count==26&&dancer.Clips.Count==3,"dancer frames/clips");
+        Check(dancer.Frames[0].Phase==null&&dancer.Frames[0].LocalOriginPixels==null&&dancer.Frames[0].ContactAnchorCellTopLeftPixels==null,"actor optional frame facts null");
+        Check(dancer.OriginalDeclaredLogicalPpu==32&&dancer.Actor.NativeSupportConfirmed==false,"actor nullable PPU/support");
+        Check(dancer.Actor.Clips.Single(c=>c.State=="dance").CompatiblePhases==null,"null compatible phases");
+        Check(_source.TryGetPlacement("court-dancer",out var dancerPlacement)&&dancerPlacement.ParentSurface!=null
+            &&dancerPlacement.ParentSurface.AssetId=="pear-garden-theatre"&&dancerPlacement.ParentSurface.LocalDeckPixel.X==257
+            &&dancerPlacement.DesignSupportPixel.X==7454.0&&dancerPlacement.DesignSupportPixel.Y==207.0&&dancerPlacement.SupportOffsetYUnits==0.53125,"dancer parent/design point");
+        Check(_source.TryGetAsset("lotus-flower-open",out var lotus)&&lotus.Frames.Count==16&&lotus.Clips.Count==2,"lotus frames/clips");
+        Check(lotus.Frames[8].Phase==0&&lotus.Frames[8].State=="wind"&&lotus.Frames[8].ContactAnchorCellTopLeftPixels!=null,"lotus local frame facts");
+        Check(lotus.Frames[8].SourceRectTopLeft.Y==28&&lotus.Frames[8].UnitySourceRectBottomLeft.Y==0,"lotus Unity rect");
+        Check(lotus.Clips[1].Id=="wind"&&lotus.Clips[1].TotalDurationMs==1920&&lotus.Clips[1].Indices.Count==8,"lotus clip aggregate");
+        Check(lotus.Clips[1] is PalaceProductionSource.LocalMotionClip lc&&lc.MaxPixelDisplacement==2&&lc.DistinctPhysicalPoses==7,"lotus clip fields");
+        Check(_source.TryGetPlacement("lotus-cluster-0-0",out var lotusPlacement)&&lotusPlacement.ReferencePlane=="native-water"
+            &&lotusPlacement.LocalClockPhaseSeed==0.0&&lotusPlacement.District==7,"water placement seed/district");
+        Check(_source.TryGetPlacement("guardian-orb",out var guardian)&&guardian.Behavior=="stationary-guardian"&&guardian.District==6,"guardian behavior/district");
+
+        Check(SourceCloneFacts(),"JsonElement clones match raw facts");
+        CheckReadOnly();
+    }
+
+    private static int DistrictAt(PalaceProductionSource source,double designPixelX)
+    {
+        for(int i=0;i<source.Districts.Count;i++)
+        {
+            var district=source.Districts[i];
+            if(designPixelX>=district.DesignPixelMinX&&designPixelX<district.DesignPixelMaxX)return district.Id;
+            if(i==source.Districts.Count-1&&designPixelX==district.DesignPixelMaxX)return district.Id;
+        }
+        return 0;
+    }
+
+    private static bool SourceCloneFacts()
+    {
+        using var doc=JsonDocument.Parse(_registry);
+        var rows=doc.RootElement.GetProperty("assets").EnumerateArray().ToArray();
+        bool Compare(string id)
+        {
+            JsonElement row=default;
+            foreach(var candidate in rows)if(candidate.GetProperty("id").GetString()==id){row=candidate;break;}
+            if(row.ValueKind==JsonValueKind.Undefined||!_source.TryGetAsset(id,out var asset))return false;
+            bool same=asset.Support.GetRawText()==row.GetProperty("support").GetRawText()
+                &&asset.Footprint.GetRawText()==row.GetProperty("footprint").GetRawText()
+                &&asset.Interaction.GetRawText()==row.GetProperty("interaction").GetRawText()
+                &&asset.MotionGroup.GetRawText()==row.GetProperty("motionGroup").GetRawText()
+                &&asset.AmodalStatus.GetRawText()==row.GetProperty("amodalStatus").GetRawText();
+            if(row.TryGetProperty("waterFit",out var waterFit))same&=asset.WaterFit.GetRawText()==waterFit.GetRawText();
+            if(row.TryGetProperty("provenance",out var provenance))same&=asset.Provenance.GetRawText()==provenance.GetRawText();
+            return same;
+        }
+        return Compare("cargo-granary")&&Compare("quay-vertical-brick-wall")&&Compare("east-celestial-vista")
+            &&Compare("rear-palace-twin-wing-court")&&Compare("central-palace-gate")&&Compare("court-dancer")
+            &&Compare("street-stone-paving");
+    }
+
+    private static void CheckReadOnly()
+    {
+        bool threw=false;
+        try{((IList<PalaceProductionSource.Asset>)_source.Assets).Add(null);}catch(NotSupportedException){threw=true;}
+        Check(threw,"assets readonly");
+        threw=false;
+        try{((IList<PalaceProductionSource.District>)_source.Districts).Add(null);}catch(NotSupportedException){threw=true;}
+        Check(threw,"districts readonly");
+        threw=false;
+        try{((IDictionary<string,int>)_source.RelativeDrawOrderHints).Add("x",1);}catch(NotSupportedException){threw=true;}
+        Check(threw,"hints readonly");
+    }
+
+    private static void CheckSynthetic()
+    {
+        string registry=RawRegistry();
+        string layout=RawLayout();
+        Check(PalaceProductionSource.TryParse(registry,layout,out var source,out string reason),"synthetic r1 fixture: "+reason);
+        Check(source.Assets.Count==2&&source.Placements.Count==2&&source.Districts.Count==11,"synthetic counts");
+        Check(source.DeclaredReadyForIsolatedIntegration&&source.RuntimePaidEntryGateOwner=="main-runtime"&&!source.NativeAccepted&&!source.PaidResourceGate,"synthetic ready flags");
+        Check(source.TryGetAsset("fixture-entity",out var env)&&env.Support.GetProperty("point")[1].GetDouble()==-4.0,"synthetic negative support accepted");
+        Check(source.TryGetAsset("fixture-lotus",out var lotus)&&lotus.Frames.Count==2&&lotus.Clips.Count==1,"synthetic local motion");
+        Check(((PalaceProductionSource.LocalMotionFrame)lotus.Frames[1]).PhaseIndex==1,"synthetic local phase");
+        Check(((PalaceProductionSource.LocalMotionClip)lotus.Clips[0]).TotalDurationMs==200,"synthetic local duration");
+        Check(source.TryGetPlacement("fixture-entity-placement",out var entity)&&entity.SupportWorldX==0.0&&entity.DesignSupportPixel.Y==224.0
+            &&entity.SupportOffsetYUnits==0.0&&entity.SupportLocalPixel.Y==-4.0&&entity.District==6&&!entity.AllowOutsideWalkDomain,"synthetic entity placement");
+        Check(source.TryGetPlacement("fixture-lotus-placement",out var lotusPlacement)&&lotusPlacement.SupportWorldX==2.5&&lotusPlacement.DesignSupportPixel.X==6500.0,"synthetic lotus placement");
+    }
+
+    private static void CheckMutations()
+    {
+        RejectRegistry(j=>j.Remove("schema"),"missing registry schema");
+        RejectRegistry(j=>j["extra"]=JsonValue.Create(1),"unknown registry field");
+        RejectRegistry(j=>j["paidCapital400ResourceGate"]=JsonValue.Create(false),"removed beta paid gate field");
+        RejectRegistry(j=>j.Remove("readyForIsolatedIntegration"),"missing ready field");
+        RejectRegistry(j=>j["readyForIsolatedIntegration"]=JsonValue.Create("true"),"ready type");
+        RejectRegistry(j=>j.Remove("runtimePaidEntryGateOwner"),"missing owner");
+        RejectRegistry(j=>j["runtimePaidEntryGateOwner"]=JsonValue.Create("other"),"wrong owner");
+        RejectRegistry(j=>j["nativeAccepted"]=JsonValue.Create(true),"registry native accepted");
+        RejectRegistry(j=>j["offlineReviewPending"]=Strings("x"),"ready with pending review");
+        RejectRegistry(j=>j["offlineReviewPending"]=Strings("x","x"),"duplicate offline review");
+        AcceptRawRegistry(_registry.Replace("\"readyForIsolatedIntegration\": true","\"readyForIsolatedIntegration\": false"),
+            "ready false is not a gate",s=>!s.DeclaredReadyForIsolatedIntegration&&!s.NativeAccepted&&!s.PaidResourceGate
+                &&s.RuntimePaidEntryGateOwner=="main-runtime");
+        RejectRegistry(j=>j["paletteSHA256"]=JsonValue.Create("ABC"),"bad palette hash");
+
+        RejectRegistry(j=>Asset(j,"cargo-granary").Remove("support"),"missing support");
+        RejectRegistry(j=>Asset(j,"cargo-granary")["extra"]=JsonValue.Create(true),"unknown asset field");
+        RejectRegistry(j=>Asset(j,"cargo-granary")["path"]=JsonValue.Create("../escape.png"),"path traversal");
+        RejectRegistry(j=>Asset(j,"cargo-granary")["path"]=JsonValue.Create("/tmp/a.png"),"absolute path");
+        RejectRegistry(j=>Asset(j,"cargo-granary")["path"]=JsonValue.Create("C:\\a.png"),"windows path");
+        RejectRegistry(j=>Asset(j,"cargo-granary")["size"]=Ints(2049,168),"oversized asset");
+        RejectRegistry(j=>Asset(j,"cargo-granary")["pixelsPerUnitDesign"]=JsonValue.Create(16),"asset ppu");
+        RejectRegistry(j=>Asset(j,"cargo-granary")["filterMode"]=JsonValue.Create("Bilinear"),"filter mode");
+        RejectRegistry(j=>Asset(j,"cargo-granary")["nativeAccepted"]=JsonValue.Create(true),"asset native accepted");
+        RejectRegistry(j=>Asset(j,"cargo-granary")["support"]!.AsObject()["nativeConfirmed"]=JsonValue.Create(true),"support native confirmed");
+        RejectRegistry(j=>Asset(j,"timber-rainbow-bridge")["footprint"]!.AsObject()["value"]=JsonValue.Create(3),"unsupported footprint value");
+        RejectRegistry(j=>Asset(j,"timber-rainbow-bridge")["footprint"]!.AsObject()["isNativeCollider"]=JsonValue.Create(true),"footprint collider");
+        RejectRegistry(j=>Asset(j,"cargo-granary")["motionGroup"]=JsonValue.Create(""),"empty motion group");
+        RejectRegistry(j=>Asset(j,"cargo-granary")["amodalStatus"]=new JsonArray(),"bad amodal shape");
+        RejectRegistry(j=>Asset(j,"cargo-granary")["containedObjectsSeparateReady"]=JsonValue.Create(true),"contained ready");
+        RejectRegistry(j=>Asset(j,"cargo-granary")["provenance"]!.AsObject()["extra"]=JsonValue.Create(1),"bad provenance");
+        RejectRegistry(j=>{
+            var copy=JsonNode.Parse(Asset(j,"cargo-granary").ToJsonString())!.AsObject();
+            copy["id"]=JsonValue.Create("cargo-granary-copy");copy["path"]=JsonValue.Create("entities/cargo-granary-copy.png");
+            j["assets"]!.AsArray().Add(copy);
+        },"duplicate master identity");
+
+        RejectRegistry(j=>Asset(j,"quay-vertical-brick-wall")["support"]!.AsObject().Remove("designOffsetYUnits"),"missing construction offset");
+        RejectRegistry(j=>Asset(j,"quay-vertical-brick-wall")["support"]!.AsObject()["extra"]=JsonValue.Create(1),"unknown construction support field");
+        RejectRegistry(j=>Asset(j,"quay-vertical-brick-wall")["support"]!.AsObject()["nativeConfirmed"]=JsonValue.Create(true),"construction native claim");
+        RejectRegistry(j=>Asset(j,"quay-vertical-brick-wall")["support"]!.AsObject()["point"]=Ints(64,1),"construction point not top edge");
+        RejectRegistry(j=>Asset(j,"quay-vertical-brick-wall")["support"]!.AsObject()["point"]=Ints(999,0),"construction point outside");
+        RejectRegistry(j=>Asset(j,"quay-vertical-brick-wall")["support"]!.AsObject()["meaning"]=JsonValue.Create(""),"construction empty meaning");
+        RejectRegistry(j=>Asset(j,"quay-vertical-brick-wall")["support"]!.AsObject()["designOffsetYUnits"]=JsonValue.Create("x"),"construction offset type");
+        RejectRegistry(j=>Asset(j,"east-celestial-vista")["support"]!.AsObject().Remove("meaning"),"airborne missing meaning");
+        RejectRegistry(j=>Asset(j,"east-celestial-vista")["support"]!.AsObject()["extra"]=JsonValue.Create(1),"airborne extra field");
+        RejectRegistry(j=>Asset(j,"east-celestial-vista")["support"]!.AsObject()["nativeConfirmed"]=JsonValue.Create(true),"airborne native claim");
+        RejectRegistry(j=>Asset(j,"east-celestial-vista")["support"]!.AsObject()["point"]=Ints(999,117),"airborne point outside");
+
+        RejectRegistry(j=>Asset(j,"central-palace-gate").Remove("interaction"),"missing gate interaction");
+        RejectRegistry(j=>Asset(j,"central-palace-gate")["interaction"]=new JsonArray(),"empty gate interaction");
+        RejectRegistry(j=>{
+            var entries=Asset(j,"central-palace-gate")["interaction"]!.AsArray();
+            entries.Add(JsonNode.Parse(entries[0]!.ToJsonString()));
+        },"duplicate gate interaction");
+        RejectRegistry(j=>Interaction(j,"chargeCoins","x"),"gate charge type");
+        RejectRegistry(j=>Interaction(j,"chargeCoins",1),"gate charge nonzero");
+        RejectRegistry(j=>Interaction(j,"nativeConfirmed",true),"gate native claim");
+        RejectRegistry(j=>Interaction(j,"runtimeTriggerExtent",new JsonObject()),"gate trigger extent");
+        RejectRegistry(j=>Interaction(j,"point",Ints(999,176)),"gate point outside");
+        RejectRegistry(j=>Interaction(j,"meaning",""),"gate empty meaning");
+        RejectRegistry(j=>Interaction(j,"runtimeResponsibility",""),"gate empty responsibility");
+        RejectRegistry(j=>Interaction(j,"id","other"),"gate id");
+        RejectRegistry(j=>Interaction(j,"purpose","other"),"gate purpose");
+        RejectRegistry(j=>Interaction(j,"coordinateSystem","other"),"gate coordinate system");
+        RejectRegistry(j=>Asset(j,"central-palace-gate")["interaction"]!.AsArray()[0]!.AsObject()["extra"]=JsonValue.Create(1),"gate extra field");
+        RejectRegistry(j=>Asset(j,"central-palace-gate")["interaction"]!.AsArray()[0]!.AsObject().Remove("id"),"gate missing field");
+        RejectRegistry(j=>Asset(j,"cargo-granary")["interaction"]=Strings("anchor"),"non-gate interaction");
+        RejectRegistry(j=>Asset(j,"cargo-granary")["interaction"]=new JsonArray{new JsonObject()}, "non-gate empty object interaction");
+
+        RejectRegistry(j=>Asset(j,"court-dancer")["filterMode"]=JsonValue.Create("Bilinear"),"actor filter mode");
+        RejectRegistry(j=>Asset(j,"court-dancer")["consumerWired"]=JsonValue.Create(true),"actor consumer wired");
+        RejectRegistry(j=>Asset(j,"court-dancer")["nativeCalibrationPending"]=JsonValue.Create(false),"actor calibration");
+        RejectRegistry(j=>Asset(j,"court-dancer").Remove("originalDeclaredLogicalPPU"),"actor missing original ppu");
+        RejectRegistry(j=>Asset(j,"court-dancer")["frameCount"]=JsonValue.Create(25),"actor frame count");
+        RejectRegistry(j=>Asset(j,"court-dancer")["frames"]!.AsArray().RemoveAt(0),"actor frame order");
+        RejectRegistry(j=>Asset(j,"court-dancer")["clips"]!.AsObject()["dance"]!.AsObject()["totalDurationMs"]=JsonValue.Create(1),"actor clip duration");
+        AcceptRawRegistry(_registry.Replace("\"originalDeclaredLogicalPPU\": 32","\"originalDeclaredLogicalPPU\": null"),
+            "null actor original ppu",s=>s.Assets.Where(a=>a.Kind==PalaceProductionSource.AssetKinds.ActorAtlas).All(a=>a.OriginalDeclaredLogicalPpu==null));
+
+        RejectRegistry(j=>Asset(j,"lotus-flower-open")["frameCount"]=JsonValue.Create(15),"local frame count");
+        RejectRegistry(j=>Asset(j,"lotus-flower-open")["logicalCell"]=Ints(15,16),"local cell");
+        RejectRegistry(j=>Asset(j,"lotus-flower-open")["frames"]!.AsArray()[0]!.AsObject()["durationMs"]=JsonValue.Create(0),"local zero duration");
+        RejectRegistry(j=>Asset(j,"lotus-flower-open")["frames"]!.AsArray()[0]!.AsObject()["sourceRect"]=Ints(0,0,17,16),"local source bounds");
+        RejectRegistry(j=>Asset(j,"lotus-flower-open")["frames"]!.AsArray()[0]!.AsObject()["masterId"]=JsonValue.Create("wrong"),"local frame master");
+        RejectRegistry(j=>Asset(j,"lotus-flower-open")["clips"]!.AsArray()[0]!.AsObject()["durationMs"]=JsonValue.Create(3201),"local clip duration");
+        RejectRegistry(j=>Asset(j,"lotus-flower-open")["clips"]!.AsArray()[0]!.AsObject()["distinctPhysicalPoses"]=JsonValue.Create(99),"local distinct poses");
+        RejectRegistry(j=>{var clip=Asset(j,"lotus-flower-open")["clips"]!.AsArray()[0]!.AsObject();clip["indices"]=Ints(0,1,2,3,4,5,6);clip["durationMs"]=JsonValue.Create(2800);},"local clip coverage");
+        RejectRegistry(j=>{
+            var frames=Asset(j,"lotus-flower-open")["frames"]!.AsArray();var first=frames[0]!.ToJsonString();
+            while(frames.Count<=PalaceProductionSource.MaxAssetFrames)frames.Add(JsonNode.Parse(first));
+        },"local frame budget");
+        RejectRegistry(j=>{
+            var assets=j["assets"]!.AsArray();var first=assets[0]!.ToJsonString();
+            while(assets.Count<=PalaceProductionSource.MaxAssets)assets.Add(JsonNode.Parse(first));
+        },"asset budget");
+
+        RejectLayout(j=>j.Remove("schema"),"missing layout schema");
+        RejectLayout(j=>j.Remove("districts"),"missing districts");
+        RejectLayout(j=>j["extra"]=JsonValue.Create(1),"unknown layout field");
+        RejectLayout(j=>j["nativeAccepted"]=JsonValue.Create(true),"layout native accepted");
+        RejectLayout(j=>j["pixelsPerUnitDesign"]=JsonValue.Create(16),"layout ppu");
+        RejectLayout(j=>j["worldDomain"]=Ints(-300,300),"expanded walk domain");
+        RejectLayout(j=>j["designXAxis"]!.AsObject()["physicalPixelDomain"]=Ints(0,12840),"expanded pixel domain");
+        RejectLayout(j=>j["designXAxis"]!.AsObject()["gateAxisPixelX"]=JsonValue.Create(6400),"gate axis");
+        RejectLayout(j=>j["designStreetReferenceY"]=JsonValue.Create(225),"street reference");
+        RejectLayout(j=>j["placementFormula"]=JsonValue.Create("other"),"placement formula");
+        RejectLayout(j=>j["backgroundMotionRates"]=new JsonObject{["calm"]=JsonValue.Create(0.1)},"background rates");
+        RejectLayout(j=>j["placements"]=new JsonArray(),"empty placements");
+
+        RejectLayout(j=>j["districts"]!.AsArray().RemoveAt(0),"district count");
+        RejectLayout(j=>j["districts"]!.AsArray()[1]!.AsObject()["id"]=JsonValue.Create(1),"district id");
+        RejectLayout(j=>j["districts"]!.AsArray()[0]!.AsObject()["designPixelDomain"]=Ints(21,1348),"district first start");
+        RejectLayout(j=>j["districts"]!.AsArray()[1]!.AsObject()["designPixelDomain"]=Ints(1350,2415),"district gap");
+        RejectLayout(j=>j["districts"]!.AsArray()[10]!.AsObject()["designPixelDomain"]=Ints(11492,12819),"district last end");
+        RejectLayout(j=>j["districts"]!.AsArray()[0]!.AsObject()["extra"]=JsonValue.Create(1),"district extra field");
+        RejectLayout(j=>j["districts"]!.AsArray()[0]!.AsObject()["designPixelDomain"]=Ints(20,20),"district zero width");
+
+        RejectLayout(j=>Placement(j,"cargo-granary").Remove("designSupportPixel"),"missing design support point");
+        RejectLayout(j=>Placement(j,"cargo-granary").Remove("district"),"missing district");
+        RejectLayout(j=>Placement(j,"cargo-granary")["extra"]=JsonValue.Create(true),"unknown placement field");
+        RejectLayout(j=>Placement(j,"cargo-granary")["assetId"]=JsonValue.Create("missing-asset"),"unknown asset ref");
+        RejectLayout(j=>Placement(j,"cargo-granary")["referencePlane"]=JsonValue.Create("native-air"),"unknown plane");
+        RejectLayout(j=>Placement(j,"cargo-granary")["drawRole"]=JsonValue.Create("no-such-role"),"unknown role");
+        RejectLayout(j=>Placement(j,"cargo-granary")["designSupportPixel"]=Points(1722,224),"design x mismatch");
+        RejectLayout(j=>Placement(j,"cargo-granary")["designSupportPixel"]=Points(1721,225),"design y mismatch");
+        RejectLayout(j=>Placement(j,"cargo-granary")["designSupportPixel"]=Strings("x","y"),"design point type");
+        RejectLayout(j=>Placement(j,"cargo-granary")["district"]=JsonValue.Create(3),"district mismatch");
+        RejectLayout(j=>Placement(j,"cargo-granary")["supportWorldX"]=JsonValue.Create("NaN"),"world x type");
+        RejectLayout(j=>Placement(j,"cargo-granary")["supportOffsetYUnits"]=JsonValue.Create("NaN"),"offset type");
+        RejectLayout(j=>Placement(j,"court-dancer")["parentSurface"]!.AsObject()["assetId"]=JsonValue.Create("missing-parent"),"missing parent");
+        RejectLayout(j=>Placement(j,"court-dancer")["parentSurface"]!.AsObject()["localDeckPixel"]=Ints(999,123),"parent deck bounds");
+        RejectLayout(j=>Placement(j,"court-dancer")["parentSurface"]!.AsObject()["assetId"]=JsonValue.Create("court-dancer"),"self parent");
+        RejectLayout(j=>{
+            var placements=j["placements"]!.AsArray();var copy=JsonNode.Parse(Placement(j,"pear-garden-theatre").ToJsonString())!.AsObject();
+            copy["id"]=JsonValue.Create("pear-garden-theatre-copy");placements.Add(copy);
+        },"ambiguous parent");
+        RejectLayout(j=>{
+            var q=Placement(j,"quay-vertical-brick-wall-0");q["supportOffsetYUnits"]=JsonValue.Create(-0.2);q["designSupportPixel"]=Points(84,230.4);
+        },"double design offset");
+        RejectLayout(j=>Placement(j,"far-palace-0").Remove("allowOutsideWalkDomain"),"scope without flag");
+        RejectLayout(j=>Placement(j,"far-palace-0").Remove("placementScope"),"flag without scope");
+        RejectLayout(j=>Placement(j,"far-palace-0")["allowOutsideWalkDomain"]=JsonValue.Create(false),"outside flag false");
+        RejectLayout(j=>Placement(j,"far-palace-0")["placementScope"]=JsonValue.Create("other"),"outside wrong scope");
+        RejectLayout(j=>Placement(j,"far-palace-0")["district"]=JsonValue.Create(11),"outside wrong district");
+        RejectLayout(j=>Placement(j,"far-palace-0")["assetId"]=JsonValue.Create("street-stone-paving"),"outside wrong asset kind");
+        RejectLayout(j=>{
+            var p=Placement(j,"far-palace-0");p["designSupportPixel"]=Points(100,224);p["supportWorldX"]=JsonValue.Create(-197.5);p["district"]=JsonValue.Create(6);
+        },"outside flag inside domain");
+        RejectLayout(j=>{
+            var p=Placement(j,"far-palace-1");p["designSupportPixel"]=Points(-100,224);p["supportWorldX"]=JsonValue.Create(-203.75);p["district"]=JsonValue.Create(1);
+        },"unflagged outside domain");
+        RejectLayout(j=>{
+            var p=Placement(j,"cargo-granary");p["designSupportPixel"]=Points(-100,224);p["supportWorldX"]=JsonValue.Create(-203.75);p["district"]=JsonValue.Create(1);
+            p["allowOutsideWalkDomain"]=JsonValue.Create(true);p["placementScope"]=JsonValue.Create("decorative-background-outside-walk-domain");
+        },"outside non-background asset");
+        AcceptLayout(j=>Placement(j,"street-stone-paving-0")["supportLocalPixel"]=Ints(64,-20),"negative local support accepted");
+
+        var layoutRoot=LayoutObject();var placementRows=layoutRoot["placements"]!.AsArray();var firstPlacement=placementRows[0]!.ToJsonString();
+        while(placementRows.Count<=PalaceProductionSource.MaxPlacements)placementRows.Add(JsonNode.Parse(firstPlacement));
+        RejectLayout(placementRows,"placement budget");
+
+        string raw=_registry;int brace=raw.IndexOf('{');
+        RejectRawRegistry(raw.Insert(brace+1,"\"schema\":\"duplicate\","),"duplicate root key","duplicate-key");
+        int support=raw.IndexOf("\"support\": {",StringComparison.Ordinal);Check(support>=0,"support marker");
+        RejectRawRegistry(raw.Insert(support+"\"support\": {".Length,"\"kind\":\"dup\","),"duplicate nested key","duplicate-key");
+        RejectRawRegistry(raw.Substring(0,raw.Length/2),"malformed json","json");
+
+        const string placementX="\"supportWorldX\": -146.84375";int xIndex=_layout.IndexOf(placementX,StringComparison.Ordinal);Check(xIndex>=0,"placement x marker");
+        string nonfinite=_layout.Substring(0,xIndex)+"\"supportWorldX\": 1e309"+_layout.Substring(xIndex+placementX.Length);
+        RejectRawLayout(nonfinite,"non-finite x",null);
+        string nan=_layout.Substring(0,xIndex)+"\"supportWorldX\": NaN"+_layout.Substring(xIndex+placementX.Length);
+        RejectRawLayout(nan,"NaN token","json");
+
+        string bigValue="\""+new string('界',350000)+"\"";
+        Check(bigValue.Length<PalaceProductionSource.MaxJsonBytes,"char budget below utf8 limit");
+        Check(Encoding.UTF8.GetByteCount(bigValue)>PalaceProductionSource.MaxJsonBytes,"utf8 exceeds limit");
+        CheckReason(PalaceProductionSource.TryParse(bigValue,_layout,out _,out string bigReason),bigReason,"size","utf8 byte budget");
+        string nodes="["+string.Join(",",Enumerable.Repeat("0",PalaceProductionSource.MaxNodes+1))+"]";
+        CheckReason(PalaceProductionSource.TryParse(nodes,_layout,out _,out string nodeReason),nodeReason,"node-budget","node budget");
+        string deep=new string('[',40)+new string(']',40);
+        Check(!PalaceProductionSource.TryParse(deep,_layout,out _,out _),"depth budget");
+    }
+
+    private static JsonObject Interaction(JsonObject root,string field,JsonNode value)
+    {
+        var entry=Asset(root,"central-palace-gate")["interaction"]!.AsArray()[0]!.AsObject();
+        entry[field]=value;return root;
+    }
+
+    private static void RejectRegistry(Action<JsonObject> mutate,string name)
+    {
+        var root=RegistryObject();mutate(root);
+        bool parsed=PalaceProductionSource.TryParse(root.ToJsonString(),_layout,out _,out string reason);
+        CheckReason(parsed,reason,null,"registry mutation: "+name);
+    }
+
+    private static void AcceptLayout(Action<JsonObject> mutate,string name)
+    {
+        var root=LayoutObject();mutate(root);
+        bool parsed=PalaceProductionSource.TryParse(_registry,root.ToJsonString(),out _,out string reason);
+        Check(parsed,"layout mutation accepted: "+name+": "+reason);
+    }
+
+    private static void RejectLayout(Action<JsonObject> mutate,string name)
+    {
+        var root=LayoutObject();mutate(root);
+        bool parsed=PalaceProductionSource.TryParse(_registry,root.ToJsonString(),out _,out string reason);
+        CheckReason(parsed,reason,null,"layout mutation: "+name);
+    }
+
+    private static void RejectLayout(JsonArray placements,string name)
+    {
+        var root=LayoutObject();root["placements"]=JsonNode.Parse(placements.ToJsonString());
+        bool parsed=PalaceProductionSource.TryParse(_registry,root.ToJsonString(),out _,out string reason);
+        CheckReason(parsed,reason,null,"layout mutation: "+name);
+    }
+
+    private static void RejectRawRegistry(string raw,string name,string expected)
+    {
+        bool parsed=PalaceProductionSource.TryParse(raw,_layout,out _,out string reason);
+        CheckReason(parsed,reason,expected,"raw registry: "+name);
+    }
+
+    private static void AcceptRawRegistry(string raw,string name,Func<PalaceProductionSource,bool> verify)
+    {
+        bool parsed=PalaceProductionSource.TryParse(raw,_layout,out var source,out string reason);
+        Check(parsed&&verify(source),"raw registry accepted: "+name+": "+reason);
+    }
+
+    private static void RejectRawLayout(string raw,string name,string expected)
+    {
+        bool parsed=PalaceProductionSource.TryParse(_registry,raw,out _,out string reason);
+        CheckReason(parsed,reason,expected,"raw layout: "+name);
+    }
+
+    private static JsonObject RegistryObject()=>JsonNode.Parse(_registry)!.AsObject();
+    private static JsonObject LayoutObject()=>JsonNode.Parse(_layout)!.AsObject();
+
+    private static JsonObject Asset(JsonObject root,string id)
+    {
+        foreach(var node in root["assets"]!.AsArray())
+        {
+            var row=node!.AsObject();if(row["id"]!.GetValue<string>()==id)return row;
+        }
+        throw new Exception("missing asset: "+id);
+    }
+
+    private static JsonObject Placement(JsonObject root,string id)
+    {
+        foreach(var node in root["placements"]!.AsArray())
+        {
+            var row=node!.AsObject();if(row["id"]!.GetValue<string>()==id)return row;
+        }
+        throw new Exception("missing placement: "+id);
+    }
+
+    private static JsonArray Ints(params int[] values)
+    {
+        var array=new JsonArray();foreach(int value in values)array.Add(JsonValue.Create(value));return array;
+    }
+
+    private static JsonArray Points(params double[] values)
+    {
+        var array=new JsonArray();foreach(double value in values)array.Add(JsonValue.Create(value));return array;
+    }
+
+    private static JsonArray Strings(params string[] values)
+    {
+        var array=new JsonArray();foreach(string value in values)array.Add(JsonValue.Create(value));return array;
+    }
+
+    private static string RawRegistry()
+    {
+        const string text="""
+{
+ "schema":"palace400-r12-production/1",
+ "assets":[
+  {
+   "id":"fixture-entity","kind":"environment-entity","path":"entities/fixture-entity.png","SHA256":"HASH_A",
+   "size":[32,32],"localOrigin":[0,0],"masterId":"fixture-entity-master","masterRect":[0,0,32,32],
+   "pixelsPerUnitDesign":32,"filterMode":"Point","nativeAccepted":false,
+   "support":{"kind":"authored-semantic-attachment","point":[16,-4],"nativeConfirmed":false},
+   "footprint":{"kind":"visual-support-span","isNativeCollider":false},
+   "interaction":[],"drawRole":"actorBehind","motionGroup":"street-fixed","amodalStatus":"complete-fixed-compound",
+   "containedObjectsSeparateReady":false,"frames":[]
+  },
+  {
+   "id":"fixture-lotus","kind":"local-environment-motion-atlas","path":"motion/fixture-lotus.png","SHA256":"HASH_B",
+   "size":[32,32],"localOrigin":[0,0],"masterId":"fixture-lotus-master","masterRect":[0,0,32,32],
+   "pixelsPerUnitDesign":32,"filterMode":"Point","nativeAccepted":false,
+   "support":{"kind":"stem-water-contact-design-only","cellPixelTopLeft":[8,13],"nativeConfirmed":false},
+   "footprint":{"kind":"pond-decoration-no-collider-inferred","value":null},
+   "interaction":[],"drawRole":"waterFront","motionGroup":"attached-local-fixed-contact","amodalStatus":"complete-reviewed-source-shape-and-complete-derived-frames",
+   "logicalCell":[16,16],"pivotBottomLeft":[8,3],"frameCount":2,
+   "frames":[
+    {"index":0,"state":"calm","phase":0,"durationMs":100,"sourceRect":[0,0,16,16],"masterId":"fixture-lotus-master","masterRect":[0,0,16,16],"localOrigin":[0,0],"pivotBottomLeft":[8,3],"contactAnchorCellTopLeft":[8,13],"logicalRGBA_SHA256":"HASH_C"},
+    {"index":1,"state":"calm","phase":1,"durationMs":100,"sourceRect":[16,0,16,16],"masterId":"fixture-lotus-master","masterRect":[16,0,16,16],"localOrigin":[0,0],"pivotBottomLeft":[8,3],"contactAnchorCellTopLeft":[8,13],"logicalRGBA_SHA256":"HASH_D"}
+   ],
+   "clips":[{"id":"calm","indices":[0,1],"durationMs":200,"loop":true,"maxPixelDisplacement":1,"distinctPhysicalPoses":2}]
+  }
+ ],
+ "entityCount":1,"backgroundAssetCount":0,"groundModuleCount":0,"actorCount":0,"actorTemporalFrames":0,
+ "localMotionAtlases":1,"localMotionFrames":2,"offlineReviewPending":[],"nativeAccepted":false,
+ "readyForIsolatedIntegration":true,"runtimePaidEntryGateOwner":"main-runtime","paletteSHA256":"HASH_E"
+}
+""";
+        return text.Replace("HASH_A",new string('a',64)).Replace("HASH_B",new string('b',64))
+            .Replace("HASH_C",new string('c',64)).Replace("HASH_D",new string('d',64)).Replace("HASH_E",new string('e',64));
+    }
+
+    private static string RawLayout()
+    {
+        return """
+{
+ "schema":"palace400-r12-layout/1","worldDomain":[-200,200],"pixelsPerUnitDesign":32,
+ "designXAxis":{"physicalPixelDomain":[20,12820],"gateAxisPixelX":6420},"designStreetReferenceY":224,
+ "districts":[
+  {"id":1,"designPixelDomain":[20,1348]},{"id":2,"designPixelDomain":[1348,2415]},
+  {"id":3,"designPixelDomain":[2415,3485]},{"id":4,"designPixelDomain":[3485,4548]},
+  {"id":5,"designPixelDomain":[4548,5780]},{"id":6,"designPixelDomain":[5780,6978]},
+  {"id":7,"designPixelDomain":[6978,8292]},{"id":8,"designPixelDomain":[8292,9356]},
+  {"id":9,"designPixelDomain":[9356,10464]},{"id":10,"designPixelDomain":[10464,11492]},
+  {"id":11,"designPixelDomain":[11492,12820]}
+ ],
+ "placementFormula":"worldY=measuredNativeReferencePlaneY+supportOffsetYUnits+(supportLocalY-localY)/32",
+ "drawOrderHints":{"actorBehind":30,"waterFront":80},"nativeUnknowns":["groundY","waterY"],
+ "placements":[
+  {"id":"fixture-entity-placement","assetId":"fixture-entity","referencePlane":"native-ground","supportWorldX":0.0,"supportOffsetYUnits":0.0,"supportLocalPixel":[16,-4],"designSupportPixel":[6420.0,224.0],"district":6,"drawRole":"actorBehind","motionGroup":"street-fixed"},
+  {"id":"fixture-lotus-placement","assetId":"fixture-lotus","referencePlane":"native-water","supportWorldX":2.5,"supportOffsetYUnits":0.0,"supportLocalPixel":[8,13],"designSupportPixel":[6500.0,224.0],"district":6,"drawRole":"waterFront","motionGroup":"attached-local-fixed-contact"}
+ ],
+ "backgroundMotionRates":null,"nativeAccepted":false
+}
+""";
+    }
+}

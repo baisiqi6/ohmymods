@@ -1,0 +1,1046 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Reflection;
+using System.Security.Cryptography;
+using System.Text;
+
+namespace KingdomEnhancedMod
+{
+    internal enum CurrencyType { Coins, Gems, Crown, Skulls, Shades, Merchandise, Candle, Egg }
+
+    internal sealed class CurrencyMap
+    {
+        private readonly int[] _indexValues;
+        private readonly int _fieldValue;
+        private readonly bool _throwFields;
+        internal CurrencyMap(int[] indexValues, int fieldValue = 59674224, bool throwFields = false)
+        { _indexValues = indexValues; _fieldValue = fieldValue; _throwFields = throwFields; }
+        public int this[CurrencyType type] => _indexValues[(int)type];
+        public int Coins => Field();
+        public int Gems => Field();
+        public int Crown => Field();
+        public int Skulls => Field();
+        public int Shades => Field();
+        public int Merchandise => Field();
+        public int Candle => Field();
+        public int Egg => Field();
+        private int Field()
+        {
+            if (_throwFields) throw new InvalidOperationException("field getter");
+            return _fieldValue;
+        }
+    }
+
+    internal sealed class FaultProbe
+    {
+        private string _value;
+        internal FaultProbe(string value) { _value = value; }
+        internal int Length { get { LengthReads++; return _value.Length; } }
+        internal int LengthReads;
+        public static implicit operator FaultProbe(string value) => new FaultProbe(value);
+        public override string ToString() => _value;
+    }
+
+    internal sealed class Game
+    {
+        internal enum State { Playing, Paused, Other }
+        private State _state;
+        private int _land;
+        private IntPtr _pointer;
+        internal bool UnityNull, ThrowState, ThrowPointer;
+        internal int StateReads, LandReads, PointerReads, GameObjectReads;
+        internal static int OperatorCalls;
+        internal State state
+        {
+            get { StateReads++; if (ThrowState) throw new InvalidOperationException("state"); return _state; }
+            set { _state = value; }
+        }
+        internal int currentLand { get { LandReads++; return _land; } set { _land = value; } }
+        internal object? gameObject { get { GameObjectReads++; return null; } }
+        internal IntPtr Pointer { get { PointerReads++; if(ThrowPointer)throw new InvalidOperationException("pointer"); return _pointer; } set { _pointer = value; } }
+        public static bool operator ==(Game? a, Game? b)
+        {
+            OperatorCalls++;
+            bool an = a is null || a.UnityNull;
+            bool bn = b is null || b.UnityNull;
+            return an == bn;
+        }
+        public static bool operator !=(Game? a, Game? b) => !(a == b);
+        public override bool Equals(object? o) => o is Game g && this == g;
+        public override int GetHashCode() => _pointer.GetHashCode();
+    }
+
+    internal sealed class PalacePaidHandle
+    {
+        internal FaultProbe Fault = new FaultProbe("");
+        private Guid _trip;
+        private Game? _game;
+        internal int TripIdReads, GameReads;
+        internal Guid TripId { get { TripIdReads++; return _trip; } set { _trip = value; } }
+        internal Game? Game { get { GameReads++; return _game; } set { _game = value; } }
+        internal PalacePaidCaptureDiagnostics CaptureDiagnostic { get; }
+        internal PalacePaidHandle(Guid trip, PalacePaidCaptureDiagnostics diagnostics)
+        { _trip = trip; CaptureDiagnostic = diagnostics; }
+        internal string FaultText => Fault.ToString();
+    }
+
+    internal static partial class Engine
+    {
+        private static PalacePaidHandle? _handle;
+        private static PalacePaidCaptureDiagnostics? DiagnosticsFor(PalacePaidHandle? handle)
+            => handle?.CaptureDiagnostic;
+        internal static void SetHandle(PalacePaidHandle? handle) => _handle = handle;
+        internal static bool InvokeArrival(PalacePaidHandle handle, Game game, string tripId, int targetLand)
+            => TryObserveArrivalFirstFailure(handle, game, tripId, targetLand);
+        internal static void InvokeHold(PalacePaidHandle handle, string reason) => Hold(handle, reason);
+        internal static bool InvokeDefaultGuard(PalacePaidHandle handle, Game game, string tripId, int targetLand)
+            => DefaultGuard09(handle, game, tripId, targetLand);
+        internal static void InvokeDefaultHold(PalacePaidHandle handle, string reason) => DefaultHold09(handle, reason);
+        #if PAID_ARRIVAL_LEGACY
+        internal static bool InvokeLegacyDefaultGuard(PalacePaidHandle handle, Game game, string tripId, int targetLand)
+            => LegacyDefaultGuardB6(handle, game, tripId, targetLand);
+        #endif
+    }
+
+    internal static class Program
+    {
+        private static int _passed, _failed;
+
+        private static int Main()
+        {
+            TestSourceIdentity();
+            TestDefaultBuildOff();
+            TestInstanceBudgetIndependence();
+            TestNullScopeIsolation();
+            TestThrowingSink();
+            TestBeginInvalidStage();
+            TestMissingPhasesUnobserved();
+            TestResolveIsOutcome();
+            TestPrefsUnobservedAndApplied();
+            TestWalletGuardStructure();
+            TestFinalizerFlags();
+            TestCapturedStage();
+            TestCurrencyComparisonNull();
+            TestCurrencyComparisonBadCount();
+            TestCurrencyComparisonEqual();
+            TestCurrencyComparisonMismatch();
+            TestCurrencyComparisonThrowingGetter();
+            TestCurrencyComparisonOnceAndBudget();
+            TestCurrencyCallSiteOrder();
+            TestWalletPostfixIndexerExpression();
+            TestArrivalSourceIdentity();
+            TestArrivalGuardParity();
+            TestArrivalDiagnosticLimits();
+            TestArrivalHistoricalGameReads();
+#if PAID_ARRIVAL_LEGACY
+            TestArrivalLegacyBaseline();
+#endif
+            Console.WriteLine("cases=" + (_passed + _failed) + " passed=" + _passed + " failed=" + _failed);
+            return _failed == 0 ? 0 : 1;
+        }
+
+        private static void Check(string name, bool condition, string detail = "")
+        {
+            if (condition) { _passed++; Console.WriteLine("PASS " + name); }
+            else { _failed++; Console.WriteLine("FAIL " + name + (detail.Length == 0 ? "" : " :: " + detail)); }
+        }
+
+        private static string Join(List<string> lines) => string.Join("\n", lines);
+        private static bool Has(string text, string value) => text.IndexOf(value, StringComparison.Ordinal) >= 0;
+
+        private static List<string> Lines() => new List<string>();
+
+        private static PalacePaidCaptureDiagnostics New(Guid trip, List<string> lines)
+            => new PalacePaidCaptureDiagnostics(trip, lines.Add);
+
+        private static void BeginAccepted(PalacePaidCaptureDiagnostics d)
+            => d.Begin(11, 8, 6, 3, true, false, false, true, true, false, 0, 2);
+
+        private static void MarkerAccepted(PalacePaidCaptureDiagnostics d) => d.Marker(true);
+        private static void WalletAccepted(PalacePaidCaptureDiagnostics d) => d.Wallet(true);
+        private static void EndStaged(PalacePaidCaptureDiagnostics d)
+            => d.End(true,false,true, false, true, true, true, true, true, false, false, true);
+
+        private sealed class ProbeList : IReadOnlyList<int>
+        {
+            private readonly int[] _values;
+            private readonly bool _throwOnIndex, _throwOnCount;
+            internal int IndexReads;
+            internal ProbeList(int[] values, bool throwOnIndex = false, bool throwOnCount = false)
+            { _values = values; _throwOnIndex = throwOnIndex; _throwOnCount = throwOnCount; }
+            public int Count => _throwOnCount ? throw new InvalidOperationException("count") : _values.Length;
+            public int this[int index]
+            {
+                get
+                {
+                    IndexReads++;
+                    if (_throwOnIndex) throw new InvalidOperationException("getter");
+                    return _values[index];
+                }
+            }
+            public IEnumerator<int> GetEnumerator()
+            {
+                for (int i = 0; i < _values.Length; i++) yield return _values[i];
+            }
+            System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+        }
+
+        private static int Occurrences(string text, string value)
+        {
+            int count = 0, at = 0;
+            while ((at = text.IndexOf(value, at, StringComparison.Ordinal)) >= 0) { count++; at += value.Length; }
+            return count;
+        }
+
+        private static void TestSourceIdentity()
+        {
+            string source = File.ReadAllText(PalacePaidCaptureDiagnosticsIdentity.SourcePath, Encoding.UTF8);
+            byte[] sourceBytes = Encoding.UTF8.GetBytes(source);
+            Check("identity-source-present", source.Length > 0);
+            Check("identity-source-bytes", sourceBytes.Length == PalacePaidCaptureDiagnosticsIdentity.SourceBytes);
+            Check("identity-source-sha", Sha(sourceBytes) == PalacePaidCaptureDiagnosticsIdentity.SourceSha256);
+            // The R3 binary embedded the pre-diagnostic source hash; a stale binary must fail the checks above.
+            Check("identity-old-binary-negative",
+                PalacePaidCaptureDiagnosticsIdentity.SourceSha256 != "47524151471268980798d616037dec4b56c87eae453a60dd32ba205a553cfe53");
+
+            string region;
+            try { region = ExtractRegion(source); }
+            catch (Exception e) { Check("identity-region-extract", false, e.Message); return; }
+            Check("identity-region-chars", region.Length == PalacePaidCaptureDiagnosticsIdentity.RegionChars);
+            Check("identity-region-sha", Sha(Encoding.UTF8.GetBytes(region)) == PalacePaidCaptureDiagnosticsIdentity.RegionSha256);
+            Check("identity-region-class", Has(region, "internal sealed class PalacePaidCaptureDiagnostics"));
+            Check("identity-region-no-mirror", !Has(region, "class Extracted") && !Has(region, "class Mirror"));
+            Check("identity-no-touch-reset", !Has(region, "Touch(") && !Has(region, "_hasTrip"));
+            Check("identity-immutable-trip", Has(region, "private readonly Guid _trip;"));
+
+            byte[] generated = File.ReadAllBytes(PalacePaidCaptureDiagnosticsIdentity.GeneratedPath);
+            Check("identity-generated-bytes", generated.Length == PalacePaidCaptureDiagnosticsIdentity.GeneratedBytes);
+            Check("identity-generated-sha", Sha(generated) == PalacePaidCaptureDiagnosticsIdentity.GeneratedSha256);
+            Check("identity-generated-verbatim", Encoding.UTF8.GetString(generated).IndexOf(region, StringComparison.Ordinal) >= 0);
+
+            string mutated = source.Replace("MaxLines=32", "MaxLines=33", StringComparison.Ordinal);
+            Check("identity-negative-sha", mutated != source && Sha(Encoding.UTF8.GetBytes(mutated))
+                != PalacePaidCaptureDiagnosticsIdentity.SourceSha256);
+            bool rejected = false;
+            try { ExtractRegion(mutated.Replace("// <PALACE-PAID-CAPTURE-DIAGNOSTICS-END>", "", StringComparison.Ordinal)); }
+            catch (InvalidOperationException) { rejected = true; }
+            Check("identity-negative-markers", rejected);
+        }
+
+        private static void TestDefaultBuildOff()
+        {
+            string source = File.ReadAllText(PalacePaidCaptureDiagnosticsIdentity.SourcePath, Encoding.UTF8);
+            int depth = 0, ifs = 0, endifs = 0, outside = 0;
+            foreach (string raw in source.Split('\n'))
+            {
+                string line = raw.TrimStart();
+                if (line.StartsWith("#if PALACE_PAID_CAPTURE_DIAGNOSTICS", StringComparison.Ordinal))
+                { depth++; ifs++; continue; }
+                if (line.StartsWith("#endif", StringComparison.Ordinal))
+                { if (depth > 0) depth--; endifs++; continue; }
+                if (depth > 0) continue;
+                if (Has(line, "PalacePaidCaptureDiagnostics") || Has(line, "_nullCaptureDiagnostics")
+                    || Has(line, "CaptureDiagnostic") || Has(line, "DiagBegin") || Has(line, "DiagMarker")
+                    || Has(line, "DiagWallet") || Has(line, "DiagEnd") || Has(line, "DiagPrefs")
+                    || Has(line, "DiagCurrencyCompare") || Has(line, "CurrencyComparison")
+                    || Has(line, "capturedValue") || Has(line, "observedWalletValue")
+                    || Has(line, "DiagResolve") || Has(line, "PALACE-PAID-CAPTURE-DIAGNOSTICS-BEGIN")
+                    || Has(line, "PALACE-PAID-CAPTURE-DIAGNOSTICS-END")) outside++;
+            }
+            Check("default-off-balanced", depth == 0 && ifs == endifs && ifs > 0, "ifs=" + ifs + " endifs=" + endifs);
+            Check("default-off-zero-observer", outside == 0, "outside=" + outside);
+            Check("default-off-no-unity-debug-log", !Has(source, "UnityEngine.Debug.Log"));
+        }
+
+        private static void TestInstanceBudgetIndependence()
+        {
+            var aLines = Lines();
+            var bLines = Lines();
+            var a = New(Guid.NewGuid(), aLines);
+            var b = New(Guid.NewGuid(), bLines);
+            MethodInfo emit = typeof(PalacePaidCaptureDiagnostics).GetMethod("Emit",
+                BindingFlags.Instance | BindingFlags.NonPublic)!;
+            for (int i = 0; i < 40; i++) emit.Invoke(a, new object[] { "probe-" + i });
+
+            string aText = Join(aLines);
+            Check("budget-a-32", aLines.Count == 32, "lines=" + aLines.Count);
+            Check("budget-a-prefix", aLines.TrueForAll(x => x.StartsWith("[PALACE-PAID-CAPTURE] ", StringComparison.Ordinal)));
+            Check("budget-a-no-33", !Has(aText, "probe-32"));
+
+            BeginAccepted(b);
+            b.Resolve(true, false, "no-durable-capture");
+            int bCount = bLines.Count;
+            Check("budget-b-independent", bCount == 2, "lines=" + bCount);
+            Check("budget-b-summary", Has(Join(bLines), "resolve=0:no-durable-capture"));
+
+            BeginAccepted(a);
+            a.Resolve(true, false, "no-durable-capture");
+            Check("budget-a-not-reset", aLines.Count == 32, "lines=" + aLines.Count);
+            Check("old-callbacks-keep-b", bLines.Count == bCount && Has(Join(bLines), "summary trip="), "lines=" + bLines.Count);
+        }
+
+        private static void TestNullScopeIsolation()
+        {
+            var handleLines = Lines();
+            var nullLines = Lines();
+            var handle = New(Guid.NewGuid(), handleLines);
+            var nullScope = New(Guid.Empty, nullLines);
+
+            nullScope.Begin(1, 8, 6, 3, false, false, false, false, false, false, 1, -1);
+            nullScope.Resolve(false, false, "no-durable-capture");
+            BeginAccepted(handle);
+            handle.Resolve(true, false, "no-durable-capture");
+
+            string nullText = Join(nullLines);
+            string handleText = Join(handleLines);
+            Check("null-scope-trip-null", Has(nullText, "trip=null"));
+            Check("null-scope-begin-unobserved-handle", Has(nullText, "handle=0") && Has(nullText, "resolve=0:"));
+            Check("null-scope-not-joined", !Has(handleText, "trip=null")
+                && !Has(handleText, "bfail=1") && Has(handleText, "begin=1/1/0/0/0"));
+            Check("handle-scope-kept", Has(handleText, "first=unobserved") && Has(handleText, "begin=1/1/0/0/0"));
+        }
+
+        private static void TestThrowingSink()
+        {
+            var trip = Guid.NewGuid();
+            bool survived = true;
+            try
+            {
+                var d = new PalacePaidCaptureDiagnostics(trip, _ => throw new InvalidOperationException("sink"));
+                BeginAccepted(d);
+                d.Marker(false);
+                d.Wallet(false);
+                d.End(true,false,false, true, true, true, true, true, false, false, false, false);
+                d.PrefsBegin(true, 11);
+                d.PrefsResult(true,false,false, false, true, true, false, "x", false, false, "");
+                d.CurrencyComparison(new[] { 0, 0, 0, 0, 0, 0, 0, 0 }, new[] { 1, 0, 0, 0, 0, 0, 0, 0 }, 11);
+                d.Resolve(true, false, "no-durable-capture");
+            }
+            catch (Exception e) { survived = false; Console.WriteLine("sink failure escaped: " + e); }
+            Check("throwing-sink-contained", survived);
+        }
+
+        private static void TestBeginInvalidStage()
+        {
+            var lines = Lines();
+            var d = New(Guid.NewGuid(), lines);
+            d.Begin(7, 8, 6, 3, true, false, false, true, false, false, 0, 0);
+            d.Resolve(true, true, "");
+            string text = Join(lines);
+            Check("begin-invalid-stage", Has(text, "phase=begin result=invalid-stage"), text);
+            Check("begin-invalid-not-accepted", !Has(text, "result=accepted") && Has(text, "begin=1/0/1/0/0"), text);
+        }
+
+        private static void TestMissingPhasesUnobserved()
+        {
+            var lines = Lines();
+            var d = New(Guid.NewGuid(), lines);
+            d.Resolve(false, false, "no-durable-capture");
+            string text = Join(lines);
+            Check("missing-phases", Has(text, "marker=unobserved") && Has(text, "wallet=unobserved")
+                && Has(text, "end=unobserved") && Has(text, "prefs=unobserved") && Has(text, "src=unobserved")
+                && Has(text, "apply=unobserved") && Has(text, "begin=unobserved"), text);
+            Check("missing-first-unobserved", Has(text, "first=unobserved") && Has(text, "captured=0"), text);
+        }
+
+        private static void TestResolveIsOutcome()
+        {
+            var lines = Lines();
+            var d = New(Guid.NewGuid(), lines);
+            d.Begin(1, 8, 6, 3, true, false, false, false, false, false, 9, 2);
+            d.Resolve(true, false, "no-durable-capture");
+            string text = Join(lines);
+            Check("resolve-not-first-cause", Has(text, "first=begin:fail=9") && Has(text, "resolve=0:no-durable-capture"), text);
+            Check("resolve-no-causality-word", !Has(text, "first=resolve:"), text);
+        }
+
+        private static void TestPrefsUnobservedAndApplied()
+        {
+            var pendingLines = Lines();
+            var pending = New(Guid.NewGuid(), pendingLines);
+            BeginAccepted(pending); MarkerAccepted(pending); WalletAccepted(pending); EndStaged(pending);
+            pending.PrefsBegin(true, 11);
+            pending.Resolve(true, false, "no-durable-capture");
+            string pendingText = Join(pendingLines);
+            Check("prefs-unobserved", Has(pendingText, "src=unobserved") && Has(pendingText, "apply=unobserved")
+                && Has(pendingText, "captured=0"), pendingText);
+
+            var sourceLines = Lines();
+            var source = New(Guid.NewGuid(), sourceLines);
+            BeginAccepted(source);
+            source.PrefsBegin(false, 0);
+            source.PrefsResult(true,false,true, false, true, true, false, "source-read-reason", false, false, "");
+            source.Resolve(true, false, "no-durable-capture");
+            string sourceText = Join(sourceLines);
+            Check("prefs-source-refused", Has(sourceText, "first=source-read:source-read-reason")
+                && Has(sourceText, "src=1/0") && Has(sourceText, "apply=unobserved"), sourceText);
+
+            var applyLines = Lines();
+            var applied = New(Guid.NewGuid(), applyLines);
+            BeginAccepted(applied);
+            applied.PrefsBegin(true, 11);
+            applied.PrefsResult(true,false,true, true, false, true, true, "", true, true, "");
+            applied.Resolve(true, true, "");
+            string appliedText = Join(applyLines);
+            Check("prefs-captured-only-after-apply", Has(appliedText, "result=captured")
+                && Has(appliedText, "apply=1") && Has(appliedText, "captured=1") && Has(appliedText, "resolve=1:"), appliedText);
+
+            var applyFailLines = Lines();
+            var applyFail = New(Guid.NewGuid(), applyFailLines);
+            BeginAccepted(applyFail);
+            applyFail.PrefsBegin(true, 11);
+            applyFail.PrefsResult(true,false,true, true, false, true, true, "", true, false, "journal-rejected");
+            applyFail.Resolve(true, false, "no-durable-capture");
+            string applyFailText = Join(applyFailLines);
+            Check("prefs-apply-refused", Has(applyFailText, "first=apply:journal-rejected")
+                && Has(applyFailText, "apply=0") && Has(applyFailText, "captured=0"), applyFailText);
+        }
+
+        private static void TestCapturedStage()
+        {
+            var lines = Lines();
+            var d = New(Guid.NewGuid(), lines);
+            d.Begin(1, 8, 6, 3, true, false, false, true, false, false, 0, 0);
+            d.Begin(2, 8, 6, 3, true, false, false, true, false, false, 0, 2);
+            d.Resolve(true, false, "no-durable-capture");
+            string text = Join(lines);
+            Check("begin-stage-first-invalid-preserved", Has(text, "invalidStage=0"));
+            Check("begin-stage-latest-scalar-preserved", Has(text, "stage=2 invalidStage=0"));
+            Check("begin-stage-event-at-observation", Has(text, "result=invalid-stage stage=0"));
+            var absentLines = Lines();
+            var absent = New(Guid.NewGuid(), absentLines);
+            absent.Resolve(true, false, "no-durable-capture");
+            Check("begin-stage-unobserved", Has(Join(absentLines), "stage=unobserved invalidStage=unobserved"));
+        }
+
+        private static void TestCurrencyComparisonNull()
+        {
+            var noneLines = Lines();
+            var none = New(Guid.NewGuid(), noneLines);
+            none.CurrencyComparison(null, null, 17);
+            string noneText = Join(noneLines);
+            Check("currency-null-presence", Has(noneText,
+                "phase=currency seq=17 cpresent=0 ccount=0 wpresent=0 wcount=0 equal=0 index=-1"), noneText);
+            Check("currency-null-no-values", !Has(noneText, "capturedValue=")
+                && !Has(noneText, "observedWalletValue="), noneText);
+
+            var capturedOnlyLines = Lines();
+            var capturedOnly = New(Guid.NewGuid(), capturedOnlyLines);
+            capturedOnly.CurrencyComparison(new[] { 1, 2, 3, 4, 5, 6, 7, 8 }, null, 18);
+            string capturedOnlyText = Join(capturedOnlyLines);
+            Check("currency-wallet-absent", Has(capturedOnlyText,
+                "cpresent=1 ccount=8 wpresent=0 wcount=0 equal=0 index=-1"), capturedOnlyText);
+            Check("currency-wallet-absent-no-values", !Has(capturedOnlyText, "capturedValue=")
+                && !Has(capturedOnlyText, "observedWalletValue="), capturedOnlyText);
+
+            var walletOnlyLines = Lines();
+            var walletOnly = New(Guid.NewGuid(), walletOnlyLines);
+            walletOnly.CurrencyComparison(null, new[] { 1, 2, 3, 4, 5, 6, 7, 8 }, 19);
+            string walletOnlyText = Join(walletOnlyLines);
+            Check("currency-captured-absent", Has(walletOnlyText,
+                "cpresent=0 ccount=0 wpresent=1 wcount=8 equal=0 index=-1"), walletOnlyText);
+            Check("currency-captured-absent-no-values", !Has(walletOnlyText, "capturedValue=")
+                && !Has(walletOnlyText, "observedWalletValue="), walletOnlyText);
+        }
+
+        private static void TestCurrencyComparisonBadCount()
+        {
+            var lines = Lines();
+            var d = New(Guid.NewGuid(), lines);
+            var captured = new ProbeList(new int[7], throwOnIndex: true);
+            var wallet = new ProbeList(new int[8], throwOnIndex: true);
+            d.CurrencyComparison(captured, wallet, 21);
+            string text = Join(lines);
+            Check("currency-bad-count-flags", Has(text,
+                "cpresent=1 ccount=7 wpresent=1 wcount=8 equal=0 index=-1"), text);
+            Check("currency-bad-count-no-index", captured.IndexReads == 0 && wallet.IndexReads == 0,
+                "reads=" + captured.IndexReads + "/" + wallet.IndexReads);
+            Check("currency-bad-count-no-values", !Has(text, "capturedValue=")
+                && !Has(text, "observedWalletValue="), text);
+
+            var reverseLines = Lines();
+            var reverse = New(Guid.NewGuid(), reverseLines);
+            reverse.CurrencyComparison(new[] { 1, 2, 3, 4, 5, 6, 7, 8 }, new[] { 1, 2, 3, 4, 5, 6, 7, 8, 9 }, 22);
+            Check("currency-bad-count-reverse", Has(Join(reverseLines),
+                "ccount=8 wpresent=1 wcount=9 equal=0 index=-1") && !Has(Join(reverseLines), "capturedValue="), Join(reverseLines));
+
+            var nonEightLines = Lines();
+            var nonEight = New(Guid.NewGuid(), nonEightLines);
+            var nonEightCaptured = new ProbeList(new[] { 1, 2, 3, 4, 5, 6, 7 }, throwOnIndex: true);
+            var nonEightWallet = new ProbeList(new[] { 1, 2, 3, 4, 5, 6, 7 }, throwOnIndex: true);
+            nonEight.CurrencyComparison(nonEightCaptured, nonEightWallet, 29);
+            Check("currency-non-eight-no-index", Has(Join(nonEightLines),
+                "ccount=7 wpresent=1 wcount=7 equal=0 index=-1")
+                && nonEightCaptured.IndexReads == 0 && nonEightWallet.IndexReads == 0
+                && !Has(Join(nonEightLines), "capturedValue="), Join(nonEightLines));
+        }
+
+        private static void TestCurrencyComparisonEqual()
+        {
+            var lines = Lines();
+            var d = New(Guid.NewGuid(), lines);
+            var captured = new[] { 1, 2, 3, 4, 5, 6, 7, 8 };
+            d.CurrencyComparison(captured, (int[])captured.Clone(), 23);
+            string text = Join(lines);
+            Check("currency-equal", Has(text,
+                "cpresent=1 ccount=8 wpresent=1 wcount=8 equal=1 index=-1"), text);
+            Check("currency-equal-no-values", !Has(text, "capturedValue=")
+                && !Has(text, "observedWalletValue="), text);
+        }
+
+        private static void TestCurrencyComparisonMismatch()
+        {
+            var coinsLines = Lines();
+            var coins = New(Guid.NewGuid(), coinsLines);
+            coins.CurrencyComparison(new[] { 1, 2, 3, 4, 5, 6, 7, 8 }, new[] { 9, 2, 3, 4, 5, 6, 7, 8 }, 24);
+            string coinsText = Join(coinsLines);
+            Check("currency-coins-index", Has(coinsText,
+                "equal=0 index=0 capturedValue=1 observedWalletValue=9"), coinsText);
+
+            var crownLines = Lines();
+            var crown = New(Guid.NewGuid(), crownLines);
+            crown.CurrencyComparison(new[] { 1, 2, 3, 4, 0, 6, 7, 8 }, new[] { 1, 2, 9, 4, 8, 6, 7, 8 }, 25);
+            string crownText = Join(crownLines);
+            Check("currency-crown-index", Has(crownText,
+                "equal=0 index=2 capturedValue=3 observedWalletValue=9"), crownText);
+            Check("currency-mismatch-scalars-only", Occurrences(crownText, "capturedValue=") == 1
+                && Occurrences(crownText, "observedWalletValue=") == 1
+                && !Has(crownText, "captured=[") && !Has(crownText, "wallet=["), crownText);
+        }
+
+        private static void TestCurrencyComparisonThrowingGetter()
+        {
+            var indexLines = Lines();
+            var indexThrow = New(Guid.NewGuid(), indexLines);
+            var captured = new ProbeList(new[] { 1, 2, 3, 4, 5, 6, 7, 8 }, throwOnIndex: true);
+            var wallet = new ProbeList(new[] { 1, 2, 3, 4, 5, 6, 7, 8 }, throwOnIndex: true);
+            indexThrow.CurrencyComparison(captured, wallet, 26);
+            string indexText = Join(indexLines);
+            Check("currency-getter-contained", Has(indexText,
+                "ccount=8 wpresent=1 wcount=8 equal=0 index=-1") && !Has(indexText, "capturedValue="), indexText);
+            Check("currency-getter-attempted", captured.IndexReads == 1 && wallet.IndexReads == 0,
+                "reads=" + captured.IndexReads + "/" + wallet.IndexReads);
+
+            var walletLines = Lines();
+            var walletThrow = New(Guid.NewGuid(), walletLines);
+            var walletProbe = new ProbeList(new[] { 1, 2, 3, 4, 5, 6, 7, 8 }, throwOnIndex: true);
+            walletThrow.CurrencyComparison(new[] { 1, 2, 3, 4, 5, 6, 7, 8 }, walletProbe, 28);
+            Check("currency-wallet-getter-contained", Has(Join(walletLines),
+                "equal=0 index=-1") && !Has(Join(walletLines), "capturedValue="), Join(walletLines));
+            Check("currency-wallet-getter-attempted", walletProbe.IndexReads == 1,
+                "reads=" + walletProbe.IndexReads);
+
+            var countLines = Lines();
+            var countThrow = New(Guid.NewGuid(), countLines);
+            countThrow.CurrencyComparison(new ProbeList(new int[8], throwOnCount: true),
+                new ProbeList(new int[8]), 27);
+            string countText = Join(countLines);
+            Check("currency-count-getter-contained", Has(countText, "equal=0 index=-1")
+                && !Has(countText, "capturedValue="), countText);
+        }
+
+        private static void TestCurrencyComparisonOnceAndBudget()
+        {
+            var lines = Lines();
+            var d = New(Guid.NewGuid(), lines);
+            d.CurrencyComparison(new[] { 1, 2, 3, 4, 5, 6, 7, 8 }, new[] { 1, 2, 3, 4, 5, 6, 7, 8 }, 31);
+            d.CurrencyComparison(new[] { 0, 0, 0, 0, 0, 0, 0, 0 }, new[] { 1, 0, 0, 0, 0, 0, 0, 0 }, 32);
+            string text = Join(lines);
+            Check("currency-once-per-handle", Occurrences(text, "phase=currency") == 1
+                && Has(text, "seq=31") && !Has(text, "seq=32"), text);
+
+            var freshLines = Lines();
+            var fresh = New(Guid.NewGuid(), freshLines);
+            fresh.CurrencyComparison(new[] { 1, 2, 3, 4, 5, 6, 7, 8 }, new[] { 1, 2, 3, 4, 5, 6, 7, 8 }, 31);
+            Check("currency-new-handle", Occurrences(Join(freshLines), "phase=currency") == 1, Join(freshLines));
+
+            MethodInfo emit = typeof(PalacePaidCaptureDiagnostics).GetMethod("Emit",
+                BindingFlags.Instance | BindingFlags.NonPublic)!;
+            var budgetLines = Lines();
+            var budget = New(Guid.NewGuid(), budgetLines);
+            for (int i = 0; i < 31; i++) emit.Invoke(budget, new object[] { "probe-" + i });
+            budget.CurrencyComparison(new[] { 1 }, new[] { 1 }, 41);
+            Check("currency-fits-32-budget", budgetLines.Count == 32
+                && Has(Join(budgetLines), "phase=currency"), "lines=" + budgetLines.Count);
+
+            var fullLines = Lines();
+            var full = New(Guid.NewGuid(), fullLines);
+            for (int i = 0; i < 32; i++) emit.Invoke(full, new object[] { "probe-" + i });
+            full.CurrencyComparison(new[] { 1 }, new[] { 1 }, 42);
+            Check("currency-respects-32-budget", fullLines.Count == 32
+                && !Has(Join(fullLines), "phase=currency"), "lines=" + fullLines.Count);
+        }
+
+        private static void TestCurrencyCallSiteOrder()
+        {
+            string source = File.ReadAllText(PalacePaidCaptureDiagnosticsIdentity.SourcePath, Encoding.UTF8);
+            int reader = source.IndexOf("sourceOk=PalacePaidSourceProof.TryReadCapturedIsland", StringComparison.Ordinal);
+            int probe = source.IndexOf("if(sourceOk)DiagCurrencyCompare(t,facts.Currencies,t.WalletCurrencies);",
+                StringComparison.Ordinal);
+            int compare = source.IndexOf("if(!sourceOk||t.WalletCurrencies==null||!PalacePaidCurrencies.ContentEquals(facts.Currencies,t.WalletCurrencies))",
+                StringComparison.Ordinal);
+            Check("currency-call-order", reader >= 0 && probe > reader && compare > probe,
+                "reader=" + reader + " probe=" + probe + " compare=" + compare);
+            Check("currency-call-once", Occurrences(source, "if(sourceOk)DiagCurrencyCompare(") == 1);
+
+            int branch = source.LastIndexOf("#if PALACE_PAID_CAPTURE_DIAGNOSTICS", probe, StringComparison.Ordinal);
+            int branchElse = source.IndexOf("#else", branch, StringComparison.Ordinal);
+            Check("currency-probe-gated", branch >= 0 && branchElse > probe);
+            int branchEnd = source.IndexOf("#endif", branchElse, StringComparison.Ordinal);
+            string defaultBranch = source.Substring(branchElse, branchEnd - branchElse);
+            Check("currency-default-branch-unchanged", !Has(defaultBranch, "DiagCurrencyCompare")
+                && Has(defaultBranch, "PalacePaidCurrencies.ContentEquals(facts.Currencies,t.WalletCurrencies)"), defaultBranch);
+            Check("currency-no-extra-reader", Occurrences(source, "TryReadCapturedIsland") == 2,
+                "reads=" + Occurrences(source, "TryReadCapturedIsland"));
+        }
+
+        private static bool Same(int[] a, int[] b)
+        {
+            if (a.Length != b.Length) return false;
+            for (int i = 0; i < a.Length; i++) if (a[i] != b[i]) return false;
+            return true;
+        }
+
+        private static void TestWalletPostfixIndexerExpression()
+        {
+            int[] expected = { 76, 0, 1, 0, 0, 0, 0, 0 };
+            int[] indexed = WalletPostfixExpression.Capture(new CurrencyMap(expected));
+            Check("walletpostfix-indexer-vector", Same(indexed, expected), string.Join(",", indexed));
+
+            int[] throwing = WalletPostfixExpression.Capture(new CurrencyMap(expected, 0, throwFields: true));
+            Check("walletpostfix-indexer-skips-fields", Same(throwing, expected), string.Join(",", throwing));
+
+            string expression = PalacePaidCaptureDiagnosticsIdentity.WalletPostfixExpression;
+            Check("walletpostfix-eight-exact-indexers", Occurrences(expression, "c[CurrencyType.") == 8, expression);
+            string[] names = { "Coins", "Gems", "Crown", "Skulls", "Shades", "Merchandise", "Candle", "Egg" };
+            bool named = false;
+            foreach (string name in names) named |= Has(expression, "c." + name);
+            Check("walletpostfix-no-named-field-getters", !named, expression);
+
+            byte[] generated = File.ReadAllBytes(PalacePaidCaptureDiagnosticsIdentity.WalletPostfixGeneratedPath);
+            Check("walletpostfix-generated-bytes", generated.Length == PalacePaidCaptureDiagnosticsIdentity.WalletPostfixGeneratedBytes);
+            Check("walletpostfix-generated-sha", Sha(generated) == PalacePaidCaptureDiagnosticsIdentity.WalletPostfixGeneratedSha256);
+            Check("walletpostfix-generated-verbatim", Encoding.UTF8.GetString(generated)
+                .IndexOf(expression, StringComparison.Ordinal) >= 0);
+            // The pre-fix source hash is rejected by the extractor identity (same contract as diagnostics).
+            Check("walletpostfix-source-bound",
+                PalacePaidCaptureDiagnosticsIdentity.SourceSha256 != "3f0588ac40db996fa9afc9947b21be609fc277754363726100c44acc3930febe");
+        }
+
+        private sealed class ArrivalFixture
+        {
+            internal PalacePaidHandle Handle = null!;
+            internal PalacePaidHandle Current = null!;
+            internal Game? LiveGame;
+            internal string TripId = "";
+            internal int TargetLand;
+            internal List<string> Lines = new List<string>();
+            internal bool Result;
+            internal Exception? Error;
+            internal int OperatorCalls;
+            internal string FaultText => Handle.FaultText;
+        }
+
+        private static ArrivalFixture RunArrival(bool diag, Action<ArrivalFixture> setup)
+        {
+            var fx = new ArrivalFixture();
+            var d = New(Guid.NewGuid(), fx.Lines);
+            fx.Handle = new PalacePaidHandle(Guid.NewGuid(), d);
+            fx.LiveGame = new Game { state = Game.State.Playing, currentLand = 12, Pointer = (IntPtr)0x2000 };
+            fx.Handle.Game = new Game { Pointer = (IntPtr)0x1000 };
+            fx.TripId = fx.Handle.TripId.ToString("D");
+            fx.TargetLand = 12;
+            fx.Current = fx.Handle;
+            setup(fx);
+            Engine.SetHandle(fx.Current);
+            fx.Handle.TripIdReads = 0;
+            fx.Handle.GameReads = 0;
+            fx.Handle.Fault.LengthReads = 0;
+            if (fx.LiveGame != null)
+            {
+                fx.LiveGame.StateReads = 0;
+                fx.LiveGame.LandReads = 0;
+                fx.LiveGame.PointerReads = 0;
+            }
+            Game.OperatorCalls = 0;
+            try
+            {
+                fx.Result = diag
+                    ? Engine.InvokeArrival(fx.Handle, fx.LiveGame!, fx.TripId, fx.TargetLand)
+                    : Engine.InvokeDefaultGuard(fx.Handle, fx.LiveGame!, fx.TripId, fx.TargetLand);
+            }
+            catch (Exception e) { fx.Error = e; }
+            fx.OperatorCalls = Game.OperatorCalls;
+            return fx;
+        }
+
+        private static void CheckArrivalPair(string name, string expectedLeaf, Action<ArrivalFixture> setup,
+            int faultReads, int tripReads, int gameReadsDefault, int gameReadsDiag, int stateReads, int landReads,
+            int pointerReads, int operators)
+        {
+            var def = RunArrival(false, setup);
+            var diag = RunArrival(true, setup);
+            Check(name + "-result-parity", def.Result == diag.Result,
+                "default=" + def.Result + " diag=" + diag.Result);
+            Check(name + "-exception-parity", def.Error?.GetType() == diag.Error?.GetType(),
+                "default=" + def.Error?.GetType().Name + " diag=" + diag.Error?.GetType().Name);
+            Check(name + "-default-no-log", def.Lines.Count == 0, "lines=" + def.Lines.Count);
+            if (expectedLeaf == "pass" || expectedLeaf.Length == 0)
+                Check(name + "-diag-no-log", diag.Lines.Count == 0, "lines=" + diag.Lines.Count);
+            else
+            {
+                Check(name + "-diag-one-log", diag.Lines.Count == 1, "lines=" + diag.Lines.Count);
+                Check(name + "-diag-leaf", diag.Lines.Count == 1 && Has(diag.Lines[0], "leaf=" + expectedLeaf),
+                    diag.Lines.Count == 0 ? "" : diag.Lines[0]);
+                Check(name + "-diag-prefix", diag.Lines.Count == 1
+                    && diag.Lines[0].StartsWith("[PALACE-PAID-CAPTURE] trip=", StringComparison.Ordinal),
+                    diag.Lines.Count == 0 ? "" : diag.Lines[0]);
+            }
+            Check(name + "-fault-reads", def.Handle.Fault.LengthReads == faultReads
+                && diag.Handle.Fault.LengthReads == faultReads,
+                "default=" + def.Handle.Fault.LengthReads + " diag=" + diag.Handle.Fault.LengthReads);
+            Check(name + "-trip-reads", def.Handle.TripIdReads == tripReads
+                && diag.Handle.TripIdReads == tripReads,
+                "default=" + def.Handle.TripIdReads + " diag=" + diag.Handle.TripIdReads);
+            Check(name + "-game-reads", def.Handle.GameReads == gameReadsDefault
+                && diag.Handle.GameReads == gameReadsDiag,
+                "default=" + def.Handle.GameReads + " diag=" + diag.Handle.GameReads);
+            Check(name + "-state-reads", def.LiveGame == null
+                    ? stateReads == 0 && diag.LiveGame == null
+                    : def.LiveGame.StateReads == stateReads && diag.LiveGame!.StateReads == stateReads,
+                "default=" + (def.LiveGame == null ? 0 : def.LiveGame.StateReads)
+                + " diag=" + (diag.LiveGame == null ? 0 : diag.LiveGame.StateReads));
+            Check(name + "-land-reads", def.LiveGame == null
+                    ? landReads == 0 && diag.LiveGame == null
+                    : def.LiveGame.LandReads == landReads && diag.LiveGame!.LandReads == landReads,
+                "default=" + (def.LiveGame == null ? 0 : def.LiveGame.LandReads)
+                + " diag=" + (diag.LiveGame == null ? 0 : diag.LiveGame.LandReads));
+            Check(name + "-pointer-reads", def.LiveGame == null
+                    ? pointerReads == 0 && diag.LiveGame == null
+                    : def.LiveGame.PointerReads == pointerReads && diag.LiveGame!.PointerReads == pointerReads,
+                "default=" + (def.LiveGame == null ? 0 : def.LiveGame.PointerReads)
+                + " diag=" + (diag.LiveGame == null ? 0 : diag.LiveGame.PointerReads));
+            Check(name + "-operator-calls", def.OperatorCalls == operators && diag.OperatorCalls == operators,
+                "default=" + def.OperatorCalls + " diag=" + diag.OperatorCalls + " expected=" + operators);
+        }
+
+        private static void TestArrivalGuardParity()
+        {
+            CheckArrivalPair("arrival-leaf1-handle", "handle-mismatch",
+                fx => { fx.Current = new PalacePaidHandle(Guid.NewGuid(), fx.Handle.CaptureDiagnostic); },
+                0, 0, 0, 0, 0, 0, 0, 0);
+            CheckArrivalPair("arrival-leaf2-fault", "prior-fault",
+                fx => { fx.Handle.Fault = "prior"; }, 1, 0, 0, 0, 0, 0, 0, 0);
+            CheckArrivalPair("arrival-leaf3-trip", "trip-mismatch",
+                fx => { fx.TripId = Guid.NewGuid().ToString("D"); }, 1, 1, 0, 0, 0, 0, 0, 0);
+            CheckArrivalPair("arrival-leaf4-live-null", "live-game-null",
+                fx => { fx.LiveGame = null; }, 1, 1, 0, 0, 0, 0, 0, 1);
+            CheckArrivalPair("arrival-leaf5-state", "live-state",
+                fx => { fx.LiveGame!.state = Game.State.Paused; }, 1, 1, 0, 0, 1, 0, 0, 1);
+            CheckArrivalPair("arrival-leaf6-land", "live-land",
+                fx => { fx.LiveGame!.currentLand = 11; }, 1, 1, 0, 0, 1, 1, 0, 1);
+            CheckArrivalPair("arrival-leaf7-clr-null", "historical-game-clr-null",
+                fx => { fx.Handle.Game = null; }, 1, 1, 1, 1, 1, 1, 0, 1);
+            CheckArrivalPair("arrival-leaf7-unity-destroyed-continues", "pass",
+                fx => { fx.Handle.Game = new Game { UnityNull = true, Pointer = (IntPtr)0x1000 }; }, 1, 1, 2, 2, 1, 1, 1, 1);
+            CheckArrivalPair("arrival-leaf8-pointer", "same-game-pointer",
+                fx => { fx.Handle.Game = new Game { Pointer = (IntPtr)0x2000 }; }, 1, 1, 2, 2, 1, 1, 1, 1);
+            // A false helper result only means the eight-leaf first gate let the observation
+            // through to the owner/provider/roots/CAS gates; it is never a full arrival or CAS success.
+            CheckArrivalPair("arrival-firstguard-pass", "pass",
+                fx => { fx.Handle.Game = new Game { Pointer = (IntPtr)0x1000 }; }, 1, 1, 2, 2, 1, 1, 1, 1);
+            CheckArrivalPair("arrival-state-throws", "",
+                fx => { fx.LiveGame!.ThrowState = true; }, 1, 1, 0, 0, 1, 0, 0, 1);
+            CheckArrivalPair("arrival-pointer-throws-historical", "",
+                fx => { fx.Handle.Game = new Game { Pointer = (IntPtr)0x1000, ThrowPointer = true }; }, 1, 1, 2, 2, 1, 1, 1, 1);
+            CheckArrivalPair("arrival-pointer-throws-live", "",
+                fx => { fx.LiveGame!.ThrowPointer = true; }, 1, 1, 1, 1, 1, 1, 1, 1);
+
+            var throwing = RunArrival(true, fx => { fx.LiveGame!.ThrowState = true; });
+            Check("arrival-exception-not-logged", throwing.Error is InvalidOperationException && throwing.Lines.Count == 0,
+                "error=" + throwing.Error?.GetType().Name + " lines=" + throwing.Lines.Count);
+
+            var defThrow = RunArrival(false, fx => { fx.LiveGame!.ThrowState = true; });
+            Check("arrival-default-exception", defThrow.Error is InvalidOperationException && defThrow.Lines.Count == 0);
+
+            var clrLeaf = RunArrival(true, fx => { fx.Handle.Game = null; });
+            Check("arrival-clr-null-leaf-flags", clrLeaf.Lines.Count == 1 && clrLeaf.Result
+                && Has(clrLeaf.Lines[0], "leaf=historical-game-clr-null")
+                && Has(clrLeaf.Lines[0], "hgnull=unobserved hgclr=1")
+                && Has(clrLeaf.Lines[0], "ptr=unobserved"),
+                clrLeaf.Lines.Count == 0 ? "" : clrLeaf.Lines[0]);
+            var destroyedLeaf = RunArrival(true, fx => { fx.Handle.Game = new Game { UnityNull = true, Pointer = (IntPtr)0x1000 }; });
+            Check("arrival-destroyed-no-leaf", destroyedLeaf.Result == false && destroyedLeaf.Lines.Count == 0
+                && destroyedLeaf.Error == null,
+                "result=" + destroyedLeaf.Result + " lines=" + destroyedLeaf.Lines.Count);
+        }
+
+        private static void TestArrivalDiagnosticLimits()
+        {
+            var sinkLines = new List<string>();
+            var sinkDiag = new PalacePaidCaptureDiagnostics(Guid.NewGuid(), _ => throw new InvalidOperationException("sink"));
+            var sinkHandle = new PalacePaidHandle(Guid.NewGuid(), sinkDiag);
+            var sinkGame = new Game { state = Game.State.Playing, currentLand = 12, Pointer = (IntPtr)0x2000 };
+            sinkHandle.Game = new Game { Pointer = (IntPtr)0x2000 };
+            Engine.SetHandle(sinkHandle);
+            bool first = Engine.InvokeArrival(sinkHandle, sinkGame, sinkHandle.TripId.ToString("D"), 12);
+            bool second = Engine.InvokeArrival(sinkHandle, sinkGame, sinkHandle.TripId.ToString("D"), 12);
+            Engine.InvokeHold(sinkHandle, "first");
+            Engine.InvokeHold(sinkHandle, "second");
+            Check("arrival-sink-contained", first && second && sinkLines.Count == 0);
+            Check("arrival-sink-fault-first", sinkHandle.FaultText == "first", sinkHandle.FaultText);
+
+            var onceLines = new List<string>();
+            var onceDiag = New(Guid.NewGuid(), onceLines);
+            var onceHandle = new PalacePaidHandle(Guid.NewGuid(), onceDiag);
+            var onceGame = new Game { state = Game.State.Playing, currentLand = 12, Pointer = (IntPtr)0x2000 };
+            onceHandle.Game = new Game { Pointer = (IntPtr)0x2000 };
+            Engine.SetHandle(onceHandle);
+            Engine.InvokeArrival(onceHandle, onceGame, onceHandle.TripId.ToString("D"), 12);
+            Engine.InvokeHold(onceHandle, "arrival-owner-or-scene");
+            Engine.InvokeArrival(onceHandle, onceGame, onceHandle.TripId.ToString("D"), 12);
+            Engine.InvokeHold(onceHandle, "later");
+            Check("arrival-once-line", onceLines.Count == 2, "lines=" + onceLines.Count);
+            Check("arrival-line-first", onceLines.Count == 2 && Has(onceLines[0], "phase=arrival-guard")
+                && Has(onceLines[1], "phase=first-fault reason=arrival-owner-or-scene"), Join(onceLines));
+            Check("arrival-hold-not-overwritten", onceHandle.FaultText == "arrival-owner-or-scene", onceHandle.FaultText);
+
+            var capLines = new List<string>();
+            var capDiag = New(Guid.NewGuid(), capLines);
+            var capHandle = new PalacePaidHandle(Guid.NewGuid(), capDiag);
+            var capGame = new Game { state = Game.State.Playing, currentLand = 12, Pointer = (IntPtr)0x2000 };
+            capHandle.Game = new Game { Pointer = (IntPtr)0x2000 };
+            Engine.SetHandle(capHandle);
+            MethodInfo emit = typeof(PalacePaidCaptureDiagnostics).GetMethod("Emit",
+                BindingFlags.Instance | BindingFlags.NonPublic)!;
+            for (int i = 0; i < 32; i++) emit.Invoke(capDiag, new object[] { "probe-" + i });
+            Engine.InvokeHold(capHandle, "cap-fault");
+            Engine.InvokeArrival(capHandle, capGame, capHandle.TripId.ToString("D"), 12);
+            Check("arrival-cap-32", capLines.Count == 32, "lines=" + capLines.Count);
+            Check("arrival-cap-no-guard", !Has(Join(capLines), "phase=arrival-guard"));
+            Check("arrival-cap-fault-set", capHandle.FaultText == "cap-fault", capHandle.FaultText);
+
+            var safeLines = new List<string>();
+            var safeDiag = New(Guid.NewGuid(), safeLines);
+            var safeHandle = new PalacePaidHandle(Guid.NewGuid(), safeDiag);
+            Engine.SetHandle(safeHandle);
+            Engine.InvokeHold(safeHandle, "bad\r\n;reason");
+            Check("first-fault-safe", safeLines.Count == 1 && Has(safeLines[0], "reason=bad  ,reason")
+                && safeLines[0].IndexOf('\n') < 0 && safeLines[0].IndexOf('\r') < 0, Join(safeLines));
+
+            var source = File.ReadAllText(PalacePaidCaptureDiagnosticsIdentity.SourcePath, Encoding.UTF8);
+            string guard = ExtractMarked(source, "// <PALACE-PAID-ARRIVAL-DIAGNOSTIC-BEGIN>",
+                "// <PALACE-PAID-ARRIVAL-DIAGNOSTIC-END>");
+            Check("arrival-referenceequals-once", Occurrences(guard, "ReferenceEquals(handle.Game,null)") == 1
+                && Occurrences(guard, "handle.Game==null") == 0);
+        }
+
+        private static void TestArrivalHistoricalGameReads()
+        {
+            // Post-Reload invariant: the historical Game wrapper is only asked for its CLR
+            // reference and its Pointer identity; destroyed native component state (state,
+            // currentLand, gameObject) is never read by the guard chain.
+            var runs = new (string Label, ArrivalFixture Fx)[] {
+                ("default", RunArrival(false, fx => { })),
+                ("diag", RunArrival(true, fx => { })),
+                ("destroyed-default", RunArrival(false, fx => { fx.Handle.Game = new Game { UnityNull = true, Pointer = (IntPtr)0x1000 }; })),
+                ("destroyed-diag", RunArrival(true, fx => { fx.Handle.Game = new Game { UnityNull = true, Pointer = (IntPtr)0x1000 }; }))
+            };
+            foreach (var run in runs)
+            {
+                var historical = run.Fx.Handle.Game!;
+                Check("arrival-historical-state-zeroread-" + run.Label, historical.StateReads == 0, "reads=" + historical.StateReads);
+                Check("arrival-historical-land-zeroread-" + run.Label, historical.LandReads == 0, "reads=" + historical.LandReads);
+                Check("arrival-historical-gameobject-zeroread-" + run.Label, historical.GameObjectReads == 0, "reads=" + historical.GameObjectReads);
+                Check("arrival-historical-pointer-identity-once-" + run.Label, historical.PointerReads == 1, "reads=" + historical.PointerReads);
+                Check("arrival-historical-operator-not-called-" + run.Label, run.Fx.OperatorCalls == 1,
+                    "operators=" + run.Fx.OperatorCalls);
+            }
+        }
+
+#if PAID_ARRIVAL_LEGACY
+        private static void TestArrivalLegacyBaseline()
+        {
+            // Pinned b6 baseline (pre managed-null-only fix): its default guard used the Unity ==
+            // overload, so a CLR-alive but Unity-destroyed historical Game was rejected at the
+            // historical leaf. The current guard lets the same fixture through the first gate;
+            // that pass-through is gate-level only, never a full arrival or CAS success.
+            Action<ArrivalFixture> destroyed = fx => { fx.Handle.Game = new Game { UnityNull = true, Pointer = (IntPtr)0x1000 }; };
+            Action<ArrivalFixture> clrNull = fx => { fx.Handle.Game = null; };
+            var legacyDestroyed = RunArrival(false, destroyed);
+            bool legacyRejected;
+            try { legacyRejected = Engine.InvokeLegacyDefaultGuard(legacyDestroyed.Handle, legacyDestroyed.LiveGame!, legacyDestroyed.TripId, legacyDestroyed.TargetLand); }
+            catch (Exception e) { Console.WriteLine("legacy guard threw: " + e.GetType().Name); legacyRejected = true; }
+            var currentDestroyed = RunArrival(false, destroyed);
+            Check("arrival-legacy-b6-rejects-destroyed", legacyRejected == true, "legacy=" + legacyRejected);
+            Check("arrival-current-accepts-destroyed-guardonly", currentDestroyed.Result == false && currentDestroyed.Lines.Count == 0,
+                "result=" + currentDestroyed.Result + " lines=" + currentDestroyed.Lines.Count);
+            Check("arrival-legacy-differs-from-current", legacyRejected != currentDestroyed.Result);
+
+            var legacyClrNull = RunArrival(false, clrNull);
+            bool legacyClrNullRejected;
+            try { legacyClrNullRejected = Engine.InvokeLegacyDefaultGuard(legacyClrNull.Handle, legacyClrNull.LiveGame!, legacyClrNull.TripId, legacyClrNull.TargetLand); }
+            catch (Exception) { legacyClrNullRejected = true; }
+            var currentClrNull = RunArrival(false, clrNull);
+            Check("arrival-legacy-b6-also-rejects-clr-null", legacyClrNullRejected == true, "legacy=" + legacyClrNullRejected);
+            Check("arrival-current-still-rejects-clr-null", currentClrNull.Result == true && currentClrNull.Lines.Count == 0,
+                "result=" + currentClrNull.Result);
+
+            Check("arrival-legacy-guard-uses-unity-null",
+                ArrivalLegacyIdentity.DefaultGuardExpression.IndexOf("handle.Game==null", StringComparison.Ordinal) >= 0
+                && PalacePaidCaptureDiagnosticsIdentity.DefaultGuardExpression.IndexOf("handle.Game==null", StringComparison.Ordinal) < 0,
+                ArrivalLegacyIdentity.DefaultGuardExpression);
+            byte[] legacyBytes = File.ReadAllBytes(ArrivalLegacyIdentity.SourcePath);
+            Check("arrival-legacy-source-sha",
+                Sha(legacyBytes) == ArrivalLegacyIdentity.SourceSha256
+                && ArrivalLegacyIdentity.SourceSha256 != PalacePaidCaptureDiagnosticsIdentity.SourceSha256);
+        }
+#endif
+
+        private static void TestArrivalSourceIdentity()
+        {
+            string source = File.ReadAllText(PalacePaidCaptureDiagnosticsIdentity.SourcePath, Encoding.UTF8);
+            string arrival = ExtractMarked(source, "// <PALACE-PAID-ARRIVAL-DIAGNOSTIC-BEGIN>",
+                "// <PALACE-PAID-ARRIVAL-DIAGNOSTIC-END>");
+            Check("arrival-region-chars", arrival.Length == PalacePaidCaptureDiagnosticsIdentity.ArrivalRegionChars,
+                "chars=" + arrival.Length);
+            Check("arrival-region-sha", Sha(Encoding.UTF8.GetBytes(arrival))
+                == PalacePaidCaptureDiagnosticsIdentity.ArrivalRegionSha256);
+
+            string hold = ExtractMarked(source, "// <PALACE-PAID-HOLD-METHOD-BEGIN>",
+                "// <PALACE-PAID-HOLD-METHOD-END>");
+            Check("hold-method-sha", Sha(Encoding.UTF8.GetBytes(hold))
+                == PalacePaidCaptureDiagnosticsIdentity.HoldMethodSha256);
+            Check("hold-method-diag-branch", Has(hold, "h.Fault=reason;DiagFirstFault(h,reason);"));
+            Check("hold-method-default-branch", Has(hold, "if(h!=null&&h.Fault.Length==0)h.Fault=reason;"));
+
+            byte[] generated = File.ReadAllBytes(PalacePaidCaptureDiagnosticsIdentity.ArrivalGeneratedPath);
+            Check("arrival-generated-bytes", generated.Length == PalacePaidCaptureDiagnosticsIdentity.ArrivalGeneratedBytes);
+            Check("arrival-generated-sha", Sha(generated) == PalacePaidCaptureDiagnosticsIdentity.ArrivalGeneratedSha256);
+            string generatedText = Encoding.UTF8.GetString(generated);
+            Check("arrival-generated-verbatim", generatedText.IndexOf(arrival, StringComparison.Ordinal) >= 0
+                && generatedText.IndexOf(hold, StringComparison.Ordinal) >= 0);
+
+            string expectedGuard = PalacePaidCaptureDiagnosticsIdentity.DefaultGuardExpression;
+            Check("arrival-default-exact", expectedGuard
+                == "handle!=_handle||handle.Fault.Length!=0||tripId!=handle.TripId.ToString(\"D\")||game==null\n                ||game.state!=Game.State.Playing||game.currentLand!=targetLand||ReferenceEquals(handle.Game,null)||game.Pointer==handle.Game!.Pointer",
+                expectedGuard);
+            Check("arrival-default-seven-separators", Occurrences(expectedGuard, "||") == 7);
+            string[] leaves = {
+                "handle!=_handle", "handle.Fault.Length!=0", "tripId!=handle.TripId.ToString(\"D\")", "game==null",
+                "game.state!=Game.State.Playing", "game.currentLand!=targetLand", "ReferenceEquals(handle.Game,null)",
+                "game.Pointer==handle.Game!.Pointer"
+            };
+            int last = -1;
+            bool ordered = true;
+            foreach (string leaf in leaves)
+            {
+                int at = expectedGuard.IndexOf(leaf, StringComparison.Ordinal);
+                if (at < 0 || at <= last) ordered = false;
+                last = at;
+            }
+            Check("arrival-default-eight-order", ordered);
+            Check("arrival-default-no-diag", !Has(expectedGuard, "PalacePaidCaptureDiagnostics")
+                && !Has(expectedGuard, "Diag"));
+            Check("arrival-default-hold-exact",
+                PalacePaidCaptureDiagnosticsIdentity.DefaultHoldStatement == "if(h!=null&&h.Fault.Length==0)h.Fault=reason;",
+                PalacePaidCaptureDiagnosticsIdentity.DefaultHoldStatement);
+
+            Check("arrival-fault-once", Occurrences(arrival, "handle.Fault.Length") == 1);
+            Check("arrival-trip-once", Occurrences(arrival, "handle.TripId.ToString(\"D\")") == 1);
+            Check("arrival-live-null-once", Occurrences(arrival, "if(game==null)") == 1);
+            Check("arrival-state-once", Occurrences(arrival, "game.state") == 1);
+            Check("arrival-land-once", Occurrences(arrival, "game.currentLand") == 1);
+            Check("arrival-historical-null-once", Occurrences(arrival, "ReferenceEquals(handle.Game,null)") == 1
+                && Occurrences(arrival, "handle.Game==null") == 0);
+            Check("arrival-pointer-once", Occurrences(arrival, "game.Pointer==handle.Game!.Pointer") == 1);
+            // Pointer identity queries can throw in principle (handle release / native folding);
+            // the shipped ObserveExactArrival must keep them fail-closed through catch+Hold.
+            Check("arrival-catch-hold-failclosed", Occurrences(source,
+                "catch(Exception e){reason=\"arrival:\"+e.GetType().Name;Hold(handle,reason);return false;}") == 1);
+            Check("arrival-early-no-fault-read", !Has(arrival.Substring(0,
+                arrival.IndexOf("int faultLength=handle.Fault.Length", StringComparison.Ordinal)), "handle.Fault"));
+            string region = ExtractRegion(source);
+            Check("arrival-class-scalar-only", Has(region, "internal void ArrivalGuard(")
+                && Has(region, "internal void FirstFault(") && !Has(region, "UnityEngine") && !Has(region, "Il2Cpp"));
+        }
+
+        private static string ExtractMarked(string source, string beginMarker, string endMarker)
+        {
+            int begin = source.IndexOf(beginMarker, StringComparison.Ordinal);
+            if (begin < 0 || source.IndexOf(beginMarker, begin + beginMarker.Length, StringComparison.Ordinal) >= 0)
+                throw new InvalidOperationException("begin marker");
+            int beginLineEnd = source.IndexOf('\n', begin);
+            if (beginLineEnd < 0) throw new InvalidOperationException("begin line");
+            int regionStart = beginLineEnd + 1;
+            int end = source.IndexOf(endMarker, regionStart, StringComparison.Ordinal);
+            if (end < 0 || source.IndexOf(endMarker, end + endMarker.Length, StringComparison.Ordinal) >= 0)
+                throw new InvalidOperationException("end marker");
+            int endLineStart = source.LastIndexOf('\n', end);
+            if (endLineStart < regionStart) throw new InvalidOperationException("empty region");
+            return source.Substring(regionStart, endLineStart + 1 - regionStart);
+        }
+
+        private static void TestFinalizerFlags()
+        {
+            var lines = new List<string>();
+            var d = New(Guid.NewGuid(), lines);
+            d.End(false, false, true, true, true, true, true, true, false, false, false, false);
+            d.PrefsBegin(true, 31);
+            d.PrefsResult(false, true, true, false, true, false, false, "", false, false, "");
+            d.Resolve(true, false, "no-durable-capture");
+            string summary = Join(lines);
+            Check("end-actual-original-false", Has(summary, "eorig=0"));
+            Check("end-actual-error-false", Has(summary, "eerror=0"));
+            Check("prefs-actual-original-false", Has(summary, "porig=0"));
+            Check("prefs-actual-error-true", Has(summary, "perror=1"));
+            Check("prefs-flags-do-not-invent-source", Has(summary, "src=unobserved"));
+            Check("prefs-flags-do-not-invent-apply", Has(summary, "apply=unobserved"));
+
+            var untouchedLines = new List<string>();
+            var untouched = New(Guid.NewGuid(), untouchedLines);
+            untouched.Resolve(true, false, "no-durable-capture");
+            string absent = Join(untouchedLines);
+            Check("absent-end-flags-unobserved", Has(absent, "eorig=unobserved eerror=unobserved"));
+            Check("absent-prefs-flags-unobserved", Has(absent, "porig=unobserved perror=unobserved"));
+        }
+
+        private static void TestWalletGuardStructure()
+        {
+            string source = File.ReadAllText(PalacePaidCaptureDiagnosticsIdentity.SourcePath, Encoding.UTF8);
+            Check("wallet-no-observation-null", !Has(source, "observation.Wallet!=null"));
+            Check("wallet-no-unity-null-check", !Has(source, "walletPresent"));
+            Check("wallet-foreign-skip-silent", Has(source, "Foreign/absent wallet: silent skip"));
+            int postfix = source.IndexOf("private static void WalletPostfix", StringComparison.Ordinal);
+            int finalizer = source.IndexOf("private static Exception? WalletFinalizer", StringComparison.Ordinal);
+            Check("wallet-postfix-guard-order", postfix >= 0 && finalizer > postfix);
+            string postfixText = source.Substring(postfix, finalizer - postfix);
+            Check("wallet-no-diagnostic-before-match", !Has(postfixText, "DiagWallet(t,__state")
+                && !Has(postfixText, "DiagWallet(t,false);return"));
+            string region = ExtractRegion(source);
+            Check("wallet-diagnostic-scalar-only", !Has(region, "UnityEngine") && !Has(region, "Il2Cpp")
+                && !Has(region, "Wallet "), region);
+        }
+
+        private static string ExtractRegion(string source)
+        {
+            const string beginMarker = "// <PALACE-PAID-CAPTURE-DIAGNOSTICS-BEGIN>";
+            const string endMarker = "// <PALACE-PAID-CAPTURE-DIAGNOSTICS-END>";
+            int begin = source.IndexOf(beginMarker, StringComparison.Ordinal);
+            if (begin < 0 || source.IndexOf(beginMarker, begin + beginMarker.Length, StringComparison.Ordinal) >= 0)
+                throw new InvalidOperationException("begin marker");
+            int beginLineEnd = source.IndexOf('\n', begin);
+            if (beginLineEnd < 0) throw new InvalidOperationException("begin line");
+            int regionStart = beginLineEnd + 1;
+            int end = source.IndexOf(endMarker, regionStart, StringComparison.Ordinal);
+            if (end < 0 || source.IndexOf(endMarker, end + endMarker.Length, StringComparison.Ordinal) >= 0)
+                throw new InvalidOperationException("end marker");
+            int endLineStart = source.LastIndexOf('\n', end);
+            if (endLineStart < regionStart) throw new InvalidOperationException("empty region");
+            return source.Substring(regionStart, endLineStart + 1 - regionStart);
+        }
+
+        private static string Sha(byte[] bytes) => Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
+    }
+}

@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <Import Project="ProjectSettings.shared.props" />
     <Import Project="EmbeddedAssets.props" />
+    <Import Project="PalaceAssets.props" />
 
     <PropertyGroup>
         <AssemblyName>KingdomEnhancedMod</AssemblyName>
@@ -102,6 +103,29 @@
         </Reference>
         <Reference Include="UnityEngine.TextRenderingModule">
             <HintPath>$(GameInteropDir)\UnityEngine.TextRenderingModule.dll</HintPath>
+            <Private>False</Private>
+        </Reference>
+    </ItemGroup>
+
+    <ItemGroup Condition="'$(Configuration)'=='BIE6_IL2CPP' or '$(Configuration)'=='Debug'">
+        <Reference Include="Il2CppInterop.Common">
+            <HintPath>E:\mod-dev\KingdomMod\deps\KTC-ModDevLibs\BIE6_IL2CPP\core\Il2CppInterop.Common.dll</HintPath>
+            <Private>False</Private>
+        </Reference>
+        <Reference Include="MonoMod.RuntimeDetour">
+            <HintPath>E:\mod-dev\KingdomMod\deps\KTC-ModDevLibs\BIE6_IL2CPP\core\MonoMod.RuntimeDetour.dll</HintPath>
+            <Private>False</Private>
+        </Reference>
+        <Reference Include="UnityEngine.UI">
+            <HintPath>$(GameInteropDir)\UnityEngine.UI.dll</HintPath>
+            <Private>False</Private>
+        </Reference>
+        <Reference Include="UnityEngine.UIModule">
+            <HintPath>$(GameInteropDir)\UnityEngine.UIModule.dll</HintPath>
+            <Private>False</Private>
+        </Reference>
+        <Reference Include="UnityEngine.AudioModule">
+            <HintPath>$(GameInteropDir)\UnityEngine.AudioModule.dll</HintPath>
             <Private>False</Private>
         </Reference>
     </ItemGroup>

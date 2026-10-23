@@ -1,0 +1,113 @@
+using System;
+namespace KingdomEnhancedMod;
+// Values only for extracted managed comparisons. No native state is simulated as proven.
+internal sealed partial class PalacePaidHandle {
+ internal PalacePaidScope Owner; internal Guid TripId; internal int SourceLand;
+ internal PalacePaidAnchor SavedAnchor;
+ internal PalaceEntryAnchorData Anchor;
+ internal PalaceSourceClockReceipt SourceClockReceipt;
+ internal bool LegacyLayoutVerified;
+}
+
+internal enum Phase {SourceSave,SourceDurable,TargetSelected,ReloadIssued,Arrived,Failed}
+internal sealed class Visit {
+ internal PalacePaidHandle Paid; internal PalaceTripRecord SourceRecord,WrittenRecord;
+ internal bool SawLoading,UsedDurableResume,DepartureClaimed,RecordWritten=true,GlobalFinished=true,SaveReturned=true;
+ internal int SaveCalls=1,SourceCallbacks=1,SourceCallbackFinished=1,SourceRaw=72,GlobalCallbacks=1,GlobalRaw=72;
+ internal Phase Stage=Phase.TargetSelected; internal float Deadline; internal string Fault="",CampaignGuid; internal int CampaignSlot;
+ internal bool Returning; internal int SourceLand=8,TargetLand=12,RecordVersion=4;
+ internal PalaceLayoutRecipe DestinationLayout=PalaceLayoutRecipe.Capital400;
+ internal PalaceEntryAnchorData SourceEntryAnchor;
+ internal PalaceSourceClockReceipt ClockReceipt;
+ internal string TripId,RecordPhase=PalaceTripContext.PhasePalaceSelected,RecordEvidence="";
+}
+internal sealed class Game { internal IntPtr Pointer=(IntPtr)1; internal enum State {Playing,Loading}; internal State state=State.Playing; internal int currentLand=8; internal int ReloadCalls; internal void Reload(){ReloadCalls++;} }
+internal sealed class Kingdom { }
+internal sealed class Wallet { internal IntPtr Pointer=(IntPtr)20; internal int Coins=20; }
+internal sealed class Player {
+ internal IntPtr Pointer=(IntPtr)10; internal PayableComponent selectedPayable;
+ internal PayableComponent _completingPayable; internal System.Collections.Generic.List<int> _floatingCurrency=new();
+ internal Wallet wallet=new(); internal int _payState;
+}
+internal sealed class PayableComponent { internal IntPtr Pointer=(IntPtr)30; internal bool forceBlockPayment; }
+internal sealed class Director { internal bool IsDaytime=true; }
+internal sealed class Managers { internal Director director=new(); internal static Managers Inst=new(); internal Game game=new(); internal Kingdom kingdom=new(); }
+internal static class Time { internal static int frameCount=17; internal static float realtimeSinceStartup; }
+internal sealed class PalaceDestinationDecision { internal PalaceLayoutRecipe Recipe; }
+internal static class Harness {
+ internal static System.Collections.Generic.List<string> Events=new();
+ internal static PalaceEntryAnchorData Anchor=new(){EntryX=10,EntryY=.5f,EntryZ=-3,SourcePlayerX=10,StandX=12,Side=1};
+ internal static bool ResolveAllowed=true; internal static int ResolveCalls; internal static PalaceLayoutRecipe ResolvedRecipe=PalaceLayoutRecipe.Known44; internal static PalacePaidScope Owner;
+ internal static bool FreezeAllowed=true, CaptureAllowed=true, SecondAnchorDrift; internal static int Captures;
+}
+internal static class PalaceDestinationAdmission {
+ internal static bool TryResolveTripLayout(CampaignSaveData campaign,PalaceTripRecord trip,out PalaceLayoutRecipe recipe,out string reason){Harness.ResolveCalls++;recipe=Harness.ResolvedRecipe;reason="fixture saved evidence unavailable";return Harness.ResolveAllowed;}
+ internal static bool TryFreezeForCharge(Game game,CampaignSaveData campaign,PalaceDestinationDecision observed,out PalaceDestinationDecision frozen,out string reason){Harness.Events.Add("freeze");frozen=observed;reason="fixture freeze rejected";return Harness.FreezeAllowed;}
+}
+internal static class PalacePlayable { internal static bool TryRequirePaidEntryInstallation(bool value,out string reason){reason="";return true;} }
+internal static class PalaceVisitClock { internal static bool CanBeginPaidVisit(out string reason){reason="";return true;} }
+internal static partial class PalaceReturnAnchor {
+ internal static bool TryCapture(Game game,Kingdom kingdom,Player payer,PayableComponent payable,out PalaceEntryAnchorData anchor,out string reason){Harness.Events.Add("anchor");Harness.Captures++;anchor=Harness.SecondAnchorDrift && Harness.Captures==2 ? new PalaceEntryAnchorData{EntryX=20,EntryY=.5f,EntryZ=-3,SourcePlayerX=20,StandX=22,Side=1}:Harness.Anchor;reason="fixture capture rejected";return Harness.CaptureAllowed;}
+}
+internal sealed partial class PalacePaidHandle {
+ internal bool HasFault=>Fault.Length!=0; internal bool SettlementObserved=>Envelope.Current.SettlementObserved; internal PalacePaidStage Stage=>Envelope.Current.Stage;
+ internal PalacePaidEnvelope Envelope; internal string RawSha,Fault="";
+ internal PalacePaidJournalStore Store;
+ internal PalacePaidHandle() { }
+ internal PalacePaidHandle(PalacePaidScope owner,Guid trip,int source,PalacePaidAnchor anchor,PalacePaidJournalStore store,PalacePaidEnvelope envelope,string raw){Owner=owner;TripId=trip;SourceLand=source;SavedAnchor=anchor;Store=store;Envelope=envelope;RawSha=raw;}
+}
+internal static partial class BeginProbe {
+ internal sealed class InputObservation { internal bool PrefixEligible=true,Faulted,Finished;internal Player Player;internal int Frame=17; }
+ internal static InputObservation _input; internal static PalacePaidHandle _handle;
+ internal static PalacePaidScope _preparedOwner;
+ internal static PalacePaidJournalStore _store;
+ internal static PalacePaidStoreReadResult _prepared;
+ private static bool _installed=true; private static string _prepareFault=""; private static IntPtr _preparedGame=(IntPtr)1;
+ private static bool TryOwner(Game game,Kingdom kingdom,out PalacePaidScope owner,out string reason){owner=Harness.Owner;reason="";return true;}
+ private static bool ExactPayer(Kingdom kingdom,Player payer)=>true;
+ private static bool ExactEntry(Game game,Player payer,PayableComponent payable)=>true;
+ private static void BindLive(PalacePaidHandle h,Game g,Kingdom k,Player p,PayableComponent payable){Harness.Events.Add("bind");}
+ private static void Hold(PalacePaidHandle h,string reason){if(h!=null)h.Fault=reason;}
+}
+internal static class PalacePaidResponsibility {
+ internal static bool TryBeginCharge(Game g,Kingdom k,Player p,PayableComponent payable,PalaceEntryAnchorData anchor,PalaceDestinationDecision observed,out PalacePaidHandle h,out string reason)=>BeginProbe.TryBeginCharge(g,k,p,payable,anchor,observed,out h,out reason);
+}
+internal sealed class FakeTravel {
+ internal bool DescribeAllowed=true; internal PalaceDestinationDecision Decision=new(){Recipe=PalaceLayoutRecipe.Capital400};
+ internal bool CanStart(Game g,Kingdom k,Player p,PayableComponent payable,out string reason){Harness.Events.Add("can-start-without-key");reason="";return true;}
+ internal bool TryDescribeForCharge(Game g,Kingdom k,Player p,PayableComponent payable,out PalaceDestinationDecision decision,out string reason){Harness.Events.Add("describe");decision=Decision;reason="fixture describe rejected";return DescribeAllowed;}
+}
+internal sealed partial class PaymentProbe {
+ private enum Phase { Idle,Armed,WaitingNative,Started,Blocked,Retired }
+ private Phase _phase; private bool _consumed;
+ internal FakeTravel _travel=new(); internal PayableComponent _payable=new();
+ private Player _payer; private PalacePaidHandle _paid;
+ private long _payerPointer; private IntPtr _walletPointer; private int _walletObserved,_startedFrame;
+ private string _travelReason="",_status="";
+ private bool SameEntry()=>true;
+ private void Fail(string reason){Harness.Events.Add("fail");_phase=Phase.Blocked;}
+ private void Detail(string detail) { }
+ internal bool Armed=>_phase==Phase.Armed && _status=="armed";
+}
+
+internal static partial class PalaceLand12Runtime {
+ internal static int HandoffCalls;
+ internal static bool BeginReloadHandoff(Game game,string guid,int slot,string trip,int target,out string reason){HandoffCalls++;reason="";return true;}
+}
+internal static partial class RecordProbe {
+ private static readonly object Gate=new(); private const int SaveSuccess=72; private const float ReloadSeconds=120;
+ internal static GlobalSaveData CurrentGlobal;
+ private static bool SameSelectedSource(Visit v,Game game,out Kingdom kingdom,out GlobalSaveData global,out CampaignSaveData campaign){kingdom=new();global=CurrentGlobal;campaign=new();return true;}
+ private static void Fail(Visit v,string reason){v.Fault=reason;v.Stage=Phase.Failed;}
+ private static void Log(string text) { }
+}
+
+internal static partial class StartPaidProbe {
+ internal static int EvaluateCalls; internal static PalaceLayoutRecipe LastRequired;
+ private static bool Evaluate(Game game,Kingdom kingdom,Player payer,PayableComponent payable,PalaceLayoutRecipe required,out PalaceDestinationDecision decision,out string reason,bool newFee=true){EvaluateCalls++;LastRequired=required;decision=new(){Recipe=required};reason="";return true;}
+}
+
+internal static class PalaceRuntimeProfile { internal static string Id="profile-a"; }
+internal static class PalaceSaveBindingSource {
+ internal static bool TryGetSemanticOwner(out string guid,out int slot,out int biome,out int reign,out int start,out string reason){var owner=Harness.Owner;guid=owner.CampaignGuid.ToString("D");slot=owner.CampaignSlot;biome=owner.Biome;reign=owner.Reign;start=owner.Start;reason="";return true;}
+}

@@ -1,0 +1,23 @@
+using System;
+namespace UnityEngine {
+ public struct Vector2 { public float x,y; public Vector2(float x,float y){this.x=x;this.y=y;} }
+ public struct Vector3 { public float x,y,z; public Vector3(float x,float y,float z){this.x=x;this.y=y;this.z=z;} }
+ public struct Bounds { public Vector3 min,max,size; }
+ public struct Scene { public int handle; }
+ public class GameObject { public bool activeInHierarchy=true; public Scene scene=new(){handle=1}; }
+ public class Transform { public IntPtr Pointer; public Transform parent; public GameObject gameObject=new(); }
+ public class BoxCollider2D { public IntPtr Pointer=(IntPtr)11; public bool enabled=true,isTrigger=false; public GameObject gameObject=new(); public Bounds bounds; public int Probes; public Vector2 ClosestPoint(Vector2 p){Probes++;return new Vector2(Math.Clamp(p.x,bounds.min.x,bounds.max.x),bounds.max.y);} }
+}
+namespace KingdomEnhancedMod {
+ internal class CourtBinding { internal UnityEngine.Transform Parent; }
+ internal class Level { internal UnityEngine.BoxCollider2D GroundCollider; internal IntPtr Pointer=(IntPtr)9; }
+ internal class World { internal UnityEngine.Transform gameLayer; }
+ internal class Managers { internal static Managers Inst; internal Level level; internal World world; }
+ internal static class PalaceRuntimeProfile { internal static bool Capability(string s)=>true; }
+ internal static class PalaceLand12Runtime { internal static bool Enabled=>true; }
+ internal static class PalaceIslandContentPolicy { internal static bool Enabled=>true; }
+ internal static class PalaceTerrainRuntime { internal static bool Enabled=>true; internal static bool TryReadScrollPixelGrid(UnityEngine.Transform t,float x,out double s,out string r){s=1d/32;r="host grid";return true;} }
+ internal sealed class PalaceCourtLayoutView { internal PalaceLayoutRecipe Recipe; internal float Left=>Recipe.Left; internal float Right=>Recipe.Right; internal float GateWorldX=>Recipe.GateWorldX; internal ulong LevelPointer=9,WorldLayerPointer=7; }
+ internal static class PalaceCourtArea { internal static bool DedicatedWholeEnabled=true,Available=true; internal static PalaceCourtLayoutView View=new(){Recipe=PalaceLayoutRecipe.Capital400}; internal static bool TryGetSpan(Level l,out float a,out float b,out string r){a=DedicatedWholeEnabled?View.Left:-24;b=DedicatedWholeEnabled?View.Right:24;r="host span";return Available;} internal static bool TryGetLayout(Level l,out PalaceCourtLayoutView v,out string r){v=View;r="host layout";return Available;} internal static float RenderAxis(float l,float r)=>DedicatedWholeEnabled?View.GateWorldX:0; }
+ internal static class PalaceCourtVisuals { internal static void Log(string s){} }
+}

@@ -1,0 +1,344 @@
+#nullable enable annotations
+using System;
+using KingdomEnhancedMod;
+
+internal static class Program
+{
+    static int checks, failures;
+
+    static void Check(bool ok, string name)
+    {
+        checks++;
+        Console.WriteLine((ok ? "PASS " : "FAIL ") + name);
+        if (!ok) failures++;
+    }
+
+    static bool Accept(PalaceLayoutRecipe recipe) => PalaceCourtArea.Accept(recipe);
+
+    static ColdPopCall? Start(bool active, int land = 12, string? json = null)
+    {
+        Host.Reset(active, land, json);
+        return BootstrapProbe.RunPrefix(Host.Island, true);
+    }
+
+    static int Main()
+    {
+        // 1. Actual cold prefix -> native list consumption -> postfix/finalizer -> CourtArea consume.
+        Host.Reset(false);
+        ColdPopCall? state = BootstrapProbe.RunPrefix(Host.Island, true);
+        Check(state != null && state.Geometry != null, "cold prefix captures complete pre-pop geometry");
+        Check(state != null && state.GeometrySequence > 0, "candidate carries call sequence");
+        Check(Host.Holds.Count == 0, "geometry capture adds no clock hold");
+        string sha = state?.Geometry?.SnapshotSha256 ?? "";
+        Check(sha.Length == 64, "candidate carries bounded pre-pop SHA");
+
+        Host.Island.Json = "{\"objects\":[]}";
+        Host.OriginalRuns++;
+        Check(!PalaceLayoutCoverage.TryValidateSavedGeometry(Host.Island.Json,
+            PalaceLayoutRecipe.Capital400, out string oldReason) && oldReason == "saved-ground-count",
+            "actual old post-pop JSON still fails saved-ground-count");
+
+        BootstrapProbe.PreparePopPostfix(true, true, state);
+        Check(!Accept(PalaceLayoutRecipe.Capital400), "proof is not consumable before the finalizer");
+        BootstrapProbe.PreparePopFinalizer(null, state);
+        Check(Accept(PalaceLayoutRecipe.Capital400), "successful same-owner/level call publishes proof");
+        Check(PalaceCourtArea.TestPublishedSequence == state?.GeometrySequence, "published sequence matches call");
+        Check(PalaceCourtArea.TestPublishedSha == sha, "published SHA is the pre-pop snapshot");
+        Check(Host.OriginalRuns == 1, "simulated native original executed exactly once");
+
+        // 2. Consumer drift matrix (proof already published).
+        Check(!Accept(PalaceLayoutRecipe.Known44), "sidecar/wrong recipe drift rejected");
+        int reign = Host.Campaign.reign;
+        Host.Campaign.reign = reign + 1;
+        Check(!Accept(PalaceLayoutRecipe.Capital400), "owner reign drift rejected");
+        Host.Campaign.reign = reign;
+
+        IntPtr gamePtr = Host.GameRef.Pointer;
+        Host.GameRef.Pointer = (IntPtr)90;
+        Check(!Accept(PalaceLayoutRecipe.Capital400), "Game drift rejected");
+        Host.GameRef.Pointer = gamePtr;
+
+        GlobalSaveData global = GlobalSaveData.loaded;
+        GlobalSaveData.loaded = new GlobalSaveData { Pointer = (IntPtr)91 };
+        Check(!Accept(PalaceLayoutRecipe.Capital400), "Global drift rejected");
+        GlobalSaveData.loaded = global;
+
+        IntPtr campaignPtr = Host.Campaign.Pointer;
+        Host.Campaign.Pointer = (IntPtr)92;
+        Check(!Accept(PalaceLayoutRecipe.Capital400), "Campaign drift rejected");
+        Host.Campaign.Pointer = campaignPtr;
+
+        IslandSaveData island = Host.Campaign.CurrentIsland;
+        Host.Campaign.CurrentIsland = Host.Campaign._islands[11];
+        Check(!Accept(PalaceLayoutRecipe.Capital400), "Island drift rejected");
+        Host.Campaign.CurrentIsland = island;
+
+        Level level = Host.ManagersRef.level;
+        Host.ManagersRef.level = new Level { Pointer = (IntPtr)93 };
+        Check(!Accept(PalaceLayoutRecipe.Capital400), "Level drift rejected");
+        Host.ManagersRef.level = level;
+
+        string tripId = Host.Trip.TripId;
+        Host.Trip.TripId = Guid.NewGuid().ToString("D");
+        Check(!Accept(PalaceLayoutRecipe.Capital400), "Trip drift rejected");
+        Host.Trip.TripId = tripId;
+        Check(Accept(PalaceLayoutRecipe.Capital400), "restored exact identity still consumes proof");
+
+        Check(!PalaceCourtArea.TryPublishSavedGeometry(state!.Geometry, state.GeometrySequence + 1,
+            out string sequenceReason) && sequenceReason == "candidate-shape", "sequence mismatch rejected");
+
+        // 3. Old receipt / newer call invalidation.
+        long newSequence = PalaceCourtArea.BeginSavedGeometryCall();
+        Check(newSequence > 0 && PalaceCourtArea.TestPublishedSequence == 0, "new call clears old proof");
+        Check(!Accept(PalaceLayoutRecipe.Capital400), "old receipt rejected");
+        Check(!PalaceCourtArea.TryPublishSavedGeometry(state.Geometry, state.GeometrySequence,
+            out string staleReason) && staleReason == "superseded-call", "old call cannot republish");
+
+        // 4. original skip / false / native exception.
+        Host.Reset(false);
+        Check(BootstrapProbe.RunPrefix(Host.Island, false) == null && PalaceCourtArea.TestPublishedSequence == 0,
+            "original skip publishes nothing");
+        Check(!Accept(PalaceLayoutRecipe.Capital400), "original skip rejected");
+
+        Host.Reset(false);
+        state = BootstrapProbe.RunPrefix(Host.Island, true);
+        Host.Island.Json = "{\"objects\":[]}";
+        Host.OriginalRuns++;
+        BootstrapProbe.PreparePopPostfix(false, true, state);
+        BootstrapProbe.PreparePopFinalizer(null, state);
+        Check(state!.Fault, "false native result marks call fault");
+        Check(!Accept(PalaceLayoutRecipe.Capital400), "false native result publishes nothing");
+
+        Host.Reset(false);
+        state = BootstrapProbe.RunPrefix(Host.Island, true);
+        Host.Island.Json = "{\"objects\":[]}";
+        Host.OriginalRuns++;
+        BootstrapProbe.PreparePopPostfix(true, true, state);
+        BootstrapProbe.PreparePopFinalizer(new InvalidOperationException("native"), state);
+        Check(state!.Fault, "native exception marks call fault");
+        Check(!Accept(PalaceLayoutRecipe.Capital400), "native exception publishes nothing");
+
+        // 5. R1: snapshot fault -> original runs, clock status unchanged, no proof, consumer rejects.
+        Host.Reset(false);
+        Host.Island.ThrowOnSerialize = true;
+        ColdPopCall? r1 = BootstrapProbe.RunPrefix(Host.Island, true);
+        Check(r1 != null && r1.Geometry == null, "snapshot exception yields no candidate");
+        Check(Host.Holds.Count == 0, "snapshot exception does not Hold the clock path");
+        Check(BootstrapProbe.Status == "cold-prepared-before-pop", "snapshot exception preserves clock status");
+        Host.Island.ThrowOnSerialize = false;
+        Host.Island.Json = "{\"objects\":[]}";
+        Host.OriginalRuns++;
+        BootstrapProbe.PreparePopPostfix(true, true, r1);
+        BootstrapProbe.PreparePopFinalizer(null, r1);
+        Check(Host.OriginalRuns == 1, "snapshot exception still executes original");
+        Check(!Accept(PalaceLayoutRecipe.Capital400), "snapshot exception proof explicitly rejected");
+
+        // 6. Nested replacement: a newer call owns the proof; the outer call cannot republish.
+        Host.Reset(true);
+        ColdPopCall? outer = BootstrapProbe.RunPrefix(Host.Island, true);
+        Check(outer?.Geometry != null, "outer active call captured");
+        string outerSha = outer?.Geometry?.SnapshotSha256 ?? "";
+        Host.Island.Json = Host.Saved(PalaceLayoutRecipe.Capital400, tilePrefix: "Inner-");
+        ColdPopCall? inner = BootstrapProbe.RunPrefix(Host.Island, true);
+        Check(inner?.Geometry != null && inner.Geometry.SnapshotSha256 != outerSha, "inner replacement captured");
+        Host.Island.Json = "{\"objects\":[]}";
+        Host.OriginalRuns += 2;
+        BootstrapProbe.PreparePopPostfix(true, true, inner);
+        BootstrapProbe.PreparePopFinalizer(null, inner);
+        Check(PalaceCourtArea.TestPublishedSequence == inner!.GeometrySequence, "inner call published");
+        BootstrapProbe.PreparePopPostfix(true, true, outer);
+        BootstrapProbe.PreparePopFinalizer(null, outer);
+        Check(PalaceCourtArea.TestPublishedSequence == inner.GeometrySequence, "outer finalizer cannot replace newer proof");
+        Check(Accept(PalaceLayoutRecipe.Capital400), "latest call proof remains consumable");
+        Check(!PalaceCourtArea.TryPublishSavedGeometry(outer!.Geometry, outer.GeometrySequence,
+            out string nestedReason) && nestedReason == "superseded-call", "outer republish rejected");
+
+        // 7. Fresh empty / source / return paths keep their prior routing.
+        ColdPopCall? fresh = Start(true, json: "{\"objects\":[]}");
+        Check(fresh == null && Host.Holds.Count == 0 && PalaceCourtArea.TestPublishedSequence == 0,
+            "fresh empty generation has no saved proof and no hold");
+        Check(!Accept(PalaceLayoutRecipe.Capital400), "fresh path does not claim saved proof");
+
+        ColdPopCall? source = Start(false, land: 8);
+        Check(source == null && Host.Holds.Count == 0, "source island pop remains untouched");
+        Check(PalaceCourtArea.TestPublishedSequence == 0, "source island pop publishes no palace proof");
+
+        Host.Reset(false, land: 8);
+        Host.ActiveHandoff = true;
+        Host.HandoffOk = true;
+        Host.HandoffFacts.TargetLand = 8;
+        Host.HandoffFacts.Phase = PalaceTripContext.PhaseReturnSelected;
+        Host.HandoffFacts.RecordSourceLand = 8;
+        Host.Trip.Phase = PalaceTripContext.PhaseReturnSelected;
+        BootstrapProbe.SetPaid(Host.Existing);
+        ColdPopCall? returned = BootstrapProbe.RunPrefix(Host.Island, true);
+        Check(returned == null && Host.Holds.Count == 0, "return pop route unaffected by geometry");
+        Check(PalaceCourtArea.TestPublishedSequence == 0, "return pop publishes no palace proof");
+
+        // 8. Legacy44 saved geometry remains its own strict recipe, never reinterpreted as 400.
+        Host.Reset(false);
+        Host.Trip.Version = 3;
+        Host.Trip.DestinationLayout = null;
+        Host.Island.Json = Host.Saved(PalaceLayoutRecipe.Known44);
+        Check(PalaceLayoutCoverage.TryValidateSavedGeometry(Host.Island.Json, PalaceLayoutRecipe.Known44, out _),
+            "synthetic old44 fixture is valid strict input");
+        state = BootstrapProbe.RunPrefix(Host.Island, true);
+        Check(state?.Geometry != null && ReferenceEquals(state.Geometry.Recipe, PalaceLayoutRecipe.Known44),
+            "old44 pre-pop proof captured with exact 44 recipe");
+        Host.Island.Json = "{\"objects\":[]}";
+        Host.OriginalRuns++;
+        BootstrapProbe.PreparePopPostfix(true, true, state);
+        BootstrapProbe.PreparePopFinalizer(null, state);
+        Check(Accept(PalaceLayoutRecipe.Known44), "old44 proof accepted with 44 sidecar recipe");
+        Check(!Accept(PalaceLayoutRecipe.Capital400), "old44 proof cannot claim 400");
+
+        // 9. Capture negatives use the actual strict validator through CaptureSavedGeometry.
+        void RejectCapture(string name, string json, PalaceLayoutRecipe recipe)
+        {
+            Host.Reset(false);
+            Host.Island.Json = json;
+            long sequence = PalaceCourtArea.BeginSavedGeometryCall();
+            Check(!PalaceCourtArea.Capture(recipe, sequence, out _), name);
+        }
+
+        RejectCapture("missing Ground rejected", Host.Saved(PalaceLayoutRecipe.Capital400, withGround: false),
+            PalaceLayoutRecipe.Capital400);
+        RejectCapture("wrong saved collider shape rejected",
+            Host.Saved(PalaceLayoutRecipe.Capital400, colliderWidth: 44), PalaceLayoutRecipe.Capital400);
+        RejectCapture("duplicate saved uniqueID rejected",
+            Host.Saved(PalaceLayoutRecipe.Capital400, duplicate: true), PalaceLayoutRecipe.Capital400);
+        RejectCapture("missing saved tile rejected",
+            Host.Saved(PalaceLayoutRecipe.Capital400, count: 99), PalaceLayoutRecipe.Capital400);
+        RejectCapture("saved400 cannot claim recipe44",
+            Host.Saved(PalaceLayoutRecipe.Capital400), PalaceLayoutRecipe.Known44);
+        RejectCapture("saved44 cannot claim recipe400",
+            Host.Saved(PalaceLayoutRecipe.Known44), PalaceLayoutRecipe.Capital400);
+
+
+        // F1: successful proof + cold cached view, then same-owner skipped Pop must invalidate both.
+        Host.Reset(false);
+        state = BootstrapProbe.RunPrefix(Host.Island, true);
+        Host.Island.Json = "{\"objects\":[]}";
+        Host.OriginalRuns++;
+        BootstrapProbe.PreparePopPostfix(true, true, state);
+        BootstrapProbe.PreparePopFinalizer(null, state);
+        Check(Accept(PalaceLayoutRecipe.Capital400), "F1 seed proof accepted");
+        PalaceCourtArea.TestSetColdView();
+        Check(PalaceCourtArea.TestCachedLayout(), "F1 seed cold cached view accepted");
+        ColdPopCall? skipped = BootstrapProbe.RunPrefix(Host.Island, false);
+        Check(skipped == null && Host.Holds.Count == 0, "F1 skipped Pop has no state and no Hold");
+        Check(!Accept(PalaceLayoutRecipe.Capital400), "F1 skipped Pop invalidates prior proof");
+        Check(!PalaceCourtArea.TestCachedLayout(), "F1 actual TryGetLayout rejects cleared cold view");
+        PalaceCourtArea.TestSetColdView();
+        Check(PalaceCourtArea.TestCachedLayout(), "F1 direct seed cold view accepted");
+        PalaceCourtArea.BeginSavedGeometryCall();
+        Check(!PalaceCourtArea.TestCachedLayout(), "BeginSavedGeometryCall clears cold cached view");
+
+        // F1: a newer skipped attempt revokes an older in-flight (unpublished) candidate.
+        Host.Reset(true);
+        ColdPopCall? inflight = BootstrapProbe.RunPrefix(Host.Island, true);
+        Check(inflight?.Geometry != null, "F1 in-flight candidate captured");
+        long inflightSequence = inflight!.GeometrySequence;
+        BootstrapProbe.RunPrefix(Host.Island, false);
+        Host.Island.Json = "{\"objects\":[]}";
+        BootstrapProbe.PreparePopPostfix(true, true, inflight);
+        BootstrapProbe.PreparePopFinalizer(null, inflight);
+        Check(PalaceCourtArea.TestPublishedSequence == 0 && !Accept(PalaceLayoutRecipe.Capital400),
+            "F1 newer skipped attempt revokes older in-flight candidate");
+        Check(!PalaceCourtArea.TryPublishSavedGeometry(inflight.Geometry, inflightSequence, out string revokedReason)
+            && revokedReason == "superseded-call", "F1 revoked candidate cannot republish");
+
+        // F1: source/foreign skipped attempt does not advance the land12 candidate sequence.
+        Host.Reset(true);
+        inflight = BootstrapProbe.RunPrefix(Host.Island, true);
+        inflightSequence = inflight!.GeometrySequence;
+        IslandSaveData liveLand12 = Host.Campaign.CurrentIsland;
+        Host.Campaign.CurrentIsland = Host.Campaign._islands[11];
+        BootstrapProbe.RunPrefix(Host.Campaign._islands[11], false);
+        Host.Campaign.CurrentIsland = liveLand12;
+        Host.Island.Json = "{\"objects\":[]}";
+        BootstrapProbe.PreparePopPostfix(true, true, inflight);
+        BootstrapProbe.PreparePopFinalizer(null, inflight);
+        Check(Accept(PalaceLayoutRecipe.Capital400), "F1 foreign skip keeps in-flight candidate publishable");
+
+        // F1: a normal (non-skip) new call clears the old proof/cache before its finalizer.
+        Host.Reset(false);
+        state = BootstrapProbe.RunPrefix(Host.Island, true);
+        Host.Island.Json = "{\"objects\":[]}";
+        BootstrapProbe.PreparePopPostfix(true, true, state);
+        BootstrapProbe.PreparePopFinalizer(null, state);
+        PalaceCourtArea.TestSetColdView();
+        Host.Island.Json = Host.Saved(PalaceLayoutRecipe.Capital400, tilePrefix: "Next-");
+        Host.ActiveHandoff = true;
+        Host.HandoffOk = true;
+        ColdPopCall? next = BootstrapProbe.RunPrefix(Host.Island, true);
+        Check(next != null, "F1 normal new call captured");
+        Check(!Accept(PalaceLayoutRecipe.Capital400), "F1 normal new call invalidates old proof before finalizer");
+        Check(!PalaceCourtArea.TestCachedLayout(), "F1 Begin actually clears cached cold view");
+        Check(next!.Geometry != null, "F1 new call has fresh candidate");
+        Host.Island.Json = "{\"objects\":[]}";
+        BootstrapProbe.PreparePopPostfix(true, true, next);
+        BootstrapProbe.PreparePopFinalizer(null, next);
+        Check(Accept(PalaceLayoutRecipe.Capital400), "F1 new successful call publishes replacement proof");
+
+        // F1: source/foreign skip must not clear the current land12 proof/cache.
+        Host.Reset(false);
+        state = BootstrapProbe.RunPrefix(Host.Island, true);
+        Host.Island.Json = "{\"objects\":[]}";
+        BootstrapProbe.PreparePopPostfix(true, true, state);
+        BootstrapProbe.PreparePopFinalizer(null, state);
+        PalaceCourtArea.TestSetColdView();
+        IslandSaveData land12Island = Host.Campaign.CurrentIsland;
+        Host.Campaign.CurrentIsland = Host.Campaign._islands[11];
+        BootstrapProbe.RunPrefix(Host.Campaign._islands[11], false);
+        Host.Campaign.CurrentIsland = land12Island;
+        Check(Accept(PalaceLayoutRecipe.Capital400), "F1 foreign skip keeps land12 proof");
+        Check(PalaceCourtArea.TestCachedLayout(), "F1 foreign skip keeps land12 cold view");
+        Host.Campaign.CurrentLand = 8;
+        Host.GameRef.currentLand = 8;
+        IslandSaveData sourceIsland = Host.Campaign._islands[8];
+        BootstrapProbe.RunPrefix(sourceIsland, false);
+        Host.Campaign.CurrentLand = 12;
+        Host.GameRef.currentLand = 12;
+        Check(Accept(PalaceLayoutRecipe.Capital400), "F1 source skip keeps land12 proof");
+
+        // F2: World/gameLayer identity is frozen at capture and checked at publish/consume/cache.
+        Host.Reset(false);
+        state = BootstrapProbe.RunPrefix(Host.Island, true);
+        Host.Island.Json = "{\"objects\":[]}";
+        BootstrapProbe.PreparePopPostfix(true, true, state);
+        BootstrapProbe.PreparePopFinalizer(null, state);
+        PalaceCourtArea.TestSetColdView();
+        World oldWorld = Host.WorldRef;
+        Transform oldLayer = oldWorld.gameLayer;
+        World replacement = new World { Pointer = (IntPtr)55 };
+        replacement.gameLayer = new Transform { Pointer = (IntPtr)56 };
+        replacement.gameObject.scene.handle = 601;
+        replacement.gameLayer.gameObject.scene.handle = 602;
+        Host.ManagersRef.world = replacement;
+        Check(!Accept(PalaceLayoutRecipe.Capital400), "F2 replaced World rejects published proof");
+        Check(!PalaceCourtArea.TestCachedLayout(), "F2 replaced World rejects cached layout");
+        Host.ManagersRef.world = oldWorld;
+        Check(Accept(PalaceLayoutRecipe.Capital400), "F2 restored World consumes proof");
+        PalaceCourtArea.TestSetColdView();
+        Transform replacementLayer = new Transform { Pointer = (IntPtr)57 };
+        replacementLayer.gameObject.scene.handle = 603;
+        oldWorld.gameLayer = replacementLayer;
+        Check(!Accept(PalaceLayoutRecipe.Capital400), "F2 replaced gameLayer rejects published proof");
+        Check(!PalaceCourtArea.TestCachedLayout(), "F2 replaced gameLayer rejects cached layout");
+        oldWorld.gameLayer = oldLayer;
+
+        Host.Reset(false);
+        state = BootstrapProbe.RunPrefix(Host.Island, true);
+        Host.Island.Json = "{\"objects\":[]}";
+        BootstrapProbe.PreparePopPostfix(true, true, state);
+        World midWorld = new World { Pointer = (IntPtr)58 };
+        midWorld.gameLayer = new Transform { Pointer = (IntPtr)59 };
+        Host.ManagersRef.world = midWorld;
+        BootstrapProbe.PreparePopFinalizer(null, state);
+        Check(!Accept(PalaceLayoutRecipe.Capital400), "F2 World replacement during Pop prevents publish");
+
+        Console.WriteLine("checks=" + checks + " failures=" + failures);
+        return failures == 0 ? 0 : 1;
+    }
+}

@@ -1,0 +1,270 @@
+using System;
+
+using KingdomEnhancedMod;
+
+internal static class Program {
+ static int checks, failures;
+
+ static void Check(bool ok,string name){checks++;
+Console.WriteLine((ok?"PASS ":"FAIL ")+name);
+if(!ok)failures++;
+}
+ static void SetLayout(PalacePaidHandle handle,PalaceLayoutRecipe recipe){
+ var record=new PalacePaidRecord(handle.TripId,1,PalacePaidStage.ChargeIntent,handle.Owner,handle.SourceLand,12,handle.SavedAnchor,false,false,null,null,null,recipe);
+
+ handle.Envelope=new PalacePaidEnvelope(record,null,recipe==null?1:2);
+
+ }
+ internal static int Main(){
+ var owner=new PalacePaidScope("profile-a",Guid.Parse("11111111-2222-3333-4444-555555555555"),0,5,7,1750000000,1);
+
+ var id=Guid.Parse("a0000000-0000-4000-8000-000000000001");
+
+ var anchor=new PalaceEntryAnchorData{EntryX=10,EntryY=.5f,EntryZ=-3,SourcePlayerX=10,StandX=12,Side=1};
+
+ var facts=new PalaceClockReceiptFacts(id.ToString("D"),owner.CampaignGuid.ToString("D"),0,5,7,1750000000,8,new string('a',64),43,43,10,20,100,7,new string('b',64),new string('c',64));
+
+ if(!PalaceSourceClockReceipt.TryCreateFromVerifiedFacts(facts,out var receipt,out var why))throw new Exception(why);
+
+ var h=new PalacePaidHandle{Owner=owner,TripId=id,SourceLand=8,Anchor=anchor,SavedAnchor=new PalacePaidAnchor(10,.5f,-3,10,12,1),SourceClockReceipt=receipt};
+
+ SetLayout(h,PalaceLayoutRecipe.Capital400);
+
+ var trip=new PalaceTripRecord{Version=4,TripId=id.ToString("D"),CampaignGuid=owner.CampaignGuid.ToString("D"),CampaignSlot=0,Biome=5,Reign=7,Start=1750000000,SourceLand=8,PalaceLand=12,Phase=PalaceTripContext.PhasePalaceSelected,MigrationEvidence="",SourceEntryAnchor=anchor,SourceClockReceipt=receipt.WriteCanonicalStrict(),DestinationLayoutId=PalaceLayoutRecipe.Capital400.LayoutId,DestinationLayoutVersion=1};
+
+ Check(PalaceTripContext.Validate(trip,out _),"fixture is strict v4");
+
+ Check(PaidProbe.TripMatches(h,trip),"same known key v4 paid tuple accepted");
+
+ Check(ClockProbe.HandleMatches(h,owner,trip,receipt,out _),"same key clock tuple accepted");
+
+ SetLayout(h,PalaceLayoutRecipe.Known44);
+
+ Check(!ClockProbe.HandleMatches(h,owner,trip,receipt,out _),"clock refuses key drift before arm");
+
+ Check(!PaidProbe.TripMatches(h,trip),"paid refuses key drift");
+
+ trip.Version=3;
+trip.DestinationLayoutId=null;
+trip.DestinationLayoutVersion=null;
+
+ Check(!PaidProbe.TripMatches(h,trip),"known paid layout never matches legacy trip3");
+
+ SetLayout(h,null);
+h.LegacyLayoutVerified=false;
+
+ Check(!PaidProbe.TripMatches(h,trip),"legacy needs verified44 evidence");
+
+ Check(!ClockProbe.HandleMatches(h,owner,trip,receipt,out _),"legacy clock needs verified44 evidence");
+
+ h.LegacyLayoutVerified=true;
+
+ Check(PaidProbe.TripMatches(h,trip),"legacy verified44 trip3 tuple retained");
+
+ Check(ClockProbe.HandleMatches(h,owner,trip,receipt,out _),"legacy verified44 clock tuple retained");
+
+ var visit=new Visit{TripId=id.ToString("D"),SourceEntryAnchor=anchor,ClockReceipt=receipt};
+
+ var campaign=new CampaignSaveData{biomeIndex=5,reign=7,realStartDateTime=1750000000};
+
+ var outbound=RecordProbe.BuildRecord(visit,campaign,owner.CampaignGuid.ToString("D"),0);
+
+ Check(outbound.Version==4 && ReferenceEquals(outbound.DestinationLayout,PalaceLayoutRecipe.Capital400),"new trip writes durable v4 key");
+
+ visit.Returning=true;
+visit.SourceLand=12;
+visit.TargetLand=8;
+visit.RecordPhase=PalaceTripContext.PhaseReturnSelected;
+
+ var returned=RecordProbe.BuildRecord(visit,campaign,owner.CampaignGuid.ToString("D"),0);
+
+ Check(returned.Version==4 && ReferenceEquals(returned.DestinationLayout,PalaceLayoutRecipe.Capital400),"v4 return keeps key and version");
+
+ visit.RecordVersion=3;
+visit.DestinationLayout=null;
+
+ var legacyReturn=RecordProbe.BuildRecord(visit,campaign,owner.CampaignGuid.ToString("D"),0);
+
+ Check(legacyReturn.Version==3 && legacyReturn.DestinationLayout==null,"legacy return keeps v3 unknown");
+
+ SetLayout(h,PalaceLayoutRecipe.Capital400);
+h.LegacyLayoutVerified=false;
+
+ visit.Returning=false;
+visit.RecordVersion=4;
+visit.DestinationLayout=PalaceLayoutRecipe.Capital400;
+visit.Paid=h;
+visit.SourceLand=8;
+visit.TargetLand=12;
+visit.TripId=id.ToString("D");
+visit.RecordPhase=PalaceTripContext.PhasePalaceSelected;
+visit.WrittenRecord=outbound;
+
+ Check(RecordProbe.VisitDestinationMatches(visit),"known visit accepts matching paid key");
+
+ visit.DestinationLayout=PalaceLayoutRecipe.Known44;
+
+ Check(!RecordProbe.VisitDestinationMatches(visit),"visit key drift refuses before source effects");
+
+ visit.DestinationLayout=PalaceLayoutRecipe.Capital400;
+
+ foreach(bool drift in new[]{true,false}) {
+ var persisted=RecordProbe.BuildRecord(visit,campaign,owner.CampaignGuid.ToString("D"),0);
+
+ if(drift)persisted.DestinationLayoutId=PalaceLayoutRecipe.Known44.LayoutId;
+
+ RecordProbe.CurrentGlobal=new GlobalSaveData();
+RecordProbe.CurrentGlobal.prefs.contents[PalaceTripContext.PrefsKey]=System.Text.Json.JsonSerializer.Serialize(persisted);
+
+ visit.Stage=Phase.TargetSelected;
+visit.Fault="";
+var reloadGame=new Game();
+PalaceLand12Runtime.HandoffCalls=0;
+
+ RecordProbe.AdvanceGlobalSave(visit,reloadGame);
+
+ Check(drift ? reloadGame.ReloadCalls==0 && PalaceLand12Runtime.HandoffCalls==0 : reloadGame.ReloadCalls==1 && PalaceLand12Runtime.HandoffCalls==1,"actual reload wrapper gates durable key drift="+drift);
+
+ }
+ SetLayout(h,null);
+h.LegacyLayoutVerified=true;
+visit.Returning=true;
+visit.RecordVersion=3;
+visit.DestinationLayout=null;
+visit.SourceRecord=trip;
+
+ Check(RecordProbe.VisitDestinationMatches(visit),"legacy verified44 return visit retained");
+
+ visit.Returning=false;
+
+ Check(!RecordProbe.VisitDestinationMatches(visit),"legacy unknown source cannot create new departure");
+
+ SetLayout(h,null);
+StartPaidProbe.EvaluateCalls=0;
+
+ Check(!StartPaidProbe.CanStartPaid(new Game(),new Kingdom(),new Player(),new PayableComponent(),h,out var legacyReason) && legacyReason=="legacy-destination-layout-unknown" && StartPaidProbe.EvaluateCalls==0,"old unknown resume refuses before destination reselect");
+
+ Harness.Owner=owner;
+
+ var coldGlobal=new GlobalSaveData();
+
+ foreach(int version in new[]{3,4}) {
+ trip.Version=version;
+trip.DestinationLayoutId=version==4?PalaceLayoutRecipe.Capital400.LayoutId:null;
+trip.DestinationLayoutVersion=version==4?1:null;
+
+ coldGlobal.prefs.contents[PalaceTripContext.PrefsKey]=System.Text.Json.JsonSerializer.Serialize(trip);
+
+ Harness.ResolveAllowed=false;
+Harness.ResolveCalls=0;
+
+ bool readTrip=ClockProbe.ReadTrip(coldGlobal,campaign,out _,out _,out _,out _);
+
+ Check(version==4 ? readTrip && Harness.ResolveCalls==0 : !readTrip && Harness.ResolveCalls==1,"clock source/fresh read distinguishes explicit v4 from legacy44 evidence version="+version);
+
+ Harness.ResolveAllowed=true;
+Harness.ResolvedRecipe=PalaceLayoutRecipe.Known44;
+
+ Check(ClockProbe.ReadTrip(coldGlobal,campaign,out _,out _,out _,out _),"strict clock receipt preserved version="+version);
+
+ SetLayout(h,version==4?PalaceLayoutRecipe.Capital400:null);
+h.LegacyLayoutVerified=false;
+
+ Harness.ResolvedRecipe=version==4?PalaceLayoutRecipe.Capital400:PalaceLayoutRecipe.Known44;
+
+ Check(BeginProbe.TryVerifyTripDestination(h,campaign,trip,out _),"cold destination proof consumed version="+version);
+
+ Check(version==4 ? h.DestinationLayout==PalaceLayoutRecipe.Capital400 : h.DestinationLayout==null && h.Envelope.Schema==1 && h.LegacyLayoutVerified,"cold proof never rewrites durable identity version="+version);
+
+ Harness.ResolvedRecipe=version==4?PalaceLayoutRecipe.Known44:PalaceLayoutRecipe.Capital400;
+h.LegacyLayoutVerified=false;
+
+ Check(!BeginProbe.TryVerifyTripDestination(h,campaign,trip,out _),"cold wrong saved recipe rejected version="+version);
+
+ }
+ trip.Version=3;
+trip.DestinationLayoutId=null;
+trip.DestinationLayoutVersion=null;
+SetLayout(h,null);
+h.LegacyLayoutVerified=true;
+
+ visit.Returning=true;
+visit.RecordVersion=3;
+visit.DestinationLayout=null;
+visit.SourceRecord=trip;
+visit.Paid=h;
+
+ coldGlobal.prefs.contents[PalaceTripContext.PrefsKey]=System.Text.Json.JsonSerializer.Serialize(trip);
+
+ Check(RecordProbe.VerifyReturnSourceRecord(visit,coldGlobal,out _),"legacy return keeps exact original receipt before carry");
+
+ var changedTrip=new PalaceTripRecord{Version=3,TripId=trip.TripId,CampaignGuid=trip.CampaignGuid,CampaignSlot=trip.CampaignSlot,Biome=trip.Biome,Reign=trip.Reign,Start=trip.Start,SourceLand=trip.SourceLand,PalaceLand=12,Phase=PalaceTripContext.PhaseReturnSelected,MigrationEvidence="",SourceEntryAnchor=trip.SourceEntryAnchor,SourceClockReceipt=trip.SourceClockReceipt};
+
+ coldGlobal.prefs.contents[PalaceTripContext.PrefsKey]=System.Text.Json.JsonSerializer.Serialize(changedTrip);
+
+ Check(!RecordProbe.VerifyReturnSourceRecord(visit,coldGlobal,out _),"return record drift refuses before carry");
+
+ foreach(string failure in new[]{"none","describe","anchor","freeze","wrong-frame","floating","selected","anchor-drift","legacy-history","legacy-pending"}) {
+ Harness.Events.Clear();
+Harness.Captures=0;
+Harness.SecondAnchorDrift=failure=="anchor-drift";
+Harness.CaptureAllowed=failure!="anchor";
+Harness.FreezeAllowed=failure!="freeze";
+
+ var payment=new PaymentProbe();
+payment._travel.DescribeAllowed=failure!="describe";
+
+ var payer=new Player{selectedPayable=payment._payable};
+
+ BeginProbe._preparedOwner=owner;
+BeginProbe._handle=null;
+BeginProbe._input=new BeginProbe.InputObservation{Player=payer};
+
+ if(failure=="wrong-frame")BeginProbe._input.Frame--;
+
+ if(failure=="floating")payer._floatingCurrency.Add(1);
+
+ if(failure=="selected")payer.selectedPayable=new PayableComponent{Pointer=(IntPtr)999};
+
+ string folder=System.IO.Path.Combine(AppContext.BaseDirectory,"begin-"+Guid.NewGuid().ToString("N"));
+System.IO.Directory.CreateDirectory(folder);
+
+ try {
+ BeginProbe._store=new PalacePaidJournalStore(folder);
+
+ if(failure=="legacy-history" || failure=="legacy-pending") {
+ var legacyRecord=new PalacePaidRecord(id,failure=="legacy-history"?2:1,failure=="legacy-history"?PalacePaidStage.Cancelled:PalacePaidStage.ChargeIntent,owner,8,12,h.SavedAnchor,false,false,null,null,null);
+
+ System.IO.File.WriteAllBytes(System.IO.Path.Combine(folder,owner.StoreFileName()),PalacePaidCodec.Serialize(new PalacePaidEnvelope(legacyRecord)));
+
+ }
+ BeginProbe._prepared=BeginProbe._store.Read(owner);
+
+ payment.OnTransactionStarted(payer);
+
+ var read=BeginProbe._store.Read(owner);
+
+ if(failure=="none" || failure=="legacy-history") {
+ Check(payment.Armed && read.Status==PalacePaidStoreReadStatus.Valid,"actual callback arms only after durable intent");
+
+ Check(ReferenceEquals(read.Envelope.Current.DestinationLayout,PalaceLayoutRecipe.Capital400),"actual Begin/Store keep frozen recipe before caller proceeds");
+
+ Check(ReferenceEquals(BeginProbe._handle.DestinationLayout,PalaceLayoutRecipe.Capital400),"handle exposes only actual current durable intent key");
+
+ if(failure=="legacy-history")Check(read.Envelope.History.Count==1 && read.Envelope.History[0].DestinationLayout==null && read.Envelope.Schema==2,"actual callback keeps legacy unknown terminal history");
+
+ Check(Harness.Events.IndexOf("describe")<Harness.Events.IndexOf("anchor") && Harness.Events.IndexOf("anchor")<Harness.Events.IndexOf("freeze") && Harness.Events.IndexOf("freeze")<Harness.Events.IndexOf("bind"),"actual describe/anchor/freeze/bind order");
+
+ } else if(failure=="legacy-pending") {Check(!payment.Armed && payment._payable.forceBlockPayment && read.Status==PalacePaidStoreReadStatus.Valid && read.Envelope.Schema==1 && read.Envelope.Current.TripId==id && !Harness.Events.Contains("freeze") && !Harness.Events.Contains("bind"),"actual pending legacy refuses before freeze and preserves original responsibility");
+}
+ else { Check(!payment.Armed && payment._payable.forceBlockPayment && read.Status==PalacePaidStoreReadStatus.Missing,"refusal before first intent at "+failure);
+Check(!Harness.Events.Contains("bind"),"failed gate does not preclaim at "+failure);
+ }
+ } finally {System.IO.Directory.Delete(folder,true);
+}
+ }
+ Console.WriteLine("checks="+checks+" failures="+failures);
+return failures==0?0:1;
+
+ }
+}

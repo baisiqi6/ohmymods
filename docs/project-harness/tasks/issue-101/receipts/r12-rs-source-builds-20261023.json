@@ -1,0 +1,35 @@
+{
+  "sourceClosureUnchanged": true,
+  "builds": [
+    {
+      "name": "default-net6.0",
+      "exit": 0,
+      "warnings": 0,
+      "errors": 0,
+      "dllSHA256": "a210ad3e4e62f86b1b6a6b91ed2aed310b3e018b25cb28f8e7d269b31d9a0577"
+    },
+    {
+      "name": "diagnostic-net6.0",
+      "exit": 0,
+      "warnings": 0,
+      "errors": 0,
+      "dllSHA256": "0a55aae6cbb89b3da4617f63ad3af4dd0fd2466f6dfa3eaeff4ab5fa5b6f96b6"
+    },
+    {
+      "name": "default-net8.0",
+      "exit": 0,
+      "warnings": 0,
+      "errors": 0,
+      "dllSHA256": "62a792d3da4084e40b985e7c007dd7ba7f9e24f29c13c997ebadd436a05435d5"
+    },
+    {
+      "name": "diagnostic-net8.0",
+      "exit": 0,
+      "warnings": 0,
+      "errors": 0,
+      "dllSHA256": "d8efa81d55a28d380e4e35744dfac8847dc6877b94803e93b81dd9f951b9315f"
+    }
+  ],
+  "Native": false,
+  "Installed": false
+}

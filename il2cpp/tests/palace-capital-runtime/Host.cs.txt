@@ -1,0 +1,441 @@
+// Minimal targeted Unity surface for the PalaceCapitalScene host suite. This is NOT Unity and
+// NOT Native evidence: it records allocation/destruction/write calls and injects faults so the
+// adapter's ownership, ordering and zero-write behaviour can be tested without an engine.
+#pragma warning disable 0649
+using System;
+using System.Collections.Generic;
+
+namespace UnityEngine
+{
+    public class Object
+    {
+        private static long _nextPointer = 0x1000;
+        internal bool Destroyed;
+        public IntPtr Pointer;
+        private string _name;
+        internal static bool ThrowOnSpriteNameWrite;
+
+        public string name
+        {
+            get => _name;
+            set
+            {
+                if (ThrowOnSpriteNameWrite && this is Sprite)
+                    throw new InvalidOperationException("injected-sprite-name");
+                _name = value;
+            }
+        }
+
+        internal static int CreatedObjects;
+        internal static int DestroyCalls;
+        internal static int DestroyedTextures;
+        internal static int DestroyedSprites;
+        internal static int DestroyedGameObjects;
+        internal static int DestroyedMaterials;
+        internal static int DestroyFaultAtCall;
+        internal static readonly List<Object> Created = new List<Object>();
+        internal static readonly List<Object> DestroyedObjects = new List<Object>();
+        internal static readonly Dictionary<Object,int> DestroyCallsByObject = new Dictionary<Object,int>();
+
+        protected Object()
+        {
+            Pointer = (IntPtr)(++_nextPointer);
+            CreatedObjects++;
+            Created.Add(this);
+        }
+
+        public static implicit operator bool(Object obj)
+            => obj != null && !obj.Destroyed && obj.Pointer != IntPtr.Zero;
+
+        public static void Destroy(Object obj)
+        {
+            if (obj == null) throw new ArgumentNullException(nameof(obj));
+            DestroyCalls++;
+            DestroyCallsByObject.TryGetValue(obj, out int count);
+            DestroyCallsByObject[obj] = count + 1;
+            if (DestroyFaultAtCall == DestroyCalls)
+                throw new InvalidOperationException("injected-destroy-fault");
+            if (obj is Texture2D) DestroyedTextures++;
+            else if (obj is Sprite) DestroyedSprites++;
+            else if (obj is GameObject) DestroyedGameObjects++;
+            else if (obj is Material) DestroyedMaterials++;
+            obj.Destroyed = true;
+            obj.Pointer = IntPtr.Zero;
+            DestroyedObjects.Add(obj);
+        }
+    }
+
+    public struct Scene
+    {
+        public int handle;
+    }
+
+    public struct Vector2
+    {
+        public float x, y;
+        public Vector2(float x, float y) { this.x = x; this.y = y; }
+    }
+
+    public struct Vector3
+    {
+        public float x, y, z;
+        public Vector3(float x, float y, float z) { this.x = x; this.y = y; this.z = z; }
+        public static Vector3 zero => new Vector3(0f, 0f, 0f);
+        public static Vector3 one => new Vector3(1f, 1f, 1f);
+    }
+
+    public struct Rect
+    {
+        public float x, y, width, height;
+        public Rect(float x, float y, float width, float height)
+        { this.x = x; this.y = y; this.width = width; this.height = height; }
+    }
+
+    public enum FilterMode { Point, Bilinear, Trilinear }
+    public enum TextureWrapMode { Repeat, Clamp, Mirror, MirrorOnce }
+    public enum TextureFormat { RGBA32 }
+    public enum SpriteMeshType { FullRect, Tight }
+
+    public sealed class Material : Object
+    {
+        public int renderQueue = 3000;
+    }
+
+    public sealed class Texture2D : Object
+    {
+        internal static int CreatedTextures;
+        public int width, height;
+        public FilterMode filterMode;
+        public TextureWrapMode wrapMode;
+        public int anisoLevel;
+
+        public Texture2D(int width, int height, TextureFormat format, bool mipChain)
+        {
+            this.width = width;
+            this.height = height;
+            CreatedTextures++;
+        }
+    }
+
+    public sealed class Sprite : Object
+    {
+        internal static int CreateCalls;
+        public Texture2D texture;
+        public Rect rect;
+        public Vector2 pivot;
+        public float pixelsPerUnit;
+        public SpriteMeshType meshType;
+
+        public static Sprite Create(Texture2D texture, Rect rect, Vector2 pivot,
+            float pixelsPerUnit, uint extrude, SpriteMeshType meshType)
+        {
+            CreateCalls++;
+            return new Sprite
+            {
+                texture = texture,
+                rect = rect,
+                pivot = pivot,
+                pixelsPerUnit = pixelsPerUnit,
+                meshType = meshType,
+            };
+        }
+    }
+
+    public class Component : Object
+    {
+        public GameObject gameObject;
+        public Transform transform => gameObject == null ? null : gameObject.transform;
+    }
+
+    public sealed class Transform : Object
+    {
+        internal static int PositionWrites;
+        internal static int LocalScaleWrites;
+        internal static int ThrowOnPositionWriteAtCall;
+        internal static int SetParentCalls;
+        internal static int SetParentFaultAtCall;
+        internal static bool SetParentFaultAfterMutation;
+        private Vector3 _position;
+        private Vector3 _localScale = Vector3.one;
+        private Vector3 _forward = new Vector3(0f, 0f, 1f);
+        public GameObject gameObject;
+        public Transform parent;
+        public Vector3 localPosition;
+
+        public Vector3 forward { get => _forward; set => _forward = value; }
+
+        public bool IsChildOf(Transform ancestor)
+        {
+            for (Transform node = this; node != null; node = node.parent)
+                if (ReferenceEquals(node, ancestor)) return true;
+            return false;
+        }
+
+        public Vector3 position
+        {
+            get => _position;
+            set
+            {
+                PositionWrites++;
+                if (ThrowOnPositionWriteAtCall == PositionWrites)
+                    throw new InvalidOperationException("injected-position-write-fault");
+                _position = value;
+            }
+        }
+
+        public Vector3 localScale
+        {
+            get => _localScale;
+            set { LocalScaleWrites++; _localScale = value; }
+        }
+
+        public void SetParent(Transform newParent, bool worldPositionStays)
+        {
+            SetParentCalls++;
+            bool fault = SetParentFaultAtCall == SetParentCalls;
+            if (fault && !SetParentFaultAfterMutation)
+                throw new InvalidOperationException("injected-parent");
+            parent = newParent;
+            if (fault)
+                throw new InvalidOperationException("injected-parent-after-mutation");
+        }
+    }
+
+    public sealed class GameObject : Object
+    {
+        internal static int CreatedGameObjects;
+        internal static int ActivateCalls;
+        internal static int SetActiveFaultAtCall;
+        internal static int AddComponentCalls;
+        public bool activeSelf = true;
+        public bool activeInHierarchy => activeSelf;
+        public int layer;
+        public Scene scene;
+        public Transform transform;
+        internal readonly List<Component> components = new List<Component>();
+
+        public GameObject() : this("") { }
+
+        public GameObject(string name)
+        {
+            this.name = name;
+            CreatedGameObjects++;
+            transform = new Transform { gameObject = this };
+        }
+
+        public T AddComponent<T>() where T : Component, new()
+        {
+            AddComponentCalls++;
+            var component = new T { gameObject = this };
+            components.Add(component);
+            return component;
+        }
+
+        public void SetActive(bool value)
+        {
+            ActivateCalls++;
+            if (SetActiveFaultAtCall == ActivateCalls)
+                throw new InvalidOperationException("injected-setactive-fault");
+            activeSelf = value;
+        }
+    }
+
+    public sealed class Camera : Component
+    {
+        public bool enabled = true;
+        public bool orthographic = true;
+        public float orthographicSize = 5f;
+        public float aspect = 16f / 9f;
+        public float nearClipPlane = 0.3f;
+        public float farClipPlane = 1000f;
+    }
+
+    public sealed class SpriteRenderer : Component
+    {
+        internal static int SpriteWrites;
+        internal static int MaterialWrites;
+        internal static int SharedMaterialGets;
+        internal static int SharedMaterialFaultAtCall;
+        private Sprite _sprite;
+        private Material _sharedMaterial;
+        public bool enabled = true;
+        public int sortingOrder;
+        public int sortingLayerID;
+
+        public Sprite sprite
+        {
+            get => _sprite;
+            set { SpriteWrites++; _sprite = value; }
+        }
+
+        public Material sharedMaterial
+        {
+            get
+            {
+                SharedMaterialGets++;
+                if (SharedMaterialFaultAtCall == SharedMaterialGets)
+                    throw new InvalidOperationException("injected-material-get-fault");
+                return _sharedMaterial;
+            }
+            set { MaterialWrites++; _sharedMaterial = value; }
+        }
+    }
+
+    public static class ImageConversion
+    {
+        internal static int LoadCalls;
+        internal static int LoadFaultAtCall;
+
+        public static bool LoadImage(Texture2D texture, byte[] bytes, bool markNonReadable)
+        {
+            LoadCalls++;
+            if (LoadFaultAtCall == LoadCalls) throw new InvalidOperationException("injected-load-fault");
+            if (!KingdomEnhancedMod.PalaceResourceBytes.TryReadPngSize(bytes, out int width, out int height, out _))
+                return false;
+            texture.width = width;
+            texture.height = height;
+            return true;
+        }
+    }
+}
+
+namespace KingdomEnhancedMod
+{
+    internal sealed class CourtBinding
+    {
+        internal UnityEngine.Transform Parent;
+        internal UnityEngine.SpriteRenderer Reference;
+        internal UnityEngine.Material Material;
+    }
+
+    // Minimal owner/camera surface for PalaceCapitalRuntimeScene. NOT Native evidence: the host
+    // injects identity and drift to exercise validation/cleanup order only.
+    internal sealed class Game
+    {
+        internal enum State { Playing, Menu, Paused }
+        internal IntPtr Pointer;
+        internal int currentLand;
+        internal State state;
+    }
+
+    internal sealed class Kingdom
+    {
+        internal IntPtr Pointer;
+        internal Player playerOne;
+    }
+
+    internal sealed class PlayerWallet
+    {
+        internal static int Writes;
+        private long _coins;
+        internal long Coins { get => _coins; set { _coins = value; Writes++; } }
+    }
+
+    internal static class PaidJournal
+    {
+        internal static int Writes;
+        internal static void Write() { Writes++; }
+    }
+
+    internal sealed class Player
+    {
+        internal IntPtr Pointer;
+        internal UnityEngine.GameObject gameObject;
+        internal Steed steed;
+        internal UnityEngine.SpriteRenderer _steedRenderer;
+        internal UnityEngine.SpriteRenderer _riderRenderer;
+        internal PlayerWallet wallet = new PlayerWallet();
+        internal static int PositionWrites;
+        private UnityEngine.Vector3 _position;
+        internal UnityEngine.Vector3 Position { get => _position; set { _position = value; PositionWrites++; } }
+        public static implicit operator bool(Player value) => value != null;
+    }
+
+    internal sealed class Steed
+    {
+        internal Player Rider;
+        internal SpriteRendererFX SpriteFX;
+    }
+
+    internal sealed class SpriteRendererFX
+    {
+        internal UnityEngine.SpriteRenderer Renderer;
+    }
+
+    internal sealed class Level
+    {
+        internal IntPtr Pointer;
+    }
+
+    internal sealed class World
+    {
+        internal IntPtr Pointer;
+        internal UnityEngine.Transform gameLayer;
+    }
+
+    internal sealed class Managers
+    {
+        internal static Managers Inst;
+        internal IntPtr Pointer;
+        internal Game game;
+        internal Kingdom kingdom;
+        internal Level level;
+        internal World world;
+    }
+
+    internal sealed class CampaignSaveData
+    {
+        internal static CampaignSaveData current;
+        internal IntPtr Pointer;
+        internal int CurrentLand;
+    }
+
+    internal static class PalaceLand12Runtime
+    {
+        internal const int LandIndex = 12;
+    }
+
+    internal sealed class CameraMarshaller
+    {
+        internal static CameraMarshaller Inst;
+        internal IntPtr Pointer;
+        internal MainCamera[] cameraRefs;
+    }
+
+    internal sealed class MainCamera
+    {
+        internal IntPtr Pointer;
+        internal UnityEngine.Camera _camera;
+        internal UnityEngine.GameObject[] cameraTargets;
+        public static implicit operator bool(MainCamera value) => value != null;
+    }
+
+    internal sealed class PalaceCourtLayoutView
+    {
+        internal PalaceLayoutRecipe Recipe;
+        internal ulong LevelPointer;
+        internal ulong WorldLayerPointer;
+        internal ulong GamePointer;
+        internal ulong CampaignPointer;
+    }
+
+    internal sealed class PalaceEnvironmentSortPlanes
+    {
+        internal static bool CreateOk = true;
+        internal static string CreateReason = "";
+
+        internal static bool TryCreate(Game game, UnityEngine.SpriteRenderer unit, UnityEngine.Camera camera,
+            double unitsPerPixel, out PalaceEnvironmentSortPlanes result, out string reason)
+        {
+            if (!CreateOk) { result = null; reason = CreateReason; return false; }
+            result = new PalaceEnvironmentSortPlanes(); reason = ""; return true;
+        }
+
+        internal bool TryPlane(int band, int recipeIndex, out float localZ, out string reason)
+        {
+            reason = "";
+            localZ = band == -7 ? 0.21875f : band == -1 ? 0.03125f : band == 1 ? -0.03125f : band == 2 ? -0.0703125f : 0f;
+            return true;
+        }
+    }
+}

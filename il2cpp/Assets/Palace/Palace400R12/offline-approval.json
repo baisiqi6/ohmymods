@@ -1,0 +1,168 @@
+{
+  "schema": "palace400-r12-offline-approval/1",
+  "approvedForIsolatedIntegration": true,
+  "nativeAccepted": false,
+  "approvedUTC": "2026-10-23T16:56:54.469539+00:00",
+  "layoutSHA256": "b6f783791d9039001ebb95b00bfa6e294b9e90628504b0ecf9e3662f0f517cda",
+  "registrySemanticSHA256": "5cb7755a725d5b0d1b33e5ba73d2db4aa836290143f4afde302791c71016e9b4",
+  "assetSHA256": {
+    "cargo-granary": "49ba0389c3839d92235d3c789eacbcbbee45e3a7127db1cb781e9aa0cbce9c70",
+    "central-palace-gate": "81e76d439b6bd331b77190cbb3a7f96385f8660403955329d0c97a15bd3baf64",
+    "tang-tower-original": "df2b11a737d73f578247859ab1c52099242df4c1d1ecaea0bbf9fabeb19957d2",
+    "west-two-storey-merchants": "6e5bdc76ef749ad2059284592cf29132703f31c46084157f0c8be8df911fac07",
+    "west-courtyard-gatehouse": "de46374d876ad098d7ef62909ceb8c5ea23bbd4787410f72524438bec6484612",
+    "west-drygoods-pavilion": "12b60d7aa2563ea17d689190d04372ee91bf5cda24ec740a7c975d2a3facc17a",
+    "cargo-timber-hoist": "7bb3b8729bcc5ec3a29e5e279d7748b73dc134e99bb9795785996e17c5f9168f",
+    "cargo-dock-store": "6a759ee53305abe00cf9991433f8c94fb71249d7ced494a6ad2d201af923c6b3",
+    "cargo-pack-yard": "cc78c2db7388776e6313e0d34ea52698741199e97fd1e2b33407f1a444606b43",
+    "wood-bamboo-workshop": "0c3a624336658e4dd824d348444d1c8b1e8ab6c5b98806bf04fc9a2ef4bb5718",
+    "market-pottery-house": "7eb0423eb7df64a7a8a7a324d2ae6c602a726e15e23097254e90a14dd0cae4d9",
+    "food-market-alley-gate": "004e66338343847eb81c7482562d036ba6dd417ebb73c6362dd353abe66f3eb2",
+    "drygoods-food-row": "5537dcb9d0e169b459919d2f65bbd0012aa816036b2921a983758a7a849a961b",
+    "courier-inn": "df3e3d0617208ef82b34e947d3424e0a7085d44c729131a8deb2dffafe78c039",
+    "courier-delivery-yard": "36a48ece3d7dd0cde87f7bb17bbcd67dc36f112a1e31314f649efa079feff6ce",
+    "courier-neighborhood-gate": "7780d10b1048634147ac2665e159be0294bcf3b10eb068928e30af961289aa74",
+    "ceremonial-paifang-columns": "7b3b16b50797204bfb80b652a24c116444d534f60a1a2569f553f7506e3b91fc",
+    "ceremonial-side-gatehall": "f26f5bbb92bbdefd405e39f6676e08c77fb2d5e73180f6dd17d87b2022987401",
+    "imperial-book-merchant": "95160878a899f6cdadfb955e124417d4bededd4e5f54428d5d53debd226ca211",
+    "imperial-ceramic-workshop": "e54892c880adf91f6d21f10aec080fc6d6e7a404264bfea14a2c883e5546a041",
+    "lotus-moon-gate": "8cd2e39cc0469a6cfb25e71e2ea8d29d06c79dbd5d411d57ef7f410fca686bf3",
+    "lotus-octagonal-pavilion": "2521f916170a1f67f5a4007bdbf2f9b8f10aa238ed0856f1cb2e9a4c5d3f32d5",
+    "lotus-water-gallery": "1631bfb46ae4372cf9a68623d4ad199ae072e43a0092fc2c41527791f609327e",
+    "palace-east-moon-court": "8707b0210f9e028da87f46dc1624f1a975b61fc750cd6e30ea046ac5d670456d",
+    "palace-east-wing-shops": "7aeb66d16a1efff50500e24c7062d02639b531012df8aca628de09053c2bd8bc",
+    "palace-west-moon-court": "faeb7cc6d5b327feacc1f54cfb66efe5006a5d21cadb3c2512b2435fca399e71",
+    "palace-west-wing-court": "50b49ce56d4b1f01a60519de7263f63cec93226c783f655751e4ca6e925206af",
+    "theatre-front-seats": "10ec01206f3ff1ca9d8875c0e38207a8bfcc0c2fcc3e03fbcfea2b5ae4f357d2",
+    "well-quarter-bookshop": "ff3220f211693342d22b341680e44e142031d1d23f993c3b2b889a50a7797150",
+    "well-quarter-house-shop": "a8513a94a0fdad526d8eb7a23c4e238d9118c4d8d148ed0c32df477dba5946c7",
+    "well-quarter-draw-well": "b96be78b5eb05315d319330c105507b022dbe0e7dcaca6ca208fe9beee3024e9",
+    "well-quarter-residential-gate": "cd5d7d6d3f70253087030b6c3f911f236323a285ab2b448683d588762dd2ca0d",
+    "nursery-trellis-court": "963b3d00b9488c389313d6414bba943d591404713efcc0c632b2bee7be37711e",
+    "stonecarver-workyard": "0ef35507a787017c21577ec0c1ffeb7297e683a61f1643ad95d74224e75ad584",
+    "reading-hall-gallery": "1000ec5b3b67e7d4838488f933bc1a5a3441746c4f7347d8f8aa89cc58cc6ee9",
+    "academy-west-garden-gate": "652683482a62989690420289ef3eabbf9464c0be92a358869723503a340a6c39",
+    "academy-main-hall": "7dbe3261cb19e945be1601ce9075a417ddcdb528184b96340e647c87feacaf24",
+    "tower-west-covered-corridor": "b1689eacf9c9559d5fca2c717271a076db4779a426fa486da22b4afb188d6112",
+    "tower-east-armillary-pavilion": "0af0470bf9f72ac9e428fe5f6770e5ad913b6d2f3a12b0f7b47a1e7a93641ab2",
+    "shared-sky-stele-terrace": "850703f45a58c5035bc77486cf70607b340253c7f00931fbf10229887af60f2c",
+    "west-rock-pine-endcap": "3d8c96e5d4ebd718ef1c6ba0c5093b715bb2cd197f077d43cbab6b6070050410",
+    "ferry-covered-boat": "0a48841d6a7b7034223ace4f75c655f8fae38a0cc1d20ed041e3608f4759ded4",
+    "cargo-freighter": "47f77d590cfcd15aae3f8eef4166320e8300f177e04178336c955ef4bca8b9ab",
+    "food-tea-kitchen": "13df578efe740371505a612191bdbf8acde19c3151cf43d63707699bc6f2f643",
+    "courier-empty-stable": "89de4ac9cec367492e90eb44d7ffcd46a5fec2f712676d2eaff9d411ddfb4c66",
+    "ferry-storeyard": "5c87b6a096fe31dbce731082aa84cf76fa97b8434f817bbaaaacc79ca3376587",
+    "bridge-west-water-market": "9cb1dec909f74fe37ef471956127f34dfb05ad5b595586b9a329fc8e7dd55e6a",
+    "bridge-east-water-market": "8cb8af5f51035ed1fe1a05fd1a41cdf5790a4f1ecf394e4407bc9b8065c382b9",
+    "well-quarter-pharmacy": "5dc2b0801b3b7781a2e0a1abceaf3bb9d5976ce79e1817dc3f08da4a0cd33c24",
+    "pear-garden-theatre": "fd8713bbd937261a1aac43b5bd8beaeefd6f4c662bf316a806c306921f80475f",
+    "lotus-stone-bridge-garden": "f1d01080045e73768fce3e201d04f376b4fe7c899247fe967672f2070900046b",
+    "imperial-garden-rear-pavilion": "7837983194c0168322855284b4d91bea53862cd176edcb1dc81f176c814abebe",
+    "east-rock-pine-endcap": "2830b3e5fd5f29054fafe12f6471e20270c85a5251e08618711d162d1c206aea",
+    "timber-rainbow-bridge": "0e5d9d69ad4d9b1d97f64c58e5d920404d2aa75c4649d41653d94fb8a5490b65",
+    "rear-palace-twin-wing-court": "9b04833d6b6c55ffce055b703767900dc27a2cc83a42c783a8ed6a7e58e2a54f",
+    "rear-palace-garden-gate": "457e30dd37a7a41c8e4acfe4015bfc8c341244877e734520b2c8892b4bece547",
+    "rear-palace-moon-arch-court": "7d9adc2f1f4726b9f0c0c7df7d2f69c4624f8224e196ef7d406f98b83b6944bd",
+    "rear-palace-main-hall-court": "25b223de1b9882b2cad2c4474862c06832d00057f2b408c52ec872898256f6a7",
+    "rear-palace-long-gallery": "749b69cca1cf6426469bb797075353104b63308f6598c3061f5c495c850a0512",
+    "rear-palace-residential-garden": "17fe75bbe1da80420e43355a5b415ba133c37d26a17947f744999ed55b2d83bb",
+    "rear-forest-pine": "61c10b3c29e4271245056eebe3441cdd182817189b787b4961e69f077a38b8be",
+    "rear-forest-willow": "491c6ab38901d2a31fb888a61a685b56d2070e0fb5bdf3948e6142147648cecf",
+    "rear-forest-bamboo": "1e270742254699732c7f2145dd67cc8831f07ac01392cc2d0c2db7049d6e4af7",
+    "rear-forest-mixed-grove": "6d4734bf0e43cf8f5fae21dc6a96ab123b784ddfd1803736341d0921643073ef",
+    "rear-forest-flowering-pine": "b80dde11835b9a385735605daf8712defef7fba9bf38b7ac35a31f6415c7520d",
+    "rear-forest-nursery-mixed": "d0ed5caad5a6cba8804fb8949677d6715e4b6cf8f999c96723b3349486a592bf",
+    "east-celestial-vista": "5c539e2d26b4022c9b0fd6fabb2f499649c2153f1a71e7e74b21443202c302c2",
+    "street-stone-paving": "013accb2301ec96350a422f0bfa110645a1cbccfe03b77bf0ce8ecea7200e4f2",
+    "quay-vertical-brick-wall": "485cbfa5ee3b0559dbc007b0061fe63ed42f43d56a7c1d5e3ebe63433ab452b1",
+    "quay-descent-stairs-narrow": "bd330347e2857f5bb94eb23ad41d9a6b9952b90b8cc56f4c69d416816c34bf09",
+    "quay-descent-stairs-wide": "8d2ea48b98f1a3bbb461d30b5295a919b9033c59167d972334e32072f180a673",
+    "low-garden-wall-plain": "78cdca109379ae7bf3e92b350456f650bbe4aaf7be954d935d01a7442adc02c8",
+    "patrol-guard-lance": "04aad4956b4d430bffb0e1c46ff7bcdfc45fa8f20e22f3dd659bbf8b4ad6158f",
+    "patrol-guard-shield": "2962c544c06990137508884b58be76cd906dc6aca5a55ee7125c91a66008e2c1",
+    "court-dancer": "cec513cf72bf5521820e1e9317cdc5be9f69c70d3aaa508ad271cfecda314ade",
+    "guardian-orb": "40e8d37fa712620345f008e0d9f8db494e1dac48996949eabe19ed970121c4a7",
+    "guardian-lute": "dd2a7c320f0304bb838ba8418039de97afc271524f20b1e4bf529d9db1c82784",
+    "guardian-sword": "b764ee4738a560b50aaed3dc0e2e46ea4c215ce998a595cf9e055a544a0084c2",
+    "guardian-pole": "e9da0c145f495c459bcce5ce37b141ea3047ea83cd67e9e4991f4661a28b621b",
+    "resident-cream": "cc7a3ea9b1bda96fa84447584863192bff759a324216e940d413cce58f1da934",
+    "resident-pink": "cf7df35fd245e561d4924a9754fc4813f2824b23fdd896af818e80978843b897",
+    "resident-brown": "21b345d8bfb2fd232947f78d3fea6d8feaab460d9affa8c2ed66e144e98e01e5",
+    "lotus-flower-open": "5060b823fa235d1eb66ae03cd210e6c53b624d3e12cad91275a168d57a2cd7c3",
+    "lotus-flower-bud": "0b62194a40b628350f3b1e13e8e74f9c8064635dd65156267a09bf32f9ae5a94",
+    "lotus-leaf-flat": "dc4488736502189208fe9497818f1ba3a7c72017a50b5b045434fcbe99e6051a",
+    "lotus-leaf-curl": "99b17073038a12faf79ceaa2e87eb7989ae3fc36c490beb5dd16237faffb67fc"
+  },
+  "reviews": [
+    {
+      "path": "review/ASTRA-backgrounds-and-palette-r2.md",
+      "SHA256": "06b600fa6808ead1225407794d1843c08e02e28c37a950669107433dd611b19e"
+    },
+    {
+      "path": "review/ASTRA-edge-bridge-ground-vista-r12.md",
+      "SHA256": "c6dbe0609b4ed87f4db10b8a73c5c173b26e7682d000802076f2d0a35031bf69"
+    },
+    {
+      "path": "review/ASTRA-west-and-amodal-batch-r12.md",
+      "SHA256": "95e997fe59dcf1a4fefccdc08a1e059eab630b5522afe9e45d9cbacb0b3d4a9e"
+    },
+    {
+      "path": "review/ASTRA-core-east-amodal-motion-r12.md",
+      "SHA256": "99f4dcec5cc4555ad300b6832aa0ed28613a5fdcba7436b4880877895ff7e4ba"
+    },
+    {
+      "path": "review/ASTRA-west-five-r3-incremental.md",
+      "SHA256": "1c5e9e1ba652f50ba6bc9e4b17891cb77ea0c86af46e5f565de897fe58cb58fa"
+    },
+    {
+      "path": "review/ASTRA-final-polish-and-composition-r12.md",
+      "SHA256": "4cd28177a41920f8cb8ba07fe542cc6ff0956a2c23d128efd9726619db0150d5"
+    },
+    {
+      "path": "review/ASTRA-far-foundation-layout-incremental-r12.md",
+      "SHA256": "5f6542efa8a7f9926ad99042d7da10eaff3f046ae105dbba3da4de7c62d57def"
+    },
+    {
+      "path": "review/GLM-production-data-review-r2.md",
+      "SHA256": "6c5cb8ac607fbaab85455db6c07693aec8ff2c812d30f9e8a6e365647e723e20"
+    },
+    {
+      "path": "review/GLM-production-data-disposition.md",
+      "SHA256": "1d78458aa920316fd8a8c1c10472f18d0ca2294ba3c0adf8357f00f543c6900f"
+    }
+  ],
+  "reviewPathsAreAuthoringEvidenceNotRuntimeDependencies": true,
+  "metadataRevision": {
+    "id": "capital-400u-r12-production-r2-local-right-edge",
+    "scope": "layout-only: far-palace-34 supportWorldX 200.0->196.0 and designSupportPixel.X 12820->12692; forest-74 supportWorldX 203.25->198.8125 and designSupportPixel.X 12924->12782, with allowOutsideWalkDomain/placementScope removed because the instance is now inside the [-200,200] walk domain. district 11, Y, supportLocalPixel, drawRole, motionGroup, all 86 PNGs, registry, palette, frames and the other 450 placements are unchanged; no save schema, physical 400u recipe or placement formula change.",
+    "approvedUTC": "2026-10-23T16:56:54.469539+00:00",
+    "previousLayoutSHA256": "ff18f6c45ae620c248c88f99d393d370c3330dc06b6c6afb30220e6d7a0a6a7d",
+    "layoutSHA256": "b6f783791d9039001ebb95b00bfa6e294b9e90628504b0ecf9e3662f0f517cda",
+    "reviewPaths": [
+      {
+        "path": "/Users/Admin/projects/ohmymods/.local/tasks/palace400-runtime-20261023/phase-c/edge-r2-plan-review/verdict.md",
+        "SHA256": "e0c2c7d31d348e1aee77505eb3ff9a312e4fb677fce87e7e07548b540096b1da"
+      },
+      {
+        "path": "/Users/Admin/projects/ohmymods/.local/tasks/palace400-runtime-20261023/phase-c/edge-r2-plan-review/selection-amendment.md",
+        "SHA256": "67933f237dd516bf5da564c807305f720702540ee6cbb939ad83f3206615f3a8"
+      },
+      {
+        "path": "/Users/Admin/projects/ohmymods/.local/tasks/palace400-runtime-20261023/phase-c/edge-placement-preview/final-coordinate-review.md",
+        "SHA256": "55ec60260c9f9989f58ff27497a1b53268985702d9b9929b536bc68a07c386bb"
+      }
+    ],
+    "reviewPathsAreAuthoringEvidenceNotRuntimeDependencies": true,
+    "rootIntegrationAuditPending": "Root runs the full builds and embedded 92-resource audit after the cold-geometry worker completes; this metadata revision does not perform or claim that audit.",
+    "nativeAccepted": false
+  },
+  "metadataVisualInvarianceReceiptSHA256": "e78ac6d277549964ff145c82989c1da4ea88e8619b76088ed1e4594b01dc3136",
+  "humanScope": "R11 approved; user explicitly authorized subsequent asset production and isolated complete-Mod integration",
+  "remainingNativeChecks": [
+    "ground/water difference",
+    "adult BODY/feet",
+    "camera/rotation/parallax reveal",
+    "dynamic sorting and weather/local motion",
+    "paid entry/save exit/new-process palace reload/return/coins/mount"
+  ]
+}

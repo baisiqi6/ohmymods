@@ -1,0 +1,46 @@
+{
+  "passed": true,
+  "sourceClosureUnchanged": true,
+  "liveSourceMatchesSnapshot": true,
+  "builds": [
+    {
+      "name": "default-net6.0",
+      "exit": 0,
+      "warnings": 0,
+      "errors": 0,
+      "dllSHA256": "faad931d8b7df7dd2071ffa9ea4460c26400e2fbb126c01c386f44320720fa72"
+    },
+    {
+      "name": "diagnostic-net6.0",
+      "exit": 0,
+      "warnings": 0,
+      "errors": 0,
+      "dllSHA256": "91ba334e80d8d8c47a88abe2b03184c01c2d7e15320d541861478b18cfd0de80"
+    },
+    {
+      "name": "default-net8.0",
+      "exit": 0,
+      "warnings": 0,
+      "errors": 0,
+      "dllSHA256": "2b5719d50d59ad502e5c179965a262e986c2a90314d7072d278dc04be93dad05"
+    },
+    {
+      "name": "diagnostic-net8.0",
+      "exit": 0,
+      "warnings": 0,
+      "errors": 0,
+      "dllSHA256": "f3745cd2de727ea99d810119d209e5204033a2abe8b7d515fd9ed2a5e7afc0aa"
+    }
+  ],
+  "Native": false,
+  "Installed": false,
+  "phase": "full Capital400 source integration",
+  "sourceFiles": 622,
+  "embeddedChecks": 275,
+  "embeddedResources": 92,
+  "placements": 452,
+  "independentS2cChecks": 20,
+  "sourceReview": "approved; actual GLM5.3 max decision and independent Astra delta",
+  "nativePaidRoundtrip": false,
+  "normalInstalled": false
+}

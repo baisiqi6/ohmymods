@@ -158,6 +158,9 @@ internal static class MapWidthScope
         Frame frame = Frames.Count > 0 ? Frames[Frames.Count - 1] : null;
         if (frame == null || !frame.Active || frame.Consumed) return;
         frame.Consumed = true;
+#if !ANDROID
+        if (PalaceCourtArea.SuppressGeneralMapWidth(layout)) return;
+#endif
         try
         {
             Apply(layout, ref result, frame);

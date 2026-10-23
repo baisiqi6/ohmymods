@@ -1,0 +1,153 @@
+{
+  "schema": 1,
+  "utc": "2026-10-18T13:52:58.704804+00:00",
+  "issue": 101,
+  "pullRequest": 265,
+  "status": "offline diagnostic candidate ready; native source capture remains blocked",
+  "compileSymbol": "PALACE_PAID_CAPTURE_DIAGNOSTICS",
+  "defaultEnabled": false,
+  "sourceSha256": "47524151471268980798d616037dec4b56c87eae453a60dd32ba205a553cfe53",
+  "ownedSourceAndTests": [
+    {
+      "path": "il2cpp/Patch_PalacePaidResponsibility.cs",
+      "sha256": "47524151471268980798d616037dec4b56c87eae453a60dd32ba205a553cfe53"
+    },
+    {
+      "path": "il2cpp/tests/PalacePaidCaptureDiagnostics.Tests/PalacePaidCaptureDiagnostics.Tests.csproj",
+      "sha256": "f4822b9ad7cb3307f438305c31186ee775b282bbf4ee9ec4cb16e3cc5c188c87"
+    },
+    {
+      "path": "il2cpp/tests/PalacePaidCaptureDiagnostics.Tests/Program.cs.txt",
+      "sha256": "4267bc2836f5293c6f57ed1302acb3b09a80e54f8d4237fc2f8dca18eccf3eee"
+    },
+    {
+      "path": "il2cpp/tests/PalacePaidCaptureDiagnostics.Tests/Extractor/Extractor.csproj",
+      "sha256": "3bf172696f5fe01c0a206311338f4ad029a739f10b9e81b264fdd74cb7ac6878"
+    },
+    {
+      "path": "il2cpp/tests/PalacePaidCaptureDiagnostics.Tests/Extractor/Program.cs.txt",
+      "sha256": "ef197dc30a62ed5f51c3d251d01b20c4a1405b6bbac76c3cafb3286a090d7360"
+    }
+  ],
+  "builds": [
+    {
+      "kind": "default",
+      "tfm": "net6.0",
+      "warnings": 0,
+      "errors": 0,
+      "dllSha256": "bfae30be3e7396cc9e891b7421998474011e459d151ed28654f72230904f43d3",
+      "logSha256": "c890cceecb91cc132ac8202c1ebd1ab70df692d9232918b77fe6725071f31c08"
+    },
+    {
+      "kind": "default",
+      "tfm": "net8.0",
+      "warnings": 0,
+      "errors": 0,
+      "dllSha256": "639c6eb277b523eae57075fc2d952e52e11fa6b533660dc6ec2b347439fcf383",
+      "logSha256": "523e3ff1307d07cee53543d1453f9893a320be3b8146be4646e3faeed18c3418"
+    },
+    {
+      "kind": "diagnostic",
+      "tfm": "net6.0",
+      "warnings": 0,
+      "errors": 0,
+      "dllSha256": "717853de65f339a78f66bd3ead4ff8aab08d216abf0e68dce6b69a796b1a5c71",
+      "logSha256": "48c8e7a1dfb3ebf317b1ba8a65ce9f9ef34584f04bbb0d6d4483016a2f862fb5"
+    },
+    {
+      "kind": "diagnostic",
+      "tfm": "net8.0",
+      "warnings": 0,
+      "errors": 0,
+      "dllSha256": "8257a1075b5b92c2f53787fdedcd77563fde7ed28e3a8a3c94b995174a2882b6",
+      "logSha256": "619d3c4d32a1de29fff18347fc254975d5b214136531a88405cf8ffc9af395c1"
+    }
+  ],
+  "independentTests": {
+    "focused": {
+      "passed": 57,
+      "failed": 0
+    },
+    "additionalCounterexamples": {
+      "passed": 20,
+      "failed": 0
+    },
+    "staleCompiledSourceIdentity": "rejected",
+    "H3": {
+      "cases": 13,
+      "assertions": 71,
+      "failed": 0
+    },
+    "H4": {
+      "cases": 35,
+      "assertions": 39,
+      "failed": 0
+    },
+    "sixRegressionSuites": {
+      "assertions": 1029,
+      "failed": 0
+    }
+  },
+  "defaultComparison": {
+    "normalizedILAndMetadataDifferences": 0,
+    "embeddedResources": 183,
+    "diagnosticTypesAndFieldsPresent": false,
+    "formalWholeProgramEquivalenceClaimed": false
+  },
+  "enabledComparison": {
+    "originalBusinessCallSequencesEqual": 8,
+    "beginLazyGuardPredicatesPreserved": 15,
+    "newNativeOrUnityGetterCalls": 0,
+    "lineBudgetPerHandle": 32
+  },
+  "nativeEvidence": {
+    "case": "R17",
+    "status": "USED_FAILED",
+    "settlementCoins": [
+      84,
+      74
+    ],
+    "nativeSourceCallbackRaw": 72,
+    "journal": "PaidObserved/revision3",
+    "captureProof": false,
+    "palaceArrival": false
+  },
+  "rootCauseFixed": false,
+  "diagnosticNativeTested": false,
+  "diagnosticInstalled": false,
+  "normalInstall": false,
+  "sharedSaveRestoreOrWrite": false,
+  "prRemainsDraft": true,
+  "issueRemainsOpen": true,
+  "reviewEvidence": [
+    {
+      "path": "tasks/palace-resume-20261017/capture-diagnostic-review/final/report.json",
+      "sha256": "788ccc0c05d9075d5fdacbdbdb5860f1a4aaccf8d237db40787a0bc4d35cde84"
+    },
+    {
+      "path": "tasks/palace-resume-20261017/capture-diagnostic-regression-prep-20261018/final-475241-review/report.json",
+      "sha256": "6d1350a8d9c29a3893541e622f7217b57cada2efeac88fbded26f21de8778f3f"
+    }
+  ],
+  "decision": {
+    "scope": "palace101-capture-diagnostic-revision",
+    "provider": "zhipu-coding-plan",
+    "model": "glm-5.3",
+    "thinking": "max",
+    "fallback": false,
+    "decisionSha256": "97963ac984d690910b713c3669eefe54a07368ec7609f1fec96916289b3fdfee"
+  },
+  "environmentIncident": {
+    "kind": "SDK first-run reported development HTTPS certificate installation during reviewer metadata inspection",
+    "actualNewCertificateIdentityConfirmed": false,
+    "trustOrDeleteAttempted": false,
+    "logPreserved": true,
+    "subsequentGenerationDisabled": true
+  },
+  "remaining": [
+    "Runtime sampling in a newly coordinated isolated case; do not reuse R17 failed trip or fabricate proof",
+    "Repair the observed first failing capture boundary",
+    "Verify native Palace art ends, menu save, cold load and free return before merge/install"
+  ],
+  "localEvidenceRoot": ".local"
+}

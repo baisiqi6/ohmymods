@@ -69,6 +69,9 @@ public static class PatchWorld_WallSpots
     /// <summary>World.OnLevelLoaded postfix 入口：延迟协程 + 订阅重绑。</summary>
     public static void Schedule(World world)
     {
+#if !ANDROID
+        if (!PalaceCourtArea.AllowManagedSpotSchedule(world, "wall")) return;
+#endif
         try
         {
             if (world == null || world.gameObject == null) return;
@@ -139,6 +142,9 @@ public static class PatchWorld_WallSpots
     private static bool TryGetReadyContext(World capturedWorld, out Transform layer)
     {
         layer = null;
+#if !ANDROID
+        if (!PalaceCourtArea.AllowManagedSpotSchedule(capturedWorld, "wall")) return false;
+#endif
         try
         {
             if (!ModConfig.Enabled.Value || NetworkBigBoss.IsOnline

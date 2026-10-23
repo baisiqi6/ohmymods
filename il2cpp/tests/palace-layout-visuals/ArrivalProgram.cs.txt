@@ -1,0 +1,42 @@
+using KingdomEnhancedMod;using UnityEngine;using System.Reflection;using System.Collections;
+int checks=0;void Check(bool v,string n){checks++;if(!v)throw new Exception("FAIL: "+n);}
+const BindingFlags flags=BindingFlags.NonPublic|BindingFlags.Static;
+object Call(string name,params object[] args)=>typeof(PalaceArrivalPlacement).GetMethod(name,flags)!.Invoke(null,args);
+void Reset(bool available,bool entering=true,int version=4,bool returning=false)
+{
+ foreach(string name in new[]{"AttemptedTrips","Rejected"}){var set=typeof(PalaceArrivalPlacement).GetField(name,flags)!.GetValue(null);set!.GetType().GetMethod("Clear")!.Invoke(set,null);}
+ typeof(PalaceArrivalPlacement).GetField("_window",flags)!.SetValue(null,null);
+ CampaignSaveData.current=new(){Pointer=(IntPtr)3,CurrentLand=returning?8:12};GlobalSaveData.loaded=new(){Pointer=(IntPtr)4};
+ var player=new Player{Pointer=(IntPtr)6};player.transform.Seed(new Vector3(-189.5f,.88f,1));
+ Managers.Inst=new(){game=new(){Pointer=(IntPtr)1,currentLand=returning?8:12},kingdom=new(){Pointer=(IntPtr)2,playerOne=player}};Managers.Inst.kingdom.campfire.transform.Seed(new Vector3(7,0,0));
+ PalaceCourtArea.Available=available;PalaceCourtArea.View=new(){Recipe=PalaceLayoutRecipe.Capital400};PalaceIslandTravel.Entering=entering;PalaceIslandTravel.ActiveLayout=PalaceLayoutRecipe.Capital400;
+ PalaceTripContext.Trip=new(){Version=version,Phase=returning?2:1,SourceEntryAnchor=returning?new PalaceEntryAnchorData():null};
+}
+void Run(bool sailing=true,float wreckX=-190,Action beforePost=null,bool newReign=false,Boat boat=null)
+{
+ object[] scene={CampaignSaveData.current,null};Call("ScenePrefix",scene);
+ var wreck=new WreckPlaceholder();wreck.transform.Seed(new Vector3(wreckX,0,0));
+ object[] start={Managers.Inst.kingdom.playerOne,boat,wreck,sailing,newReign,null};Call("StartPrefix",start);beforePost?.Invoke();Call("StartPostfix",Managers.Inst.kingdom.playerOne,wreck,start[5]);
+ Call("SceneFinalizer",CampaignSaveData.current,scene[1],null);
+}
+Reset(false);Run();Check(Managers.Inst.kingdom.playerOne.transform.Writes==0,"Capital400 missing layout must never use campfire fallback");
+Reset(true);Run();Check(Managers.Inst.kingdom.playerOne.transform.Writes==1&&Managers.Inst.kingdom.playerOne.transform.position.x==-2,"fresh400 goes to gate0 minus2 once");
+Reset(true);Run(false);Check(Managers.Inst.kingdom.playerOne.transform.Writes==0,"non-sailing untouched");
+Reset(true,false);Run();Check(Managers.Inst.kingdom.playerOne.transform.Writes==0,"cold no active arrival untouched");
+Reset(true);Run(wreckX:-12);Check(Managers.Inst.kingdom.playerOne.transform.Writes==0,"old wreck not accepted for400");
+Reset(true);Run(beforePost:()=>PalaceCourtArea.View=new(){Recipe=PalaceLayoutRecipe.Capital400});Check(Managers.Inst.kingdom.playerOne.transform.Writes==0,"layout identity drift zero writes");
+Reset(true);Run(beforePost:()=>PalaceIslandTravel.ActiveLayout=PalaceLayoutRecipe.Known44);Check(Managers.Inst.kingdom.playerOne.transform.Writes==0,"durable key drift zero writes");
+Reset(true);Run(beforePost:()=>GlobalSaveData.loaded=new(){Pointer=(IntPtr)99});Check(Managers.Inst.kingdom.playerOne.transform.Writes==0,"owner drift zero writes");
+Reset(true,version:3);Run();Check(Managers.Inst.kingdom.playerOne.transform.Writes==0,"old unknown trip cannot become400");
+Reset(true,version:3);PalaceCourtArea.View=new(){Recipe=PalaceLayoutRecipe.Known44};Managers.Inst.kingdom.playerOne.transform.Seed(new Vector3(-11.5f,.88f,1));Run(wreckX:-12);Check(Managers.Inst.kingdom.playerOne.transform.position.x==-4.46875f&&Managers.Inst.kingdom.playerOne.transform.Writes==1,"old44 gate preserved");
+Reset(true,version:2,returning:true);Run();Check(Managers.Inst.kingdom.playerOne.transform.position.x==42&&Managers.Inst.kingdom.playerOne.transform.Writes==1,"oldv2 return stand preserved");
+Reset(true,version:3,returning:true);Run();Check(Managers.Inst.kingdom.playerOne.transform.Writes==0,"oldv3 return narrow gate not broadened");
+Reset(true,version:4,returning:true);Run();Check(Managers.Inst.kingdom.playerOne.transform.position.x==42&&Managers.Inst.kingdom.playerOne.transform.Writes==1,"v4 samekey return uses source stand, not fresh-2");
+Reset(true,version:4,returning:true);PalaceIslandTravel.ActiveLayout=PalaceLayoutRecipe.Known44;Run();Check(Managers.Inst.kingdom.playerOne.transform.Writes==0,"v4 return key mismatch refused");
+foreach(float x in new[]{-199f,199f}){Reset(true,false);Managers.Inst.kingdom.playerOne.transform.Seed(new Vector3(x,.88f,1));Run();Check(Managers.Inst.kingdom.playerOne.transform.Writes==0&&Managers.Inst.kingdom.playerOne.transform.position.x==x,"cold saved edge X preserved");}
+Reset(true);Run(newReign:true);Check(Managers.Inst.kingdom.playerOne.transform.Writes==0,"newReign typed flag unchanged");
+Reset(true);Run(boat:new Boat());Check(Managers.Inst.kingdom.playerOne.transform.Writes==0,"typed boat presence rejected");
+Reset(true);Run();Run();Check(Managers.Inst.kingdom.playerOne.transform.Writes==1,"one trip budget no repeat placement");
+Reset(true);Run(beforePost:()=>Managers.Inst.level.GroundCollider=new(){Pointer=(IntPtr)999});Check(Managers.Inst.kingdom.playerOne.transform.Writes==0,"ground owner drift zero writes");
+Reset(false,version:3);PalaceCourtArea.DedicatedWholeEnabled=false;Run();Check(Managers.Inst.kingdom.playerOne.transform.Writes==1&&Managers.Inst.kingdom.playerOne.transform.position.x==5,"legacy48 original gateway fallback kept separate");PalaceCourtArea.DedicatedWholeEnabled=true;
+Console.WriteLine("PASS "+checks+" actual ArrivalPlacement checks; host gates do not prove W/native timing");
