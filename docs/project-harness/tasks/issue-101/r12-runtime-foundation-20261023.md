@@ -89,3 +89,17 @@ Case02 terminal result: script run bound reached, exit `143` after 905.46s; no n
 已fail-stop结束准确controller/child（143/receivedSignal15，主动终止，不称闪退或保存退出通过），保留原始日志和17文件实际私有后像。10条启动Error与上轮源8逐行相同；正常六对象及物理游戏终态校验通过。400画面、完整10币、UI保存退出、冷进与返回均仍未验，未合并/正常安装。旧case/longpay凭据已消费；新案例须绑定修后source/DLL与新凭据。
 
 修后源级增量：删除跨时刻全global rawSHA比较，保留全部目标/身份/epoch约束；首差异以字段标签报告。同次完整gzip严格解析+bytes双读、付费源保存proof的rawSHA精确匹配未改，不自动reprepare/重绑owner/改账。旧实现3红，私有78/0，公开产品方法抽取17/0且Root独立复跑17/0；Astra独立86/0（含本轮真实跨日文件），均0W0E、最终source `3c40e469…0646`，增量approved。修后完整四变体均0W0E，实际diagnostic-net6 DLL `bac68deca5240fa14c489d3bb37c2957909a108d920fc25e9420a699cace38ea`，嵌入资源275检查/92项和FileProps15检查通过。第二轮新case仅已完成只读预检与工具增量审查，尚未stage/开窗；仍不推定Native完成。
+
+
+## Native实测推进与冷进失败（2026-10-23）
+
+修后paid02实际自然跨日global变化后首币准入成功；`OnPay floating=10`、原生settlement、钱包观察140→130，source capture/file proof和一次Reload12均成立；fresh ground100×4u/edges[-200,200]、schema3及452/86 scene实际创建，journal Entered。两端已走到/截图；右端树根和宫廊底部露边仍待修，中央/左端静帧可复用，连续人物/荷塘动画未验。三条land12 MountFresh NoEnvelope仅为既有非目标observer噪声，独立源码确认不跳过原执行、NoEnvelope撤销no-op；其它新Error不豁免。paid02到900秒边界143退出，**未执行UI保存确认，不能记保存退出通过**。18文件实际后像保存，normal六对象和物理游戏终态通过。
+
+cold01从该实际原生自动保存后像新进程加载12，失败于postPop `saved-ground-count`；随后NativeBGNone拒绝接管、原BG NRE与Capital拒绝。立即fail-stop（不是UI SaveQuit）、保留日志/18文件终态，不续开原cold02/03。独立实档与Root严格validatorProbe确认保存里Ground1/Tile100/400u正确；当前2.4 ARM64 TryPop body SHA70aed349…5b94在完成时清除this+0x50恢复列表，因此错误是CourtArea把postPop已消费RAM再次当保存前像。修复保持strictGroundCount，移至exact prePop验证并以同次成功加载/owner-bound证据供cold消费者，liveGround/Tile仍须核验；不补NRE、不改保存/重种。R1明确要求snapshot自身异常不阻原Pop/clock，只令geometry证据失败；原生异常原样传播。源码实现/增量复审及新Native案例尚待。PR265继续Draft，未合并/正常安装，正常存档与DLL保持。
+
+
+### 冷进根因修复与右岸增量（R4候选）
+
+复用既有Bootstrap原生Pop调用边界，在prePop严格校验保存几何；同次original/result成功且无原生异常才发布凭据，绑定owner/Trip/recipe/Level/Game/World/layer/scene及代次。新exact尝试（含skip）撤旧proof、cold缓存与in-flight代次；不清fresh span，不阻原调用/改clock，不写回保存。独立审查抓出的skip复活与World替换反例已补齐：Root产品方法抽取81/0、Astra原55断言55/0。首次完整R3构建7条新增nullable警告，已保留failed receipt；准确注解修正后R4四变体均0W0E。diagnostic-net6 SHA `62a5fa1f9af5cad83400b264aaadc29bd906248cfd182cc0558d5e03f5db27b7`，完整源/资源冻结前后不变，实际92嵌入/275检查、FileProps15检查通过。
+
+右岸仅forest-74内收X198.8125、far-palace-34内收X196，forest域内标志同步；86PNG、其余450实例不变。最终index `49b99d18f959f08c7ba9b165713358fca56ffb533e31514a7f0c1d3a2d61c43b`与loader同步，独立增量approved；Native落脚与动画仍待。新cold04/05/06工具仅参数化案例/构建，Root和独立各32/32，必须逐案读取实际前案后像并发新凭据，不seed/复用旧许可。此记录只代表源级/构建通过，尚未完成R4冷进、真实UI保存退出/返回，PR仍Draft，未合并安装。完整回执留本机 `.local/tasks/palace400-runtime-20261023/phase-c/`，不将批量过程文件加入仓库。

@@ -31,6 +31,10 @@ internal static class PalaceClockBootstrap
         internal readonly Game.State InitialState;
         internal readonly long Sequence;
         internal bool PostfixSeen, ActualRan, NativeResult, Closed, Fault;
+        // Exact pre-Pop saved geometry of this call. Opaque to the clock logic; published only after
+        // this call closes successfully.
+        internal PalaceSavedGeometryCandidate? Geometry;
+        internal long GeometrySequence;
         internal ColdPopCall(Game game, GlobalSaveData global, CampaignSaveData campaign, IslandSaveData island,
             PalacePaidScope owner, string tripId, PalaceSourceClockReceipt receipt, long sequence)
         { Game=game; Global=global; Campaign=campaign; Island=island; Owner=owner; TripId=tripId;
@@ -164,16 +168,25 @@ internal static class PalaceClockBootstrap
     private static void PreparePopPrefix(IslandSaveData __instance, bool __runOriginal, out ColdPopCall? __state)
     {
         __state = null;
-        if (!__runOriginal) return;
         try
         {
             lock (Gate)
             {
+                // Every new exact land12 Pop attempt (including a skip or an early identity failure)
+                // invalidates the prior geometry proof/cold view before any early return. Clock status,
+                // fresh span and foreign/source calls are untouched; geometry errors never throw/Hold.
+                if (_installed) PalaceCourtArea.InvalidateColdGeometryForPopAttempt(__instance);
+                if (!__runOriginal) return;
                 string why = "not-installed";
                 if (!_installed || !VerifyOrder(out why)) { Status = "held:" + why; return; }
                 Managers managers = Managers.Inst;
                 Game? game = managers != null ? managers.game : null;
                 if (game == null || !TryCurrent(game, __instance, out var global, out var campaign, out why)) return;
+                // A new exact land12 Pop supersedes every older geometry proof, even if this call later
+                // fails or is skipped. Non-land12 Pops do not touch palace evidence.
+                long geometrySequence = 0;
+                if (campaign.CurrentLand == PalaceCourtArea.LandIndex && game.currentLand == PalaceCourtArea.LandIndex)
+                    geometrySequence = PalaceCourtArea.BeginSavedGeometryCall();
                 Trace("prepare-pop", "game=" + game.Pointer.ToInt64() + " land=" + campaign.CurrentLand);
                 if (PalaceLand12Runtime.TryDescribeVerifiedReloadHandoff((ulong)game.Pointer.ToInt64(), out var facts, out why))
                 {
@@ -187,7 +200,28 @@ internal static class PalaceClockBootstrap
                     if (facts.TargetLand == 12 && trip.Phase == PalaceTripContext.PhasePalaceSelected)
                     {
                         if (!PalaceVisitClock.TryConfirmOutboundArmed(receipt, trip.TripId, (long)facts.OldGame, out why)) Hold(why);
-                        else { Status = "active-outbound-prepared"; Trace("adopt-outbound", trip.TripId); }
+                        else
+                        {
+                            Status = "active-outbound-prepared"; Trace("adopt-outbound", trip.TripId);
+                            // Same-process saved palace also needs pre-Pop geometry. A fresh island has
+                            // no saved proof; its fresh span path remains the authority.
+                            if (geometrySequence > 0 && TryGeometryLayout(trip, out var activeRecipe))
+                            {
+                                PalaceSavedGeometryCandidate? activeGeometry = null;
+                                try
+                                {
+                                    activeGeometry = PalaceCourtArea.CaptureSavedGeometry(__instance, activeRecipe,
+                                        game, global, campaign, owner, trip.TripId, geometrySequence, out _);
+                                }
+                                catch (Exception) { activeGeometry = null; } // Geometry-only fail-closed.
+                                if (activeGeometry != null)
+                                {
+                                    __state = new ColdPopCall(game, global, campaign, __instance, owner,
+                                        trip.TripId, receipt, _sequence)
+                                    { Geometry = activeGeometry, GeometrySequence = geometrySequence };
+                                }
+                            }
+                        }
                         return; // Saved palace hydrates only from real Director.ApplyData inside native Pop.
                     }
                     if (facts.TargetLand != trip.SourceLand || trip.Phase != PalaceTripContext.PhaseReturnSelected
@@ -225,13 +259,40 @@ internal static class PalaceClockBootstrap
                 if (!PalaceVisitClock.TryArmCold(coldReceipt, cold.TripId, scope, campaign.totalGameDays,
                         campaign.currentReign.daysSurvived, out why)) { Hold("cold-arm:" + why); return; }
                 _paid = existing;
-                __state = new ColdPopCall(game, global, campaign, __instance, coldOwner, cold.TripId, coldReceipt, _sequence);
-                _coldPop = __state;
+                var coldCall = new ColdPopCall(game, global, campaign, __instance, coldOwner, cold.TripId, coldReceipt, _sequence);
+                if (geometrySequence > 0 && TryGeometryLayout(cold, out var coldRecipe))
+                {
+                    PalaceSavedGeometryCandidate? coldGeometry = null;
+                    try
+                    {
+                        coldGeometry = PalaceCourtArea.CaptureSavedGeometry(__instance, coldRecipe,
+                            game, global, campaign, coldOwner, cold.TripId, geometrySequence, out _);
+                    }
+                    catch (Exception) { coldGeometry = null; } // Geometry-only fail-closed.
+                    coldCall.Geometry = coldGeometry;
+                    coldCall.GeometrySequence = geometrySequence;
+                }
+                __state = coldCall;
+                _coldPop = coldCall;
                 Status = "cold-prepared-before-pop";
                 Trace("arm-cold", cold.TripId);
             }
         }
         catch (Exception e) { Hold("prepare-pop:" + e.GetType().Name); }
+    }
+
+    // The immutable recipe comes only from a strict trip record already validated by ReadTrip.
+    private static bool TryGeometryLayout(PalaceTripRecord trip, out PalaceLayoutRecipe recipe)
+    {
+        try
+        {
+            PalaceLayoutRecipe? candidate = trip.Version == 4 ? trip.DestinationLayout
+                : trip.Version == 3 ? PalaceLayoutRecipe.Known44 : null;
+            if (!PalaceLayoutRecipe.IsKnown(candidate!)) { recipe = null!; return false; }
+            recipe = candidate!;
+            return true;
+        }
+        catch (Exception) { recipe = null!; return false; }
     }
 
     private static void PreparePopPostfix(bool __result, bool __runOriginal, ColdPopCall? __state)
@@ -262,6 +323,18 @@ internal static class PalaceClockBootstrap
             }
         }
         catch (Exception) { __state.Fault = true; }
+        // Geometry is strictly additive evidence. Its own failure (already caught inside the query)
+        // must never alter the clock flags above or the native exception below.
+        try
+        {
+            lock (Gate)
+            {
+                PalaceSavedGeometryCandidate? geometry = __state.Geometry;
+                if (!__state.Fault && geometry != null)
+                    PalaceCourtArea.TryPublishSavedGeometry(geometry, __state.GeometrySequence, out _);
+            }
+        }
+        catch (Exception) { }
         // VOID finalizer: never replace/suppress the native exception.
     }
 

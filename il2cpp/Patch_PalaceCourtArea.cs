@@ -42,6 +42,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Reflection;
+using System.Security.Cryptography;
 using System.Text;
 using BepInEx;
 using HarmonyLib;
@@ -64,7 +65,10 @@ internal sealed class PalaceCourtLayoutView
     internal float GateWorldX => Recipe.GateWorldX;
     internal ulong LevelPointer { get; }
     internal ulong GamePointer { get; }
+    internal ulong WorldPointer { get; }
     internal ulong WorldLayerPointer { get; }
+    internal int WorldScene { get; }
+    internal int WorldLayerScene { get; }
     internal ulong HolderPointer { get; }
     internal ulong GlobalPointer { get; }
     internal ulong CampaignPointer { get; }
@@ -76,12 +80,14 @@ internal sealed class PalaceCourtLayoutView
     internal int Reign { get; }
     internal int Generation { get; }
     internal bool FreshGeneration { get; }
-    internal PalaceCourtLayoutView(PalaceLayoutRecipe recipe, ulong level, ulong game, ulong layer,
+    internal PalaceCourtLayoutView(PalaceLayoutRecipe recipe, ulong level, ulong game, ulong world, ulong layer,
+        int worldScene, int worldLayerScene,
         ulong holder, ulong global, ulong campaign, ulong savedIsland, ulong savedObjects, int objectCount,
         string guid, int slot, int reign, int generation, bool freshGeneration)
     {
         Recipe=recipe; Left=recipe.Left; Right=recipe.Right; LevelPointer=level; GamePointer=game;
-        WorldLayerPointer=layer; HolderPointer=holder; GlobalPointer=global; CampaignPointer=campaign;
+        WorldPointer=world; WorldLayerPointer=layer; WorldScene=worldScene; WorldLayerScene=worldLayerScene;
+        HolderPointer=holder; GlobalPointer=global; CampaignPointer=campaign;
         SavedIslandPointer=savedIsland; SavedObjectsPointer=savedObjects; SavedObjectCount=objectCount;
         CampaignGuid=guid; CampaignSlot=slot; Reign=reign; Generation=generation; FreshGeneration=freshGeneration;
     }
@@ -214,8 +220,14 @@ internal static class PalaceCourtArea
 
     // 本进程已验证 span（exact level 指针 + 范围）。
     private static PalaceCourtLayoutView _layoutView;
-    private static string _coldMetadataKey, _coldMetadataReason, _coldGeometryKey, _coldGeometryFailure;
+    private static string _coldMetadataKey, _coldMetadataReason;
     private static CourtAreaMetadataRead _coldMetadata;
+    // Pre-Pop geometry evidence. The candidate is captured before native TryPop consumes the island list;
+    // only a successfully closed exact call publishes it. No periodic recheck/recapture.
+    private static readonly object SavedGeometryGate = new object();
+    private static long _savedGeometrySequence;
+    private static PalaceSavedGeometryProof _savedGeometryProof;
+    private static string _savedGeometryFailure = ""; // Bounded diagnostic; never a verification input.
     private static PalaceLayoutRecipe _servedRecipe;
     private static bool _spanValid;
     private static ulong _spanLevelPtr;
@@ -1654,13 +1666,17 @@ internal static class PalaceCourtArea
             _layoutView = null;
             if (!TryGetSpanCore(level,out _,out _,out reason) || !PalaceLayoutRecipe.IsKnown(_servedRecipe)) return false;
             Managers m=Managers.Inst;
-            if (!ExtensionIslandRuntime.TryScope(out CampaignSaveData c)
+            if (m==null || m.world==null || m.world.gameLayer==null || m.world.gameObject==null
+                || m.world.gameLayer.gameObject==null
+                || !ExtensionIslandRuntime.TryScope(out CampaignSaveData c)
                 || !PalaceTripContext.TryBinding(GlobalSaveData.loaded,c,out string guid,out int slot,out reason)) return false;
             var islands=c._islands;
             IslandSaveData saved=islands!=null && islands.Count>LandIndex ? islands[LandIndex] : null;
             var objects=saved!=null ? saved.objects : null;
             var candidate=new PalaceCourtLayoutView(_servedRecipe,PointerOf(level),PointerOf(m.game),
-                PointerOf(m.world.gameLayer),PointerOf(BiomeHolder.Inst),PointerOf(GlobalSaveData.loaded),PointerOf(c),
+                PointerOf(m.world),PointerOf(m.world.gameLayer),
+                m.world.gameObject.scene.handle,m.world.gameLayer.gameObject.scene.handle,
+                PointerOf(BiomeHolder.Inst),PointerOf(GlobalSaveData.loaded),PointerOf(c),
                 PointerOf(saved),PointerOf(objects),objects!=null?objects.Count:-1,guid,slot,c.reign,_spanGeneration,_spanValid && PointerOf(level)==_spanLevelPtr);
             if (!LayoutIdentityMatches(level,candidate)) { reason="layout identity drift"; return false; }
             _layoutView=candidate; view=candidate; return true;
@@ -1673,8 +1689,13 @@ internal static class PalaceCourtArea
         if (view==null || !CurrentPrivateLand12(level) || !PalaceLayoutRecipe.IsKnown(view.Recipe)) return false;
         Managers m=Managers.Inst; GlobalSaveData global=GlobalSaveData.loaded;
         if (!ExtensionIslandRuntime.TryScope(out CampaignSaveData c) || m==null || m.world==null
+            || m.world.gameLayer==null || m.world.gameObject==null || m.world.gameLayer.gameObject==null
             || PointerOf(level)!=view.LevelPointer || PointerOf(m.game)!=view.GamePointer
-            || PointerOf(m.world.gameLayer)!=view.WorldLayerPointer || PointerOf(BiomeHolder.Inst)!=view.HolderPointer
+            || PointerOf(m.world)!=view.WorldPointer
+            || PointerOf(m.world.gameLayer)!=view.WorldLayerPointer
+            || m.world.gameObject.scene.handle!=view.WorldScene
+            || m.world.gameLayer.gameObject.scene.handle!=view.WorldLayerScene
+            || PointerOf(BiomeHolder.Inst)!=view.HolderPointer
             || PointerOf(global)!=view.GlobalPointer || PointerOf(c)!=view.CampaignPointer
             || c.reign!=view.Reign || _spanGeneration!=view.Generation
             || !PalaceTripContext.TryBinding(global,c,out string guid,out int slot,out _)
@@ -1757,7 +1778,6 @@ internal static class PalaceCourtArea
                 {
                     _coldMetadataKey=coldKey;
                     _coldMetadata=ReadSidecar(out _coldMetadataReason);
-                    _coldGeometryKey=null; _coldGeometryFailure=null;
                 }
                 meta=_coldMetadata; readReason=_coldMetadataReason;
             }
@@ -1787,27 +1807,24 @@ internal static class PalaceCourtArea
             float coldRight = (float)meta.Right;
             if (!TryDescribeGround(level, coldLeft, coldRight, meta.Recipe, out string coldGround))
             { reason = "cold ground: " + coldGround; return false; }
-            var savedObjects=islands[LandIndex].objects;
-            string geometryKey=coldKey+":"+Hex(PointerOf(islands[LandIndex]))+":"+Hex(PointerOf(savedObjects))
-                +":"+(savedObjects!=null?savedObjects.Count:-1)+":"+(coldLayer!=null?coldLayer.childCount:-1);
-            if (DedicatedWholeEnabled && string.Equals(_coldGeometryKey,geometryKey,StringComparison.Ordinal) && _coldGeometryFailure!=null)
-            { reason=_coldGeometryFailure; return false; }
-            if(DedicatedWholeEnabled) _coldGeometryKey=geometryKey;
+            string savedGeometryDetail = "legacy-unsaved-geometry";
             if (DedicatedWholeEnabled)
             {
-                if (meta.Recipe==null) { reason="cold saved geometry recipe missing"; _coldGeometryFailure=reason; return false; }
-                if (!PalaceLayoutCoverage.TryValidateSavedGeometry(JsonUtility.ToJson(islands[LandIndex]),meta.Recipe,out string savedGeometryReason))
-                { reason="cold saved geometry: "+savedGeometryReason; _coldGeometryFailure=reason; return false; }
+                if (meta.Recipe==null) { reason="cold saved geometry recipe missing"; return false; }
+                // Native TryPop consumes the RAM restore list before this getter runs. The strict saved
+                // geometry comes from the immutable pre-Pop candidate of the exact, successful call.
+                if (!TryAcceptColdGeometry(level,campaign,guid,slot,meta.Recipe,out string savedGeometryReason))
+                { reason="cold saved geometry: "+savedGeometryReason; return false; }
+                savedGeometryDetail = savedGeometryReason;
             }
             if (!TryLiveTileCoverage(coldLeft, coldRight, false, meta.Recipe, out string tileDetail))
-            { reason = "cold tiles: " + tileDetail; if(DedicatedWholeEnabled)_coldGeometryFailure=reason; return false; }
-            _coldGeometryFailure=null;
+            { reason = "cold tiles: " + tileDetail; return false; }
             _servedRecipe = meta.Recipe;
             left = coldLeft;
             right = coldRight;
             reason = "sidecar-ok";
             LogOnce("span-served-cold", "court span served from sidecar: [" + F(left) + "," + F(right)
-                + "] " + tileDetail + "; player position untouched");
+                + "] " + tileDetail + "; " + savedGeometryDetail + "; player position untouched");
             return true;
         }
         catch (Exception e)
@@ -1816,6 +1833,229 @@ internal static class PalaceCourtArea
             return false;
         }
     }
+
+    // ------------------------------------------------------------------ pre-Pop geometry proof（只读、无写回）
+
+    /// <summary>
+    /// A new exact land12 Pop starts: any older proof must not survive. Returns the per-call sequence
+    /// carried by the candidate and checked again at publication.
+    /// </summary>
+    internal static long BeginSavedGeometryCall()
+    {
+        try
+        {
+            lock (SavedGeometryGate)
+            {
+                _savedGeometryProof = null;
+                _savedGeometryFailure = "";
+                if (_layoutView != null && !_layoutView.FreshGeneration) _layoutView = null;
+                return ++_savedGeometrySequence;
+            }
+        }
+        catch (Exception) { return 0; }
+    }
+
+    /// <summary>
+    /// Any new exact land12 Pop attempt still invalidates the previous exact proof and cold cached view. Only the
+    /// same current island/durable owner is affected; fresh span and foreign/source calls stay intact.
+    /// Never changes clock state or throws.
+    /// </summary>
+    internal static void InvalidateColdGeometryForPopAttempt(IslandSaveData island)
+    {
+        try
+        {
+            Managers managers = Managers.Inst;
+            Game game = managers != null ? managers.game : null;
+            GlobalSaveData global = GlobalSaveData.loaded;
+            CampaignSaveData campaign = CampaignSaveData.current;
+            var islands = campaign != null ? campaign._islands : null;
+            if (game == null || global == null || campaign == null || island == null
+                || campaign.CurrentLand != LandIndex || game.currentLand != LandIndex
+                || campaign.CurrentIsland == null || campaign.CurrentIsland.Pointer != island.Pointer
+                || islands == null || islands.Count <= LandIndex || islands[LandIndex] == null
+                || islands[LandIndex].Pointer != island.Pointer) return;
+            lock (SavedGeometryGate)
+            {
+                if (_savedGeometryProof != null)
+                {
+                    PalaceSavedGeometryCandidate owner = _savedGeometryProof.Candidate;
+                    if (!PalaceTripContext.TryBinding(global, campaign, out string guid, out int slot, out _)
+                        || owner.Owner.CampaignGuid.ToString("D") != guid
+                        || owner.Owner.CampaignSlot != slot
+                        || owner.Owner.Reign != campaign.reign
+                        || owner.Owner.Biome != campaign.biomeIndex
+                        || owner.Owner.Start != campaign.realStartDateTime) return;
+                }
+                _savedGeometrySequence++;
+                _savedGeometryProof = null;
+                _savedGeometryFailure = "skipped-pop-invalidated";
+                if (_layoutView != null && !_layoutView.FreshGeneration) _layoutView = null;
+            }
+        }
+        catch (Exception) { }
+    }
+
+    /// <summary>
+    /// Snapshot the exact island before native TryPop consumes its restore list, then apply the existing
+    /// strict saved-geometry validator verbatim. Any failure (including a thrown snapshot) returns null:
+    /// it never changes the native call or the clock path.
+    /// </summary>
+    internal static PalaceSavedGeometryCandidate CaptureSavedGeometry(IslandSaveData island,
+        PalaceLayoutRecipe recipe, Game game, GlobalSaveData global, CampaignSaveData campaign,
+        PalacePaidScope owner, string tripId, long callSequence, out string reason)
+    {
+        reason = "";
+        try
+        {
+            Managers managers = Managers.Inst;
+            var islands = campaign != null ? campaign._islands : null;
+            IslandSaveData saved = islands != null && islands.Count > LandIndex ? islands[LandIndex] : null;
+            Level level = managers != null ? managers.level : null;
+            World world = managers != null ? managers.world : null;
+            Transform worldLayer = world != null ? world.gameLayer : null;
+            if (!Enabled || island == null || recipe == null || game == null || global == null || campaign == null
+                || owner == null || managers == null || managers.game == null
+                || managers.game.Pointer != game.Pointer
+                || GlobalSaveData.loaded == null || GlobalSaveData.loaded.Pointer != global.Pointer
+                || CampaignSaveData.current == null || CampaignSaveData.current.Pointer != campaign.Pointer
+                || campaign.CurrentIsland == null || campaign.CurrentIsland.Pointer != island.Pointer
+                || saved == null || saved.Pointer != island.Pointer || level == null
+                || world == null || worldLayer == null || world.gameObject == null || worldLayer.gameObject == null
+                || campaign.CurrentLand != LandIndex || game.currentLand != LandIndex
+                || callSequence <= 0)
+            { reason = "capture-identity"; _savedGeometryFailure = reason; return null; }
+            if (!PalaceLayoutRecipe.IsKnown(recipe)) { reason = "capture-recipe"; _savedGeometryFailure = reason; return null; }
+            string json = JsonUtility.ToJson(island, false);
+            if (!PalaceLayoutCoverage.TryValidateSavedGeometry(json, recipe, out reason))
+            { reason = "saved geometry: " + reason; _savedGeometryFailure = reason; return null; }
+            string sha256 = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(json))).ToLowerInvariant();
+            PalaceSavedGeometryCandidate candidate = PalaceSavedGeometryCandidate.Create(recipe, sha256,
+                game.Pointer, global.Pointer, campaign.Pointer, island.Pointer, level.Pointer,
+                world.Pointer, worldLayer.Pointer, world.gameObject.scene.handle, worldLayer.gameObject.scene.handle,
+                owner, tripId, callSequence);
+            if (candidate == null) { reason = "capture-shape"; _savedGeometryFailure = reason; return null; }
+            _savedGeometryFailure = "";
+            return candidate;
+        }
+        catch (Exception e) { reason = "capture:" + e.GetType().Name; _savedGeometryFailure = reason; return null; }
+    }
+
+    /// <summary>
+    /// Publish only from the finalizer of the exact successful call. Pointer/owner/trip/level drift or
+    /// a newer call sequence rejects; failures are reported, never thrown to the caller's flow.
+    /// </summary>
+    internal static bool TryPublishSavedGeometry(PalaceSavedGeometryCandidate candidate, long callSequence,
+        out string reason)
+    {
+        reason = "";
+        try
+        {
+            if (candidate == null || callSequence != candidate.CallSequence)
+            { reason = "candidate-shape"; return false; }
+            lock (SavedGeometryGate)
+            {
+                if (callSequence != _savedGeometrySequence) { reason = "superseded-call"; _savedGeometryFailure = reason; return false; }
+                Managers managers = Managers.Inst;
+                Game game = managers != null ? managers.game : null;
+                GlobalSaveData global = GlobalSaveData.loaded;
+                CampaignSaveData campaign = CampaignSaveData.current;
+                Level level = managers != null ? managers.level : null;
+                var islands = campaign != null ? campaign._islands : null;
+                IslandSaveData saved = islands != null && islands.Count > LandIndex ? islands[LandIndex] : null;
+                if (game == null || global == null || campaign == null || level == null || saved == null
+                    || game.Pointer != candidate.GamePointer || global.Pointer != candidate.GlobalPointer
+                    || campaign.Pointer != candidate.CampaignPointer || level.Pointer != candidate.LevelPointer
+                    || saved.Pointer != candidate.IslandPointer
+                    || campaign.CurrentIsland == null || campaign.CurrentIsland.Pointer != candidate.IslandPointer
+                    || campaign.CurrentLand != LandIndex || game.currentLand != LandIndex
+                    || !WorldIdentityMatches(candidate)
+                    || !PalaceTripContext.TryBinding(global, campaign, out string guid, out int slot, out reason)
+                    || candidate.Owner.Profile != PalaceRuntimeProfile.Id
+                    || candidate.Owner.CampaignGuid.ToString("D") != guid
+                    || candidate.Owner.CampaignSlot != slot || candidate.Owner.Reign != campaign.reign
+                    || candidate.Owner.Biome != campaign.biomeIndex
+                    || candidate.Owner.Start != campaign.realStartDateTime
+                    || candidate.Owner.PlayerSlot != PalacePaidScope.RequiredPlayerSlot
+                    || PalaceTripContext.Read(global, out PalaceTripRecord trip, out reason) != PalaceTripContext.ReadStatus.Ok
+                    || trip.TripId != candidate.TripId || trip.Phase != PalaceTripContext.PhasePalaceSelected
+                    || !TripLayoutMatches(trip, candidate.Recipe))
+                { if (reason.Length == 0) reason = "publish-identity"; _savedGeometryFailure = reason; return false; }
+                PalaceSavedGeometryProof proof = PalaceSavedGeometryProof.Publish(candidate, callSequence);
+                if (proof == null) { reason = "proof-shape"; _savedGeometryFailure = reason; return false; }
+                _savedGeometryProof = proof;
+                _savedGeometryFailure = "";
+                return true;
+            }
+        }
+        catch (Exception e) { reason = "publish:" + e.GetType().Name; _savedGeometryFailure = reason; return false; }
+    }
+
+    /// <summary>
+    /// Cold-read gate: consume the published pre-Pop proof instead of re-serializing the post-Pop RAM
+    /// list. Sidecar schema/owner/edges and live Ground/Tile checks stay in TryGetSpanCore.
+    /// </summary>
+    private static bool TryAcceptColdGeometry(Level level, CampaignSaveData campaign, string guid, int slot,
+        PalaceLayoutRecipe recipe, out string detail)
+    {
+        detail = "";
+        try
+        {
+            PalaceSavedGeometryProof proof;
+            lock (SavedGeometryGate) { proof = _savedGeometryProof; }
+            if (proof == null)
+            {
+                detail = "no verified pre-pop geometry proof"
+                    + (_savedGeometryFailure.Length > 0 ? " (" + _savedGeometryFailure + ")" : "");
+                return false;
+            }
+            PalaceSavedGeometryCandidate c = proof.Candidate;
+            Managers managers = Managers.Inst;
+            GlobalSaveData global = GlobalSaveData.loaded;
+            var islands = campaign != null ? campaign._islands : null;
+            IslandSaveData saved = islands != null && islands.Count > LandIndex ? islands[LandIndex] : null;
+            if (level == null || campaign == null || global == null || managers == null
+                || managers.game == null || managers.level == null || saved == null
+                || !ReferenceEquals(c.Recipe, recipe)
+                || managers.game.Pointer != c.GamePointer || global.Pointer != c.GlobalPointer
+                || campaign.Pointer != c.CampaignPointer || level.Pointer != c.LevelPointer
+                || managers.level.Pointer != c.LevelPointer || saved.Pointer != c.IslandPointer
+                || campaign.CurrentIsland == null || campaign.CurrentIsland.Pointer != c.IslandPointer
+                || campaign.CurrentLand != LandIndex || managers.game.currentLand != LandIndex
+                || !WorldIdentityMatches(c))
+            { detail = "proof runtime/level/sidecar drift"; return false; }
+            if (c.Owner.Profile != PalaceRuntimeProfile.Id
+                || c.Owner.CampaignGuid.ToString("D") != guid || c.Owner.CampaignSlot != slot
+                || c.Owner.Reign != campaign.reign || c.Owner.Biome != campaign.biomeIndex
+                || c.Owner.Start != campaign.realStartDateTime
+                || c.Owner.PlayerSlot != PalacePaidScope.RequiredPlayerSlot)
+            { detail = "proof owner drift"; return false; }
+            if (PalaceTripContext.Read(global, out PalaceTripRecord trip, out string tripReason)
+                != PalaceTripContext.ReadStatus.Ok
+                || trip.TripId != c.TripId || trip.Phase != PalaceTripContext.PhasePalaceSelected
+                || !TripLayoutMatches(trip, recipe))
+            { detail = "proof trip drift" + (tripReason.Length > 0 ? ":" + tripReason : ""); return false; }
+            if (proof.PopSequence != c.CallSequence) { detail = "proof sequence drift"; return false; }
+            detail = "pre-pop sha=" + c.SnapshotSha256;
+            return true;
+        }
+        catch (Exception e) { detail = "fault:" + e.GetType().Name; return false; }
+    }
+
+    private static bool WorldIdentityMatches(PalaceSavedGeometryCandidate c)
+    {
+        Managers managers = Managers.Inst;
+        World world = managers != null ? managers.world : null;
+        Transform layer = world != null ? world.gameLayer : null;
+        return world != null && layer != null && world.gameObject != null && layer.gameObject != null
+            && world.Pointer == c.WorldPointer && layer.Pointer == c.WorldLayerPointer
+            && world.gameObject.scene.handle == c.WorldScene
+            && layer.gameObject.scene.handle == c.WorldLayerScene;
+    }
+
+    private static bool TripLayoutMatches(PalaceTripRecord trip, PalaceLayoutRecipe recipe)
+        => trip != null && recipe != null
+            && (trip.Version == 4 ? ReferenceEquals(trip.DestinationLayout, recipe)
+                : trip.Version == 3 && ReferenceEquals(recipe, PalaceLayoutRecipe.Known44));
 
     private static bool CurrentPrivateLand12(Level level)
     {

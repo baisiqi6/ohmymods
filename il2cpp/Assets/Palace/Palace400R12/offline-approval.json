@@ -2,8 +2,8 @@
   "schema": "palace400-r12-offline-approval/1",
   "approvedForIsolatedIntegration": true,
   "nativeAccepted": false,
-  "approvedUTC": "2026-10-23T12:03:12.821528+00:00",
-  "layoutSHA256": "ff18f6c45ae620c248c88f99d393d370c3330dc06b6c6afb30220e6d7a0a6a7d",
+  "approvedUTC": "2026-10-23T16:56:54.469539+00:00",
+  "layoutSHA256": "b6f783791d9039001ebb95b00bfa6e294b9e90628504b0ecf9e3662f0f517cda",
   "registrySemanticSHA256": "5cb7755a725d5b0d1b33e5ba73d2db4aa836290143f4afde302791c71016e9b4",
   "assetSHA256": {
     "cargo-granary": "49ba0389c3839d92235d3c789eacbcbbee45e3a7127db1cb781e9aa0cbce9c70",
@@ -132,6 +132,30 @@
     }
   ],
   "reviewPathsAreAuthoringEvidenceNotRuntimeDependencies": true,
+  "metadataRevision": {
+    "id": "capital-400u-r12-production-r2-local-right-edge",
+    "scope": "layout-only: far-palace-34 supportWorldX 200.0->196.0 and designSupportPixel.X 12820->12692; forest-74 supportWorldX 203.25->198.8125 and designSupportPixel.X 12924->12782, with allowOutsideWalkDomain/placementScope removed because the instance is now inside the [-200,200] walk domain. district 11, Y, supportLocalPixel, drawRole, motionGroup, all 86 PNGs, registry, palette, frames and the other 450 placements are unchanged; no save schema, physical 400u recipe or placement formula change.",
+    "approvedUTC": "2026-10-23T16:56:54.469539+00:00",
+    "previousLayoutSHA256": "ff18f6c45ae620c248c88f99d393d370c3330dc06b6c6afb30220e6d7a0a6a7d",
+    "layoutSHA256": "b6f783791d9039001ebb95b00bfa6e294b9e90628504b0ecf9e3662f0f517cda",
+    "reviewPaths": [
+      {
+        "path": "/Users/Admin/projects/ohmymods/.local/tasks/palace400-runtime-20261023/phase-c/edge-r2-plan-review/verdict.md",
+        "SHA256": "e0c2c7d31d348e1aee77505eb3ff9a312e4fb677fce87e7e07548b540096b1da"
+      },
+      {
+        "path": "/Users/Admin/projects/ohmymods/.local/tasks/palace400-runtime-20261023/phase-c/edge-r2-plan-review/selection-amendment.md",
+        "SHA256": "67933f237dd516bf5da564c807305f720702540ee6cbb939ad83f3206615f3a8"
+      },
+      {
+        "path": "/Users/Admin/projects/ohmymods/.local/tasks/palace400-runtime-20261023/phase-c/edge-placement-preview/final-coordinate-review.md",
+        "SHA256": "55ec60260c9f9989f58ff27497a1b53268985702d9b9929b536bc68a07c386bb"
+      }
+    ],
+    "reviewPathsAreAuthoringEvidenceNotRuntimeDependencies": true,
+    "rootIntegrationAuditPending": "Root runs the full builds and embedded 92-resource audit after the cold-geometry worker completes; this metadata revision does not perform or claim that audit.",
+    "nativeAccepted": false
+  },
   "metadataVisualInvarianceReceiptSHA256": "e78ac6d277549964ff145c82989c1da4ea88e8619b76088ed1e4594b01dc3136",
   "humanScope": "R11 approved; user explicitly authorized subsequent asset production and isolated complete-Mod integration",
   "remainingNativeChecks": [

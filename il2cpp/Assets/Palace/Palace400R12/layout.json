@@ -5647,7 +5647,7 @@
       "id": "far-palace-34",
       "assetId": "rear-palace-long-gallery",
       "referencePlane": "native-ground",
-      "supportWorldX": 200.0,
+      "supportWorldX": 196.0,
       "supportOffsetYUnits": 0.0,
       "supportLocalPixel": [
         66.75,
@@ -5656,7 +5656,7 @@
       "drawRole": "far-palace-skyline",
       "motionGroup": "independent-far-palace",
       "designSupportPixel": [
-        12820.0,
+        12692.0,
         224.0
       ],
       "district": 11
@@ -6999,7 +6999,7 @@
       "id": "forest-74",
       "assetId": "rear-forest-pine",
       "referencePlane": "native-ground",
-      "supportWorldX": 203.25,
+      "supportWorldX": 198.8125,
       "supportOffsetYUnits": -0.125,
       "supportLocalPixel": [
         64.25,
@@ -7008,12 +7008,10 @@
       "drawRole": "mid-courtyard-forest",
       "motionGroup": "independent-middle-forest",
       "designSupportPixel": [
-        12924.0,
+        12782.0,
         228.0
       ],
-      "district": 11,
-      "allowOutsideWalkDomain": true,
-      "placementScope": "decorative-background-outside-walk-domain"
+      "district": 11
     },
     {
       "id": "rear-court-0",

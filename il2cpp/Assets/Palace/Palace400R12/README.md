@@ -39,6 +39,10 @@ worldY = measuredNativeReferencePlaneY + supportOffsetYUnits + (sy-localY)/32
 
 四天王使用已审全身、手臂及法器休闲动作；守卫有行走/停步/致意/转身；舞女有舞蹈/行礼。未提供守卫战斗、天王行走或居民搬货等新玩法动画。荷塘两档动作服从原引擎本地时钟、暂停和天气，固定茎脚/叶脉挂点，不另开独立世界时间。
 
+## r2 局部修正（2026-10-23）
+
+r2 是 r1 的仅元数据修订：`far-palace-34` 内收至 X196（designX 12692），`forest-74` 内收至 X198.8125（designX 12782）并因回到 `[-200,200]` 行走域内而移除 `allowOutsideWalkDomain`/`placementScope`；两实例的 district 11、Y、`supportLocalPixel`、`drawRole`、`motionGroup` 及其余 450 个 placement 不变，86 个 PNG、`registry.json`、`palette.json` 与帧数据逐字节保持。layout SHA 与 `offline-approval.json` 已同步重钉，旧 r1 bootstrap 仍拒绝 r2 index；`nativeAccepted=false`，右端 Native 实机复查仍未完成。
+
 ## 验证范围
 
 离线已核验完整文件哈希、358 个时间帧直接 RGBA 回读、固定 pivot、二值透明、11 区组合、4 层 solo，以及 54 实体和 13 背景的整件平移回读。独立图审与布局审批绑定 `offline-approval.json` 的资产和 layout SHA。
