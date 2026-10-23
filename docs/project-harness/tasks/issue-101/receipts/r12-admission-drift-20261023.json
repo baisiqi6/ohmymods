@@ -1,0 +1,49 @@
+{
+  "passed": true,
+  "sourceClosureUnchanged": true,
+  "liveSourceMatchesSnapshot": true,
+  "builds": [
+    {
+      "name": "default-net6.0",
+      "exit": 0,
+      "warnings": 0,
+      "errors": 0,
+      "dllSHA256": "f2df0e3ed4624b6dfbdba8f4888f2cd2364891374824d77d817172a5afa563fe"
+    },
+    {
+      "name": "diagnostic-net6.0",
+      "exit": 0,
+      "warnings": 0,
+      "errors": 0,
+      "dllSHA256": "bac68deca5240fa14c489d3bb37c2957909a108d920fc25e9420a699cace38ea"
+    },
+    {
+      "name": "default-net8.0",
+      "exit": 0,
+      "warnings": 0,
+      "errors": 0,
+      "dllSHA256": "301437497932d2ad89f46d487ef03b18bb0d608218075be6befc1afa85ba545f"
+    },
+    {
+      "name": "diagnostic-net8.0",
+      "exit": 0,
+      "warnings": 0,
+      "errors": 0,
+      "dllSHA256": "a8cfbdfba668d02b36b26f221511691a2035795f922006dde70b519969bd507d"
+    }
+  ],
+  "Native": false,
+  "Installed": false,
+  "beforeSourceSHA256": "e002a1409bce754383444f2b400f017445fdf4abe0630f039e29420e55548295",
+  "afterSourceSHA256": "3c40e469a0c67d42cfe394107e9b980d285f4e7e1544637bd48cbac25c670646",
+  "oldNegativeFailures": 3,
+  "privateChecks": 78,
+  "publicChecks": 17,
+  "rootRerunPublicChecks": 17,
+  "independentChecks": 86,
+  "embeddedChecks": 275,
+  "filePropsChecks": 15,
+  "sourceReview": "approved",
+  "nativePaidRoundtrip": false,
+  "normalInstalled": false
+}

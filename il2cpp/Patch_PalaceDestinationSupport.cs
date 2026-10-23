@@ -713,16 +713,38 @@ internal sealed class PalaceDestinationDecision
       CampaignPointer=campaign;IslandsPointer=islands;IslandsCount=islandsCount;IslandPointer=island;ObjectsPointer=objects;
       ObjectsCount=objectsCount;TablePointer=table;TableCapacity=capacity;TargetFile=file;GlobalSnapshot=snapshot;
       RamFingerprint=ram;SidecarFingerprint=sidecar;GlobalIslandFingerprint=globalIsland; }
-    internal bool SameTarget(PalaceDestinationDecision other)=>other!=null && ReferenceEquals(Recipe,other.Recipe)
-        && Support==other.Support && Owner.ContentEquals(other.Owner) && ReferenceEquals(Binding,other.Binding)
-        && Epoch==other.Epoch && GamePointer==other.GamePointer && GlobalPointer==other.GlobalPointer
-        && CampaignPointer==other.CampaignPointer && IslandsPointer==other.IslandsPointer && IslandsCount==other.IslandsCount
-        && IslandPointer==other.IslandPointer && ObjectsPointer==other.ObjectsPointer && ObjectsCount==other.ObjectsCount
-        && TablePointer==other.TablePointer && TableCapacity==other.TableCapacity && TargetFile.FullPath==other.TargetFile.FullPath
-        && TargetFile.Kind==other.TargetFile.Kind && RamFingerprint==other.RamFingerprint && SidecarFingerprint==other.SidecarFingerprint
-        && GlobalSnapshot.SlotKind==other.GlobalSnapshot.SlotKind && GlobalIslandFingerprint==other.GlobalIslandFingerprint;
-    internal bool SameWitness(PalaceDestinationDecision other)=>SameTarget(other)
-        && GlobalSnapshot.RawSaveSha256==other.GlobalSnapshot.RawSaveSha256;
+    // Cross-time destination identity for prepare -> charge: same owner/epoch and same target witnesses.
+    // Whole-global raw bytes are deliberately excluded; a legitimate native autosave may rewrite source
+    // progress between arm and charge without touching this destination. Raw equality remains mandatory
+    // within one capture's double read (TryCaptureDestination) and against the exact paid source-save
+    // proof (TryRefreshAfterPaidSourceSave).
+    internal bool SameTarget(PalaceDestinationDecision other)=>TargetDifference(other)==null;
+    internal string TargetDifference(PalaceDestinationDecision other)
+    {
+        if(other==null)return "null";
+        if(!ReferenceEquals(Recipe,other.Recipe))return "recipe";
+        if(Support!=other.Support)return "support";
+        if(!Owner.ContentEquals(other.Owner))return "owner";
+        if(!ReferenceEquals(Binding,other.Binding))return "binding";
+        if(Epoch!=other.Epoch)return "epoch";
+        if(GamePointer!=other.GamePointer)return "game";
+        if(GlobalPointer!=other.GlobalPointer)return "global";
+        if(CampaignPointer!=other.CampaignPointer)return "campaign";
+        if(IslandsPointer!=other.IslandsPointer)return "islands";
+        if(IslandsCount!=other.IslandsCount)return "islands-count";
+        if(IslandPointer!=other.IslandPointer)return "island";
+        if(ObjectsPointer!=other.ObjectsPointer)return "objects";
+        if(ObjectsCount!=other.ObjectsCount)return "objects-count";
+        if(TablePointer!=other.TablePointer)return "table";
+        if(TableCapacity!=other.TableCapacity)return "table-capacity";
+        if(TargetFile.FullPath!=other.TargetFile.FullPath)return "target-path";
+        if(TargetFile.Kind!=other.TargetFile.Kind)return "target-kind";
+        if(RamFingerprint!=other.RamFingerprint)return "ram";
+        if(SidecarFingerprint!=other.SidecarFingerprint)return "sidecar";
+        if(GlobalSnapshot.SlotKind!=other.GlobalSnapshot.SlotKind)return "global-slot";
+        if(GlobalIslandFingerprint!=other.GlobalIslandFingerprint)return "global-island";
+        return null;
+    }
     internal bool SameDestinationContent(PalaceDestinationDecision other)=>other!=null
         && ReferenceEquals(Recipe,other.Recipe) && Support==other.Support && Owner.ContentEquals(other.Owner)
         && ReferenceEquals(Binding,other.Binding) && Epoch==other.Epoch && GamePointer==other.GamePointer
@@ -1056,7 +1078,8 @@ internal static class PalaceDestinationAdmission
             || !ReferenceEquals(observed,current) || game==null || game.Pointer!=observed.GamePointer)
         { reason="destination-observation-stale:"+reason; return false; }
         if(!TryCaptureDestination(campaign,observed.Recipe,observed.Epoch,out var fresh,out reason))return false;
-        if(!observed.SameWitness(fresh)) { reason="destination-content-drift-before-charge"; return false; }
+        if(!observed.SameTarget(fresh))
+        { reason="destination-content-drift-before-charge:"+(observed.TargetDifference(fresh)??"unknown"); return false; }
         frozen=observed; return true;
     }
 

@@ -80,3 +80,12 @@ Case02 terminal result: script run bound reached, exit `143` after 905.46s; no n
 - 新案例工具只做准备：新PID UI pair的hold29、Python28、family28及当前prepare32个targeted guard案例独立通过。旧case13/case02许可不迁移；正式运行须新exact source/DLL/UI/备份/进程身份凭据。当前457私有文件、71游戏文件、15可变输入只读快照就绪，资源无冲突，未stage或启动。
 
 待办：新的隔离自然付款/400u画面与两端→原生保存退出→同一实际后像新进程重进→免费返回（及来源冷读）→最终合并/安装审查。正常数据及正常DLL `25d9…c156` 保持；构建/host/审查不代替上述实机。
+
+
+## Phase C — 首次完整候选Native准入反馈
+
+2026-10-23，`palace400-paid-r12-20261023-01`，实际ARM64 2.4.0、diagnostic DLL `91ba…de80`。源岛8载入/真实Playing、helper/observer六目标与PID/私有路径匹配；两次实际付款开始后松键，原生取消与durable `Cancelled`一致，无OnPay或settlement。跨日原生自动保存后，下一次首币前拒绝 `destination-content-drift-before-charge`，未付费进入。独立私有前后像读回：slot/biome/reign/start/来源岛与目标land12缺失状态不变，变化为源岛进度、统计与银行；当前跨时刻SameWitness还要求完整global压缩SHA相同，修复点在准入比较，不放宽同次完整读取双读和四证。
+
+已fail-stop结束准确controller/child（143/receivedSignal15，主动终止，不称闪退或保存退出通过），保留原始日志和17文件实际私有后像。10条启动Error与上轮源8逐行相同；正常六对象及物理游戏终态校验通过。400画面、完整10币、UI保存退出、冷进与返回均仍未验，未合并/正常安装。旧case/longpay凭据已消费；新案例须绑定修后source/DLL与新凭据。
+
+修后源级增量：删除跨时刻全global rawSHA比较，保留全部目标/身份/epoch约束；首差异以字段标签报告。同次完整gzip严格解析+bytes双读、付费源保存proof的rawSHA精确匹配未改，不自动reprepare/重绑owner/改账。旧实现3红，私有78/0，公开产品方法抽取17/0且Root独立复跑17/0；Astra独立86/0（含本轮真实跨日文件），均0W0E、最终source `3c40e469…0646`，增量approved。修后完整四变体均0W0E，实际diagnostic-net6 DLL `bac68deca5240fa14c489d3bb37c2957909a108d920fc25e9420a699cace38ea`，嵌入资源275检查/92项和FileProps15检查通过。第二轮新case仅已完成只读预检与工具增量审查，尚未stage/开窗；仍不推定Native完成。
