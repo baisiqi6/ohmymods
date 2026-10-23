@@ -1,0 +1,76 @@
+{
+  "assets": [
+    {
+      "id": "patrol-guard-lance",
+      "temporalFrames": 30,
+      "allClipReferencesAndDurationsExact": true
+    },
+    {
+      "id": "patrol-guard-shield",
+      "temporalFrames": 30,
+      "allClipReferencesAndDurationsExact": true
+    },
+    {
+      "id": "court-dancer",
+      "temporalFrames": 26,
+      "allClipReferencesAndDurationsExact": true
+    },
+    {
+      "id": "guardian-orb",
+      "temporalFrames": 31,
+      "allClipReferencesAndDurationsExact": true
+    },
+    {
+      "id": "guardian-lute",
+      "temporalFrames": 28,
+      "allClipReferencesAndDurationsExact": true
+    },
+    {
+      "id": "guardian-sword",
+      "temporalFrames": 22,
+      "allClipReferencesAndDurationsExact": true
+    },
+    {
+      "id": "guardian-pole",
+      "temporalFrames": 25,
+      "allClipReferencesAndDurationsExact": true
+    },
+    {
+      "id": "resident-cream",
+      "temporalFrames": 34,
+      "allClipReferencesAndDurationsExact": true
+    },
+    {
+      "id": "resident-pink",
+      "temporalFrames": 34,
+      "allClipReferencesAndDurationsExact": true
+    },
+    {
+      "id": "resident-brown",
+      "temporalFrames": 34,
+      "allClipReferencesAndDurationsExact": true
+    },
+    {
+      "id": "lotus-flower-open",
+      "temporalFrames": 16,
+      "allClipReferencesAndDurationsExact": true
+    },
+    {
+      "id": "lotus-flower-bud",
+      "temporalFrames": 16,
+      "allClipReferencesAndDurationsExact": true
+    },
+    {
+      "id": "lotus-leaf-flat",
+      "temporalFrames": 16,
+      "allClipReferencesAndDurationsExact": true
+    },
+    {
+      "id": "lotus-leaf-curl",
+      "temporalFrames": 16,
+      "allClipReferencesAndDurationsExact": true
+    }
+  ],
+  "totalTemporalFrames": 358,
+  "nativeAccepted": false
+}
