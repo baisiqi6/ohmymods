@@ -106,6 +106,73 @@ namespace KingdomEnhancedMod
             catch (DecoderFallbackException) { values=null!; reason="utf8"; return false; }
         }
 
+        internal enum NativeDestinationSlotKind { OutOfRange, Null, Object }
+
+        internal sealed class NativeDestinationSnapshot
+        {
+            public string RawSaveSha256 { get; }
+            public NativeDestinationSlotKind SlotKind { get; }
+            public int IslandsCount { get; }
+            public string? IslandJson { get; }
+            public string? IslandSha256 { get; }
+            internal NativeDestinationSnapshot(string rawSha, NativeDestinationSlotKind kind,
+                int count, string? islandJson, string? islandSha)
+            { RawSaveSha256=rawSha; SlotKind=kind; IslandsCount=count; IslandJson=islandJson; IslandSha256=islandSha; }
+        }
+
+        // A target projection of the same complete native gzip, without source-player/wallet
+        // requirements. Absent is explicit array absence/null; a missing/null array is unknown.
+        // The caller still owns exact GUID/provider binding; GUID is not a native scalar.
+        public static bool TryReadNativeDestinationSnapshot(byte[] compressed, PalacePaidScope owner,
+            int expectedCurrentLand, int destinationLand, out NativeDestinationSnapshot facts, out string reason)
+        {
+            facts=null!; reason="";
+            if(owner==null || expectedCurrentLand<0 || expectedCurrentLand>13 || destinationLand!=12)
+            { reason="destination-owner-or-land"; return false; }
+            if(compressed==null || compressed.Length==0 || compressed.Length>MaxNativeCompressedBytes)
+            { reason="size"; return false; }
+            byte[] snapshot=(byte[])compressed.Clone();
+            if(!TryDecompress(snapshot,out byte[] plain,out int length,out reason))return false;
+            if(length>=3 && plain[0]==0xef && plain[1]==0xbb && plain[2]==0xbf)
+            { reason="bom"; return false; }
+            try
+            {
+                new UTF8Encoding(false,true).GetCharCount(plain.AsSpan(0,length));
+                using JsonDocument doc=JsonDocument.Parse(new ReadOnlyMemory<byte>(plain,0,length),DocumentOptions);
+                JsonElement root=doc.RootElement;
+                if(root.ValueKind!=JsonValueKind.Object || !HasNoDuplicateKeys(root) || HasLoneSurrogateInTree(root))
+                { reason="destination-json-shape"; return false; }
+                if(!TryGetProperty(root,"serializedSaveDataVersion",out var version) || !TryReadExplicitInt(version,out int v) || v!=NativeVersion16
+                    || !TryGetProperty(root,"_currentCampaign",out var current) || !TryReadExplicitInt(current,out int slot) || slot!=owner.CampaignSlot
+                    || !TryGetProperty(root,"campaigns",out var campaigns) || campaigns.ValueKind!=JsonValueKind.Array
+                    || slot<0 || slot>=campaigns.GetArrayLength())
+                { reason="destination-version-or-campaign"; return false; }
+                JsonElement campaign=campaigns[slot];
+                if(!TryGetProperty(campaign,"currentLand",out var land) || !TryReadExplicitInt(land,out int currentLand) || currentLand!=expectedCurrentLand
+                    || !TryGetProperty(campaign,"biomeIndex",out var biome) || !TryReadExplicitInt(biome,out int b) || b!=owner.Biome
+                    || !TryGetProperty(campaign,"reign",out var reign) || !TryReadExplicitInt(reign,out int r) || r!=owner.Reign
+                    || !TryGetProperty(campaign,"realStartDateTime",out var start) || !TryReadExplicitInt(start,out int st) || st!=owner.Start
+                    || !TryGetProperty(campaign,"_islands",out var islands) || islands.ValueKind!=JsonValueKind.Array)
+                { reason="destination-owner-or-islands"; return false; }
+                int count=islands.GetArrayLength();
+                NativeDestinationSlotKind kind=NativeDestinationSlotKind.OutOfRange;
+                string? json=null, islandSha=null;
+                if(destinationLand<count)
+                {
+                    JsonElement island=islands[destinationLand];
+                    if(island.ValueKind==JsonValueKind.Null)kind=NativeDestinationSlotKind.Null;
+                    else if(island.ValueKind==JsonValueKind.Object)
+                    { kind=NativeDestinationSlotKind.Object; json=island.GetRawText(); islandSha=HashCanonical(island); }
+                    else { reason="destination-island-type"; return false; }
+                }
+                facts=new NativeDestinationSnapshot(PalacePaidText.ToLowerHex(SHA256.HashData(snapshot)),kind,count,json,islandSha);
+                return true;
+            }
+            catch(JsonException) { reason="json"; return false; }
+            catch(InvalidOperationException) { reason="json-string"; return false; }
+            catch(DecoderFallbackException) { reason="utf8"; return false; }
+        }
+
         // ───────────────────────── API 1：冻结 island JSON（capture / Prefs 快照侧） ─────────────────────────
         //
         // frozenIslandJson：调用方冻结的完整 Island JSON（单岛对象）。

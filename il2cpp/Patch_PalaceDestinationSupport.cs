@@ -1,4 +1,7 @@
-// Patch_PalaceDestinationSupport.cs — DedicatedR7V1 固定 profile 的存档绑定与付前只读 admission。
+// Patch_PalaceDestinationSupport.cs — frozen save binding and recipe-bound pre-payment admission.
+// New fee callers use the required-recipe overload: RAM/global/target-file/sidecar evidence is prepared
+// once, CanPay consumes light cached identity, and freeze revalidates full content before side effects.
+// The old overload remains only an explicit historical44 compatibility surface for existing callers/tests.
 //
 // 依据 #101 生产激活合同 §2/§4/§5 与 exact-gate A–F：
 // - PalaceSaveBinding/Source：替换两处 hardRoot（Land12/Travel）与所有 folder 比较。每次进程/owner
@@ -690,6 +693,47 @@ internal sealed class PalaceSavedIsland12Facts
     internal bool TileGridOk;
 }
 
+/// <summary>Admission owns creation/publication; callers can only consume its current cached instance.</summary>
+internal sealed class PalaceDestinationDecision
+{
+    internal PalaceLayoutRecipe Recipe { get; }
+    internal PalaceDestinationSupport Support { get; }
+    internal readonly PalacePaidScope Owner;
+    internal readonly PalaceSaveBinding Binding;
+    internal readonly int Epoch,IslandsCount,ObjectsCount,TableCapacity;
+    internal readonly IntPtr GamePointer,GlobalPointer,CampaignPointer,IslandsPointer,IslandPointer,ObjectsPointer,TablePointer;
+    internal readonly PalaceDestinationFileWitness TargetFile;
+    internal readonly PalacePaidSourceProof.NativeDestinationSnapshot GlobalSnapshot;
+    internal readonly string RamFingerprint,SidecarFingerprint,GlobalIslandFingerprint;
+    internal PalaceDestinationDecision(PalaceLayoutRecipe recipe,PalaceDestinationSupport support,PalacePaidScope owner,
+        PalaceSaveBinding binding,int epoch,IntPtr game,IntPtr global,IntPtr campaign,IntPtr islands,int islandsCount,
+        IntPtr island,IntPtr objects,int objectsCount,IntPtr table,int capacity,PalaceDestinationFileWitness file,
+        PalacePaidSourceProof.NativeDestinationSnapshot snapshot,string ram,string sidecar,string globalIsland)
+    { Recipe=recipe;Support=support;Owner=owner;Binding=binding;Epoch=epoch;GamePointer=game;GlobalPointer=global;
+      CampaignPointer=campaign;IslandsPointer=islands;IslandsCount=islandsCount;IslandPointer=island;ObjectsPointer=objects;
+      ObjectsCount=objectsCount;TablePointer=table;TableCapacity=capacity;TargetFile=file;GlobalSnapshot=snapshot;
+      RamFingerprint=ram;SidecarFingerprint=sidecar;GlobalIslandFingerprint=globalIsland; }
+    internal bool SameTarget(PalaceDestinationDecision other)=>other!=null && ReferenceEquals(Recipe,other.Recipe)
+        && Support==other.Support && Owner.ContentEquals(other.Owner) && ReferenceEquals(Binding,other.Binding)
+        && Epoch==other.Epoch && GamePointer==other.GamePointer && GlobalPointer==other.GlobalPointer
+        && CampaignPointer==other.CampaignPointer && IslandsPointer==other.IslandsPointer && IslandsCount==other.IslandsCount
+        && IslandPointer==other.IslandPointer && ObjectsPointer==other.ObjectsPointer && ObjectsCount==other.ObjectsCount
+        && TablePointer==other.TablePointer && TableCapacity==other.TableCapacity && TargetFile.FullPath==other.TargetFile.FullPath
+        && TargetFile.Kind==other.TargetFile.Kind && RamFingerprint==other.RamFingerprint && SidecarFingerprint==other.SidecarFingerprint
+        && GlobalSnapshot.SlotKind==other.GlobalSnapshot.SlotKind && GlobalIslandFingerprint==other.GlobalIslandFingerprint;
+    internal bool SameWitness(PalaceDestinationDecision other)=>SameTarget(other)
+        && GlobalSnapshot.RawSaveSha256==other.GlobalSnapshot.RawSaveSha256;
+    internal bool SameDestinationContent(PalaceDestinationDecision other)=>other!=null
+        && ReferenceEquals(Recipe,other.Recipe) && Support==other.Support && Owner.ContentEquals(other.Owner)
+        && ReferenceEquals(Binding,other.Binding) && Epoch==other.Epoch && GamePointer==other.GamePointer
+        && GlobalPointer==other.GlobalPointer && CampaignPointer==other.CampaignPointer
+        && TargetFile.FullPath==other.TargetFile.FullPath && TargetFile.Kind==other.TargetFile.Kind
+        && RamFingerprint==other.RamFingerprint && SidecarFingerprint==other.SidecarFingerprint
+        && GlobalIslandFingerprint==other.GlobalIslandFingerprint
+        && (GlobalSnapshot.SlotKind==PalacePaidSourceProof.NativeDestinationSlotKind.Object)
+            ==(other.GlobalSnapshot.SlotKind==PalacePaidSourceProof.NativeDestinationSlotKind.Object);
+}
+
 /// <summary>目的地分类与固定 profile 资源预检（全部只读；IO 只在准备窗口）。</summary>
 internal static class PalaceDestinationAdmission
 {
@@ -717,6 +761,18 @@ internal static class PalaceDestinationAdmission
     // 新 epoch（含 return clone reuse 分支）允许且必须重新分类一次。
     private static bool _prepareEpochValid;
     private static IntPtr _prepareGame, _prepareGlobal, _prepareCampaign;
+    private static PalaceDestinationDecision _destinationDecision;
+    private static bool _destinationAttempted;
+    private static string _destinationFault="not-prepared";
+    private static int _destinationEpoch,_destinationReign;
+    private static IntPtr _destinationGame,_destinationGlobal,_destinationCampaign;
+    private static PalaceLayoutRecipe _destinationRequired;
+    private static PalaceTripRecord _resolvedTrip;
+    private static PalaceLayoutRecipe _resolvedTripRecipe;
+    private static IntPtr _resolvedTripGlobal,_resolvedTripCampaign,_resolvedTripIslands,_resolvedTripIsland,_resolvedTripObjects,_resolvedTripGame;
+    private static int _resolvedTripObjectCount,_resolvedTripReign;
+
+
 
     // 资源预检缓存（只在源岛准备窗口执行一次）。
     private static bool _resourcePrecheckRun;
@@ -973,6 +1029,311 @@ internal static class PalaceDestinationAdmission
             return true;
         }
         catch (Exception e) { reason = "structure-fault:" + e.GetType().Name; return false; }
+    }
+
+    // New fee path. The legacy overload above remains an explicit old44 compatibility reader;
+    // current charge/departure callers must use this recipe-bound decision API.
+    internal static bool TryDescribeDestination(CampaignSaveData campaign, PalaceLayoutRecipe required,
+        out PalaceDestinationDecision decision, out string reason)
+    {
+        decision=null; reason="";
+        lock(Gate)
+        {
+            if(!PalaceLayoutRecipe.IsKnown(required) || _destinationDecision==null)
+            { reason="destination-not-prepared:"+_destinationFault; return false; }
+            if(!ReferenceEquals(required,_destinationDecision.Recipe))
+            { reason="RequiresExplicitMigration:destination-layout-differs"; return false; }
+            if(!DecisionCurrent(campaign,_destinationDecision,out reason))return false;
+            decision=_destinationDecision; return true;
+        }
+    }
+
+    internal static bool TryFreezeForCharge(Game game, CampaignSaveData campaign,
+        PalaceDestinationDecision observed, out PalaceDestinationDecision frozen, out string reason)
+    {
+        frozen=null; reason="";
+        if(observed==null || !TryDescribeDestination(campaign,observed.Recipe,out var current,out reason)
+            || !ReferenceEquals(observed,current) || game==null || game.Pointer!=observed.GamePointer)
+        { reason="destination-observation-stale:"+reason; return false; }
+        if(!TryCaptureDestination(campaign,observed.Recipe,observed.Epoch,out var fresh,out reason))return false;
+        if(!observed.SameWitness(fresh)) { reason="destination-content-drift-before-charge"; return false; }
+        frozen=observed; return true;
+    }
+
+    // This explicit boundary is called only after W verifies durable Resolve of the exact native
+    // source-save proof. It never changes the paid recipe and is never reached from CanPay.
+    internal static bool TryRefreshAfterPaidSourceSave(Game game, CampaignSaveData campaign,
+        PalaceLayoutRecipe required, PalacePaidFileProof proof,
+        out PalaceDestinationDecision refreshed,out string reason)
+    {
+        refreshed=null; reason="";
+        PalaceDestinationDecision prior;
+        lock(Gate)prior=_destinationDecision;
+        if(proof==null || proof.NativeRawResult!=72 || proof.NativeVersion!=16 || game==null || campaign==null
+            || prior==null || !ReferenceEquals(required,prior.Recipe) || proof.SourceLand!=game.currentLand
+            || !proof.Owner.ContentEquals(prior.Owner) || game.Pointer!=prior.GamePointer
+            || GlobalSaveData.loaded==null || GlobalSaveData.loaded.Pointer!=prior.GlobalPointer
+            || campaign.Pointer!=prior.CampaignPointer || !PalaceSaveBindingSource.CurrentMatches(out reason))
+        { reason="destination-refresh-proof-or-owner:"+reason; return false; }
+        if(!TryCaptureDestination(campaign,required,prior.Epoch,out var next,out reason))return false;
+        if(next.GlobalSnapshot.RawSaveSha256!=proof.RawSaveSha256 || !prior.SameDestinationContent(next))
+        { reason="destination-refresh-target-or-raw-proof-differs"; return false; }
+        lock(Gate)
+        {
+            if(!ReferenceEquals(_destinationDecision,prior)) { reason="destination-refresh-raced"; return false; }
+            _destinationDecision=next;
+        }
+        refreshed=next; return true;
+    }
+
+    internal static void NoteDestinationPrepare(CampaignSaveData campaign,PalaceLayoutRecipe required)
+    {
+        try
+        {
+            Managers m=Managers.Inst; GlobalSaveData g=GlobalSaveData.loaded;
+            if(m==null || m.game==null || g==null || campaign==null || !PalaceLayoutRecipe.IsKnown(required))
+            { lock(Gate){_destinationDecision=null;_destinationFault="prepare-owner-or-recipe";} return; }
+            lock(Gate)
+            {
+                if(_destinationAttempted && _destinationGame==m.game.Pointer && _destinationGlobal==g.Pointer
+                    && _destinationCampaign==campaign.Pointer && _destinationReign==campaign.reign)
+                {
+                    if(!ReferenceEquals(_destinationRequired,required))
+                    { _destinationDecision=null;_destinationFault="prepare-layout-changed-within-epoch"; }
+                    return;
+                }
+                _destinationAttempted=true;_destinationGame=m.game.Pointer;_destinationGlobal=g.Pointer;
+                _destinationCampaign=campaign.Pointer;_destinationReign=campaign.reign;_destinationRequired=required;
+                _destinationDecision=null;_destinationEpoch++;_resolvedTrip=null;_resolvedTripRecipe=null;
+            }
+            bool ok=TryCaptureDestination(campaign,required,_destinationEpoch,out var decision,out string reason);
+            lock(Gate){_destinationDecision=ok?decision:null;_destinationFault=reason;}
+        }
+        catch(Exception e) { lock(Gate){_destinationDecision=null;_destinationFault="prepare-fault:"+e.GetType().Name;} }
+    }
+
+    private static bool DecisionCurrent(CampaignSaveData campaign,PalaceDestinationDecision d,out string reason)
+    {
+        reason="";
+        if(campaign==null || IslandSaveData.isSavingGame || !PalaceSaveBindingSource.CurrentMatches(out reason)
+            || !ReferenceEquals(PalaceSaveBindingSource.Current,d.Binding))return false;
+        Managers m=Managers.Inst; GlobalSaveData g=GlobalSaveData.loaded;
+        if(m==null || m.game==null || g==null || m.game.Pointer!=d.GamePointer || g.Pointer!=d.GlobalPointer
+            || campaign.Pointer!=d.CampaignPointer || campaign.reign!=d.Owner.Reign
+            || campaign.biomeIndex!=d.Owner.Biome || campaign.realStartDateTime!=d.Owner.Start
+            || campaign.CurrentLand!=m.game.currentLand || campaign.CurrentLand==12
+            || CampaignSaveData.current==null || CampaignSaveData.current.Pointer!=campaign.Pointer
+            || g.GetCurrentCampaign()==null || g.GetCurrentCampaign().Pointer!=campaign.Pointer
+            || d.Binding.SemanticGuid!=d.Owner.CampaignGuid.ToString("D") || d.Binding.SemanticSlot!=d.Owner.CampaignSlot)
+        { reason="destination-prepare-identity-drift"; return false; }
+        var islands=campaign._islands;
+        if(islands==null || islands.Pointer!=d.IslandsPointer || islands.Count!=d.IslandsCount)
+        { reason="destination-islands-container-drift"; return false; }
+        IslandSaveData island=islands.Count>12?islands[12]:null;
+        if((island==null?IntPtr.Zero:island.Pointer)!=d.IslandPointer
+            || (island!=null && (island.objects==null || island.objects.Pointer!=d.ObjectsPointer || island.objects.Count!=d.ObjectsCount)))
+        { reason="destination-objects-container-drift"; return false; }
+        if(!TryTargetFile(campaign,d.Binding,out var table,out int capacity,out string filename,out reason)
+            || table!=d.TablePointer || capacity!=d.TableCapacity || filename!=d.TargetFile.Filename)
+        { reason="destination-file-table-drift:"+reason; return false; }
+        return true;
+    }
+
+    private static bool TryTargetFile(CampaignSaveData campaign,PalaceSaveBinding binding,
+        out IntPtr tablePointer,out int capacity,out string filename,out string reason)
+    {
+        tablePointer=IntPtr.Zero;capacity=0;filename="";reason="";
+        if(binding==null || !PalaceSaveBindingSource.CurrentMatches(out reason)
+            || !ExtensionIslandRuntime.IsFilePropsPrepared() || IslandSaveData.isSavingGame)
+        { reason="destination-file-table-not-ready:"+reason; return false; }
+        var table=IslandSaveData.fileProps;
+        capacity=IslandSaveData.MAX_BIOME_ISLANDS;
+        if(table==null || capacity<ExtensionIslandRuntime.RequiredFileCapacity)
+        { reason="destination-file-table-null-or-capacity"; return false; }
+        var key=new IslandSaveData.FilePropsKey { campaign=binding.SemanticSlot,land=12,challengeId=0 };
+        if(!table.TryGetValue(key,out var props) || props==null || string.IsNullOrEmpty(props.filename))
+        { reason="destination-file-key-missing"; return false; }
+        filename=props.filename; tablePointer=table.Pointer;
+        if(Filer.folder!=binding.Folder || binding.Agent.folder!=binding.Folder
+            || !ReferenceEquals(binding,PalaceSaveBindingSource.Current))
+        { reason="destination-file-binding-drift"; return false; }
+        return true;
+    }
+
+    private static bool TryCaptureDestination(CampaignSaveData campaign,PalaceLayoutRecipe required,int epoch,
+        out PalaceDestinationDecision decision,out string reason)
+    {
+        decision=null;reason="";
+        try
+        {
+            Managers managers=Managers.Inst;GlobalSaveData global=GlobalSaveData.loaded;
+            if(!PalaceLayoutRecipe.IsKnown(required) || managers==null || managers.game==null || global==null || campaign==null
+                || IslandSaveData.isSavingGame || managers.game.currentLand!=campaign.CurrentLand || campaign.CurrentLand==12
+                || !PalaceSaveBindingSource.TryGetSemanticOwner(out string guid,out int slot,out int biome,out int reign,out int start,out reason)
+                || !Guid.TryParseExact(guid,"D",out Guid id) || campaign.biomeIndex!=biome || campaign.reign!=reign || campaign.realStartDateTime!=start)
+            { reason="destination-capture-owner:"+reason; return false; }
+            var binding=PalaceSaveBindingSource.Current;
+            var owner=new PalacePaidScope(PalaceRuntimeProfile.Id,id,slot,biome,reign,start,1);
+            var islands=campaign._islands;
+            if(islands==null) { reason="destination-ram-islands-unknown"; return false; }
+            int count=islands.Count;IntPtr islandsPtr=islands.Pointer;
+            IslandSaveData island=count>12?islands[12]:null;
+            string ramJson=island==null?null:JsonUtility.ToJson(island,false);
+            string ramHash=ramJson==null?"absent":DestinationHash(ramJson);
+            if(!TryTargetFile(campaign,binding,out IntPtr table,out int capacity,out string filename,out reason))return false;
+            string globalFilename=GlobalSaveData.filename;
+            if(!PalaceDestinationWitness.TryReadFile(binding.Folder,globalFilename,PalacePaidSourceProof.MaxNativeCompressedBytes,out var raw,out reason)
+                || !PalacePaidSourceProof.TryReadNativeDestinationSnapshot(raw,owner,campaign.CurrentLand,12,out var snapshot,out reason)
+                || !PalaceDestinationWitness.TryObserveFile(binding.Folder,filename,out var target,out reason))return false;
+            string sidecarPath=PalaceCourtArea.SidecarPathForAdmission();
+            if(!PalaceDestinationWitness.TryObserveFile(Path.GetDirectoryName(sidecarPath),Path.GetFileName(sidecarPath),out var sidecarFile,out reason))return false;
+            var meta=PalaceCourtArea.ReadSidecar(out string sidecarReason);
+            if((meta==null)!=(sidecarFile.Kind==PalaceDestinationFileKind.Missing))
+            { reason="destination-sidecar-observation-drift";return false; }
+            PalaceDestinationSupport support;
+            if(island==null)
+            {
+                if(snapshot.SlotKind==PalacePaidSourceProof.NativeDestinationSlotKind.Object
+                    || target.Kind!=PalaceDestinationFileKind.Missing || meta!=null || sidecarReason!="missing")
+                { reason="destination-fresh-four-witnesses-not-absent"; return false; }
+                if(!ReferenceEquals(required,PalaceLayoutRecipe.Capital400))
+                { reason="fresh-layout-must-be-explicit-capital400"; return false; }
+                support=PalaceDestinationSupport.Fresh;
+            }
+            else
+            {
+                if(meta==null || meta.CampaignGuid!=guid || meta.CampaignSlot!=slot || meta.Reign!=reign
+                    || !PalaceLayoutRecipe.IsKnown(meta.Recipe))
+                { reason="destination-saved-sidecar-owner-or-layout:"+sidecarReason; return false; }
+                if(!ReferenceEquals(meta.Recipe,required)) { reason="RequiresExplicitMigration:old44-requested400"; return false; }
+                if(snapshot.SlotKind!=PalacePaidSourceProof.NativeDestinationSlotKind.Object || snapshot.IslandJson==null
+                    || island._levelEdges.min!=required.Left || island._levelEdges.max!=required.Right
+                    || !TryValidateSavedJson(ramJson,required,out reason) || !TryValidateSavedJson(snapshot.IslandJson,required,out reason)
+                    || DestinationHash(ramJson)!=DestinationHash(snapshot.IslandJson))
+                { reason="destination-saved-native-facts:"+reason; return false; }
+                support=PalaceDestinationSupport.SupportedSaved;
+            }
+            if(!PalaceDestinationWitness.TryReadFile(binding.Folder,globalFilename,PalacePaidSourceProof.MaxNativeCompressedBytes,out var again,out reason)
+                || !raw.AsSpan().SequenceEqual(again) || GlobalSaveData.filename!=globalFilename
+                || !TryTargetFile(campaign,binding,out var tableAgain,out int capAgain,out string fileAgain,out reason)
+                || table!=tableAgain || capacity!=capAgain || filename!=fileAgain
+                || campaign._islands==null || campaign._islands.Pointer!=islandsPtr || campaign._islands.Count!=count
+                || (island!=null && DestinationHash(JsonUtility.ToJson(island,false))!=ramHash)
+                || !PalaceSaveBindingSource.CurrentMatches(out reason))
+            { reason="destination-capture-double-read-drift:"+reason; return false; }
+            decision=new PalaceDestinationDecision(required,support,owner,binding,epoch,managers.game.Pointer,global.Pointer,
+                campaign.Pointer,islandsPtr,count,island==null?IntPtr.Zero:island.Pointer,
+                island==null?IntPtr.Zero:island.objects.Pointer,island==null?0:island.objects.Count,
+                table,capacity,target,snapshot,ramHash,meta==null?"missing":meta.MetadataSchema+":"+meta.CampaignGuid+":"+meta.CampaignSlot+":"+meta.Reign+":"+meta.Recipe.LayoutId,
+                snapshot.IslandJson==null?"absent":DestinationHash(snapshot.IslandJson));
+            if(!DecisionCurrent(campaign,decision,out reason)) { decision=null; return false; }
+            return true;
+        }
+        catch(Exception e) { reason="destination-capture-fault:"+e.GetType().Name; return false; }
+    }
+
+    private static string DestinationHash(string text)
+    {
+        using var doc=System.Text.Json.JsonDocument.Parse(text,new System.Text.Json.JsonDocumentOptions{MaxDepth=64});
+        using var bytes=new MemoryStream();
+        using(var writer=new System.Text.Json.Utf8JsonWriter(bytes))
+        {
+            writer.WriteStartObject();
+            foreach(var property in doc.RootElement.EnumerateObject())
+            {
+                if(property.Name=="land")
+                {
+                    int land=property.Value.GetInt32();
+                    if(land!=0 && land!=12)throw new InvalidDataException("destination-land");
+                    // Native restores serialized0 to requested12. This exact alias is not content drift.
+                    writer.WriteNumber("land",12);
+                }
+                else property.WriteTo(writer);
+            }
+            writer.WriteEndObject();
+        }
+        return Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes.ToArray())).ToLowerInvariant();
+    }
+
+    private static bool TryValidateSavedJson(string json,PalaceLayoutRecipe recipe,out string reason)
+    {
+        if(!PalaceLayoutCoverage.TryValidateSavedGeometry(json,recipe,out reason))return false;
+        using var doc=System.Text.Json.JsonDocument.Parse(json);
+        var root=doc.RootElement;
+        if(!root.TryGetProperty("land",out var savedLand) || !savedLand.TryGetInt32(out int nativeLand) || (nativeLand!=0 && nativeLand!=12))
+        { reason="saved-land";return false; }
+        if(!root.TryGetProperty("_levelEdges",out var edges) || edges.GetProperty("min").GetInt32()!=recipe.Left || edges.GetProperty("max").GetInt32()!=recipe.Right)
+        { reason="saved-edges"; return false; }
+        int beaches=0,left=0,right=0;
+        foreach(var row in root.GetProperty("objects").EnumerateArray())
+        {
+            if(row.GetProperty("prefabPath").GetString()!=BeachPrefabPath)continue;
+            beaches++;var position=row.GetProperty("localPosition");var scale=row.GetProperty("localScale");
+            float x=position.GetProperty("x").GetSingle(),sx=scale.GetProperty("x").GetSingle();
+            if(position.GetProperty("y").GetSingle()!=0 || position.GetProperty("z").GetSingle()!=0
+                || scale.GetProperty("y").GetSingle()!=1 || scale.GetProperty("z").GetSingle()!=1)
+            { reason="saved-beach-transform"; return false; }
+            if(Approx(x,recipe.BeachLeftX)&&sx==1)left++;
+            else if(Approx(x,recipe.BeachRightX)&&sx==-1)right++;
+            else { reason="saved-beach-position"; return false; }
+        }
+        if(beaches!=2 || left!=1 || right!=1) { reason="saved-beach-count"; return false; }
+        return true;
+    }
+
+    // Cold/config/return boundary only. Existing v3 records require actual saved44 evidence;
+    // neither a null durable key nor a profile switch can imply400.
+    internal static bool TryResolveTripLayout(CampaignSaveData campaign,PalaceTripRecord trip,
+        out PalaceLayoutRecipe recipe,out string reason)
+    {
+        recipe=null;reason="";
+        try
+        {
+            if(campaign==null || trip==null || !PalaceTripContext.Validate(trip,out reason)
+                || !PalaceLand12Runtime.TryReadSavedCampaignBinding(GlobalSaveData.loaded,campaign,out string guid,out int slot,out reason)
+                || !PalaceTripContext.RecordMatches(campaign,guid,slot,trip,out reason))return false;
+            PalaceLayoutRecipe known=trip.Version==4?trip.DestinationLayout:trip.Version==3?PalaceLayoutRecipe.Known44:null;
+            if(!PalaceLayoutRecipe.IsKnown(known)) { reason="trip-layout-unknown"; return false; }
+            var islands=campaign._islands;
+            IslandSaveData currentIsland=islands!=null && islands.Count>12?islands[12]:null;
+            if(_resolvedTrip!=null && PalaceTripContext.TupleEquals(_resolvedTrip,trip) && ReferenceEquals(_resolvedTripRecipe,known)
+                && Managers.Inst!=null && Managers.Inst.game!=null && _resolvedTripGame==Managers.Inst.game.Pointer
+                && _resolvedTripGlobal==GlobalSaveData.loaded.Pointer && _resolvedTripCampaign==campaign.Pointer
+                && _resolvedTripReign==campaign.reign && islands!=null && _resolvedTripIslands==islands.Pointer
+                && currentIsland!=null && currentIsland.objects!=null && _resolvedTripIsland==currentIsland.Pointer
+                && _resolvedTripObjects==currentIsland.objects.Pointer && _resolvedTripObjectCount==currentIsland.objects.Count)
+            { recipe=known;return true; }
+            string sidecarPath=PalaceCourtArea.SidecarPathForAdmission();
+            if(!PalaceDestinationWitness.TryObserveFile(Path.GetDirectoryName(sidecarPath),Path.GetFileName(sidecarPath),out var sidecarFile,out reason)
+                || sidecarFile.Kind!=PalaceDestinationFileKind.Present)return false;
+            var meta=PalaceCourtArea.ReadSidecar(out reason);
+            if(meta==null || !ReferenceEquals(meta.Recipe,known) || meta.CampaignGuid!=guid || meta.CampaignSlot!=slot
+                || meta.Reign!=campaign.reign || islands==null || islands.Count<=12 || islands[12]==null
+                || !TryValidateSavedJson(JsonUtility.ToJson(islands[12],false),known,out reason))
+            { reason="trip-layout-saved-evidence:"+reason; return false; }
+            string frozenTripJson=System.Text.Json.JsonSerializer.Serialize(trip);
+            if(!PalaceTripContext.TryParse(frozenTripJson,out var frozenTrip,out reason))return false;
+            _resolvedTrip=frozenTrip;_resolvedTripRecipe=known;_resolvedTripGlobal=GlobalSaveData.loaded.Pointer;
+            _resolvedTripGame=Managers.Inst!=null && Managers.Inst.game!=null?Managers.Inst.game.Pointer:IntPtr.Zero;
+            _resolvedTripCampaign=campaign.Pointer;_resolvedTripReign=campaign.reign;_resolvedTripIslands=islands.Pointer;
+            _resolvedTripIsland=islands[12].Pointer;_resolvedTripObjects=islands[12].objects.Pointer;
+            _resolvedTripObjectCount=islands[12].objects.Count;
+            recipe=known;return true;
+        }
+        catch(Exception e) { reason="trip-layout-fault:"+e.GetType().Name;return false; }
+    }
+
+    internal static void RunResourcePrecheck(PalaceLayoutRecipe recipe)
+    {
+        if(ReferenceEquals(recipe,PalaceLayoutRecipe.Known44))RunResourcePrecheck();
+        // Capital400 has no reviewed production resource contract yet. Do not warm old R7 as400.
+    }
+    internal static bool TryGetResourcePrecheck(PalaceLayoutRecipe recipe,out string reason)
+    {
+        if(ReferenceEquals(recipe,PalaceLayoutRecipe.Known44))return TryGetResourcePrecheck(out reason);
+        reason=ReferenceEquals(recipe,PalaceLayoutRecipe.Capital400)
+            ?"Capital400 R12 resource contract/package not ready":"resource-layout-unknown";
+        return false;
     }
 
     /// <summary>源岛准备窗口调用：精确资源契约预检（LogicalName 全集 / 字节上界 / PNG IHDR 尺寸 /

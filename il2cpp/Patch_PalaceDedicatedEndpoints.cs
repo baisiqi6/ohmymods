@@ -1,4 +1,4 @@
-// Patch_PalaceDedicatedEndpoints.cs — 私有 fresh 专用 owned44 块的两岸 canonical Beach 端部 helper。
+// Patch_PalaceDedicatedEndpoints.cs — 私有 fresh 专用 known recipe 块的两岸 canonical Beach 端部 helper。
 //
 // 合同（fresh-endpoint-producer-worker-20261009）实现边界：
 // - 只做两件事：分配前校验两 canonical Beach source（只读，不产生任何对象），分配后把两 typed Beach
@@ -11,10 +11,10 @@
 //   exact multiset（Transform/SpriteRenderer/Persistent/Beach/SpriteRendererFX/GAPS/PrefabID/FormationBlocker）；
 //   Persistent(path="Prefabs/Buildings and Interactive/greece/Beach_greece", persistObject=true,
 //   persistInactive=false, serializeComponents=false, mode=0)；Native Beach root 距 level edges 恒 7.3125
-//   → ±22 域目标 ∓14.6875；镜像 scale Left+1 / Right-1；源根 y/z=0、rotation identity；子树无 Tile/Grass、
+//   → recipe 物理边缘内缩7.3125；400u接触仍须Native验证；镜像 scale Left+1 / Right-1；源根 y/z=0、rotation identity；子树无 Tile/Grass、
 //   collider=2（Invisible Wall + Crown Catcher）。未读字段不猜配置；不调用源 GetWidth/ComputeDimensions/
 //   SetActive/Destroy 等 lazy/破坏方法。
-// - 唯一写入：clone 根 localPosition=(±14.6875,0,0)；镜像 scale/rotation/内部 Box/Effector/trigger/壁体/
+// - 唯一写入：clone 根 localPosition=(recipe 两岸,0,0)；镜像 scale/rotation/内部 Box/Effector/trigger/壁体/
 //   组件 refs 原样保留。遍历预算与 OwnedBlock 一致：≤256 节点 / 深度 ≤8 / 每层直接子 ≤32；无 Resources
 //   加载、反射搜索、二次重试、共享实例缓存、static 可变状态。
 using System;
@@ -44,6 +44,7 @@ internal static class PalaceDedicatedEndpoints
     private const string PersistentName = "Persistent";
     // a554 普通岛（land4）Native Beach root 距 level edges 恒定偏移：-326.6875/-334、232.6875/240。
     internal const float BeachEdgeOffset = 7.3125f;
+    // Legacy44 aliases retained for the existing admission consumer; cloning uses its recipe.
     internal const float OwnedBeachLeftX = -22f + BeachEdgeOffset;   // -14.6875
     internal const float OwnedBeachRightX = 22f - BeachEdgeOffset;   // 14.6875
     internal const int ExpectedEndpoints = 2;
@@ -123,8 +124,7 @@ internal static class PalaceDedicatedEndpoints
             + ",components=" + left.SubtreeComponents + ",colliders=" + BeachSubtreeColliders
             + ",tiles=0,grass=0) right(" + BeachRightSourceName + ") subtree(nodes=" + right.SubtreeNodes
             + ",components=" + right.SubtreeComponents + ",colliders=" + BeachSubtreeColliders
-            + ",tiles=0,grass=0) mirrorScale=left+1/right-1 targetX=" + F(OwnedBeachLeftX)
-            + "/" + F(OwnedBeachRightX));
+            + ",tiles=0,grass=0) mirrorScale=left+1/right-1");
         return true;
     }
 
@@ -275,26 +275,32 @@ internal static class PalaceDedicatedEndpoints
 
     /// <summary>
     /// 把两 typed Beach 完整根各 Instantiate 一次进 owned GameLayer：exclusive handle、与 source 不
-    /// alias、组件 refs 保持；唯一写入是 clone 根 localPosition=(∓14.6875,0,0)。镜像 scale/rotation/
+    /// alias、组件 refs 保持；唯一写入是 clone 根 localPosition=(recipe 两岸,0,0)。镜像 scale/rotation/
     /// 内部 Box/Effector/trigger/壁体原样；子树复扫节点/组件数与 source 观察一致、无 Tile/Grass、
     /// collider=2。
     /// </summary>
     internal static bool TryCloneEndpoints(Transform ownedLayer, BeachEndpoint left, BeachEndpoint right,
-        out GameObject leftOwned, out GameObject rightOwned, out string detail, out string reason)
+        PalaceLayoutRecipe recipe, out GameObject leftOwned, out GameObject rightOwned, out string detail, out string reason)
     {
         leftOwned = null;
         rightOwned = null;
         detail = "";
         reason = "";
+        if (!PalaceLayoutRecipe.IsKnown(recipe))
+        {
+            reason = "layout-recipe-unknown";
+            return false;
+        }
         var sb = new StringBuilder();
-        if (!TryCloneEndpoint(left, "beachLeft", OwnedBeachLeftX, 1f, ownedLayer, sb,
+        if (!TryCloneEndpoint(left, "beachLeft", recipe.BeachLeftX, 1f, ownedLayer, sb,
                 out leftOwned, out reason)) return false;
-        if (!TryCloneEndpoint(right, "beachRight", OwnedBeachRightX, -1f, ownedLayer, sb,
+        if (!TryCloneEndpoint(right, "beachRight", recipe.BeachRightX, -1f, ownedLayer, sb,
                 out rightOwned, out reason)) return false;
         detail = sb.ToString();
         Log("beach endpoints cloned: copies=" + ExpectedEndpoints + detail
-            + " | rootX=" + F(OwnedBeachLeftX) + "/" + F(OwnedBeachRightX)
-            + " (edges ±22 - " + F(BeachEdgeOffset) + "u, a554 普通岛恒偏移)");
+            + " | rootX=" + F(recipe.BeachLeftX) + "/" + F(recipe.BeachRightX)
+            + " (layout=" + recipe.LayoutId + ", edge offset=" + F(BeachEdgeOffset)
+            + "u;400u endpoint contact requires Native evidence)");
         return true;
     }
 
@@ -394,7 +400,7 @@ internal static class PalaceDedicatedEndpoints
                 + ";handle-retained-for-root";
             return false;
         }
-        // 唯一写入：clone 根 localPosition → (±14.6875, 0, 0)。
+        // 唯一写入：clone 根 localPosition → (targetX, 0, 0)。
         cloneRoot.localPosition = new Vector3(targetX, 0f, 0f);
         Vector3 applied = cloneRoot.localPosition;
         if (!Approx(applied.x, targetX) || !Approx(applied.y, 0f) || !Approx(applied.z, 0f))

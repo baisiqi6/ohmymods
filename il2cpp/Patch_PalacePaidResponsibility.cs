@@ -29,6 +29,18 @@ internal sealed partial class PalacePaidHandle
     internal PalacePaidScope Owner { get; }
     internal Guid TripId { get; }
     internal int SourceLand { get; }
+    internal PalaceLayoutRecipe? DestinationLayout => Envelope?.Current.TripId == TripId ? Envelope.Current.DestinationLayout : null;
+    // Strict old44 evidence is acquired by D at the explicit cold/return restore boundary.
+    // It never changes the legacy journal's unknown layout or authorizes a new departure.
+    private bool LegacyLayoutVerified;
+    internal bool MatchesDestination(PalaceTripRecord trip)
+    {
+        if (trip == null) return false;
+        if (trip.Version == 4)
+            return PalaceLayoutRecipe.IsKnown(DestinationLayout!) && ReferenceEquals(DestinationLayout, trip.DestinationLayout);
+        return trip.Version == 3 && DestinationLayout == null && LegacyLayoutVerified
+            && trip.DestinationLayoutId == null && trip.DestinationLayoutVersion == null;
+    }
     internal PalaceEntryAnchorData Anchor => new() { EntryX=SavedAnchor.EntryX, EntryY=SavedAnchor.EntryY,
         EntryZ=SavedAnchor.EntryZ, SourcePlayerX=SavedAnchor.SourcePlayerX, StandX=SavedAnchor.StandX, Side=SavedAnchor.Side };
     internal PalacePaidStage Stage => Envelope?.Current.Stage ?? PalacePaidStage.Unknown;
@@ -246,7 +258,7 @@ internal static class Engine
         catch(Exception e) {reason="admission:"+e.GetType().Name;return false;}
     }
     internal static bool TryBeginCharge(Game game,Kingdom kingdom,Player payer,PayableComponent payable,
-        PalaceEntryAnchorData anchor,out PalacePaidHandle handle,out string reason)
+        PalaceEntryAnchorData anchor,PalaceDestinationDecision observed,out PalacePaidHandle handle,out string reason)
     {
         handle=null!; reason="";
         try
@@ -262,12 +274,14 @@ internal static class Engine
                 ||!a.ContentEquals(new PalacePaidAnchor(observedAnchor.EntryX,observedAnchor.EntryY,observedAnchor.EntryZ,
                     observedAnchor.SourcePlayerX,observedAnchor.StandX,observedAnchor.Side)))
             {reason="anchor-not-current-native-entry";return false;}
+            if(!PalaceDestinationAdmission.TryFreezeForCharge(game,CampaignSaveData.current,observed,out var frozen,out reason)
+                ||!PalaceLayoutRecipe.IsKnown(frozen.Recipe)) return false;
             var previous=_handle?.Owner.ContentEquals(_preparedOwner)==true ? _handle : null;
             handle=new PalacePaidHandle(_preparedOwner!,Guid.NewGuid(),game.currentLand,a,_store!,
                 previous?.Envelope ?? _prepared!.Envelope,previous?.RawSha ?? _prepared!.RawSha256);
             _handle=handle; // Preclaim is sticky even if any subsequent IO/binding fails.
             BindLive(handle,game,kingdom,payer,payable);
-            if(!Apply(handle,PalacePaidRequest.Begin(new(handle.Owner),handle.TripId,handle.SourceLand,a),out reason)) return false;
+            if(!Apply(handle,PalacePaidRequest.Begin(new(handle.Owner),handle.TripId,handle.SourceLand,a,frozen.Recipe),out reason)) return false;
             return true;
         }
         catch(Exception e) {if(handle!=null)Hold(handle,"begin:"+e.GetType().Name);reason="begin:"+e.GetType().Name;return false;}
@@ -627,6 +641,7 @@ internal static class Engine
         try
         {
             if(!ExactSaveResult(actualRawResult)){reason="native-result-not-exact72";return false;}
+            if(!PalaceLayoutRecipe.IsKnown(handle.DestinationLayout!)){reason="legacy-destination-layout-unknown";return false;}
             if(handle!=_handle||handle.Fault.Length!=0||handle.Envelope?.Current.CaptureProof==null
                 ||(handle.Stage!=PalacePaidStage.SourceCaptured&&handle.Stage!=PalacePaidStage.Resumable)) {reason="no-durable-capture";return false;}
             if(handle.RequiresNativeVerification&&(handle.VerificationCapture?.Values==null||handle.VerificationCapture.Faulted))
@@ -641,6 +656,10 @@ internal static class Engine
             if(!Apply(handle,PalacePaidRequest.Resolve(Expectation(handle),handle.TripId,file),out reason))return false;
             if(!TryClock(handle,native,out receipt,out reason)){Hold(handle,"clock-receipt:"+reason);return false;}
             handle.SetClock(receipt);handle.RequiresNativeVerification=false;
+            // The legitimate paid source save has changed the global checkpoint. Refresh only here,
+            // using the actual durable file proof; never from CanPay or a stale prepayment SHA.
+            if(!PalaceDestinationAdmission.TryRefreshAfterPaidSourceSave(handle.Game!,handle.Campaign!,handle.DestinationLayout!,file,out _,out reason))
+            {Hold(handle,"destination-refresh:"+reason);return false;}
 #if PALACE_PAID_CAPTURE_DIAGNOSTICS
             diagOk=true;
 #endif
@@ -673,6 +692,8 @@ internal static class Engine
     internal static bool TryClaimDeparture(PalacePaidHandle handle,out string reason)
     {
         reason="";
+        if(handle==null||!PalaceLayoutRecipe.IsKnown(handle.DestinationLayout!))
+        {reason="legacy-destination-layout-unknown";return false;}
         if(handle!=_handle||handle.Fault.Length!=0||handle.Stage!=PalacePaidStage.Resumable||handle.SourceClockReceipt==null)
         {reason="claim-not-resumable";return false;}
         try
@@ -686,6 +707,9 @@ internal static class Engine
             if(!TryReadLiveCurrencies(handle,out var after,out reason)||!SameEightCurrencies(after,before)
                 ||!SameEightCurrencies(after,capture.Currencies)||!SameEightCurrencies(after,file.Currencies))
             {if(reason.Length==0)reason="claim-live-after-mismatch";Hold(handle,reason);return false;}
+            if(!PalaceDestinationAdmission.TryDescribeDestination(handle.Campaign!,handle.DestinationLayout!,out var destination,out reason)
+                ||!PalaceDestinationAdmission.TryFreezeForCharge(handle.Game!,handle.Campaign!,destination,out var frozen,out reason)
+                ||!ReferenceEquals(frozen.Recipe,handle.DestinationLayout)) return false;
             return Apply(handle,PalacePaidRequest.ClaimDeparture(Expectation(handle),handle.TripId),out reason);
         }catch(Exception e){reason="claim-physical:"+e.GetType().Name;Hold(handle,reason);return false;}
     }
@@ -882,7 +906,7 @@ internal static class Engine
             if(campaign.CurrentLand==12)
             {
                 if(record.Stage!=PalacePaidStage.DepartureClaimed&&record.Stage!=PalacePaidStage.Entered){reason="cold-palace-stage";return false;}
-                if(PalaceTripContext.Read(global,out var trip,out reason)!=PalaceTripContext.ReadStatus.Ok||!TripMatches(handle,trip)
+                if(PalaceTripContext.Read(global,out var trip,out reason)!=PalaceTripContext.ReadStatus.Ok||!TryVerifyTripDestination(handle,campaign,trip,out reason)||!TripMatches(handle,trip)
                     ||trip.Phase!=PalaceTripContext.PhasePalaceSelected
                     ||!PalaceSourceClockReceipt.TryParseStrict(trip.SourceClockReceipt,out var receipt,out reason))return false;
                 if(!PathSnapshot(handle,out var path,out reason))return false;
@@ -922,7 +946,7 @@ internal static class Engine
             if(record.Stage==PalacePaidStage.Returned)
             {
                 if(PalaceTripContext.Read(global,out var trip,out reason)!=PalaceTripContext.ReadStatus.Ok
-                    ||!TripMatches(handle,trip)||trip.Phase!=PalaceTripContext.PhaseReturnSelected
+                    ||!TryVerifyTripDestination(handle,campaign,trip,out reason)||!TripMatches(handle,trip)||trip.Phase!=PalaceTripContext.PhaseReturnSelected
                     ||!PalaceSourceClockReceipt.TryParseStrict(trip.SourceClockReceipt,out var receipt,out reason)
                     ||record.FileProof==null||receipt.SourceCheckpointSha!=record.FileProof.RawSaveSha256)
                 {reason="cold-returned-trip";return false;}
@@ -1055,21 +1079,35 @@ internal static class Engine
             &&dot.folder==h.Folder&&Filer.folder==h.Folder&&GlobalSaveData.filename==h.Filename;
     }
     private static bool TripMatches(PalacePaidHandle h,PalaceTripRecord trip)
-        =>trip.Version==3&&trip.TripId==h.TripId.ToString("D")&&trip.SourceLand==h.SourceLand&&trip.PalaceLand==12
+        =>h.MatchesDestination(trip)&&trip.TripId==h.TripId.ToString("D")&&trip.SourceLand==h.SourceLand&&trip.PalaceLand==12
           &&trip.CampaignGuid==h.Owner.CampaignGuid.ToString("D")&&trip.CampaignSlot==h.Owner.CampaignSlot
           &&trip.Biome==h.Owner.Biome&&trip.Reign==h.Owner.Reign&&trip.Start==h.Owner.Start
           &&PalaceReturnAnchor.ValidateData(trip.SourceEntryAnchor,out _)
           &&new PalacePaidAnchor(trip.SourceEntryAnchor.EntryX,trip.SourceEntryAnchor.EntryY,trip.SourceEntryAnchor.EntryZ,
               trip.SourceEntryAnchor.SourcePlayerX,trip.SourceEntryAnchor.StandX,trip.SourceEntryAnchor.Side).ContentEquals(h.SavedAnchor);
+    private static bool TryVerifyTripDestination(PalacePaidHandle handle,CampaignSaveData campaign,PalaceTripRecord trip,out string reason)
+    {
+        reason="trip-destination-mismatch";
+        if(trip.TripId!=handle.TripId.ToString("D")||trip.SourceLand!=handle.SourceLand
+            ||trip.CampaignGuid!=handle.Owner.CampaignGuid.ToString("D")||trip.CampaignSlot!=handle.Owner.CampaignSlot
+            ||trip.Biome!=handle.Owner.Biome||trip.Reign!=handle.Owner.Reign||trip.Start!=handle.Owner.Start
+            ||!PalaceDestinationAdmission.TryResolveTripLayout(campaign,trip,out var resolved,out reason)) return false;
+        if(trip.Version==4) return ReferenceEquals(handle.DestinationLayout,resolved)&&PalaceLayoutRecipe.IsKnown(resolved);
+        if(trip.Version!=3||handle.DestinationLayout!=null||!ReferenceEquals(resolved,PalaceLayoutRecipe.Known44)) return false;
+        handle.LegacyLayoutVerified=true;
+        return true;
+    }
     private static PalacePaidExpectation Expectation(PalacePaidHandle h)=>new(h.Owner,h.PayerKey);
     private static bool Apply(PalacePaidHandle h,PalacePaidRequest request,out string reason)
     {
         reason="";
         if(h.Fault.Length!=0){reason=h.Fault;return false;}
+        var expectedLayout=request.Action==PalacePaidAction.Begin?request.DestinationLayout:h.DestinationLayout;
         var result=h.Store.TryApply(h.RawSha,request);
         if((result.Status!=PalacePaidStoreApplyStatus.Changed&&result.Status!=PalacePaidStoreApplyStatus.NoChange)
             ||result.Envelope==null||result.RawSha256==null||result.RawSha256!=result.Envelope.SourceBytesSha256
-            ||result.Envelope.Current.TripId!=h.TripId||!result.Envelope.Current.Owner.ContentEquals(h.Owner))
+            ||result.Envelope.Current.TripId!=h.TripId||!result.Envelope.Current.Owner.ContentEquals(h.Owner)
+            ||!ReferenceEquals(result.Envelope.Current.DestinationLayout,expectedLayout))
         {reason="journal:"+result.Status+":"+result.Error;Hold(h,reason);return false;}
         h.Envelope=result.Envelope;h.RawSha=result.RawSha256;
         if(_preparedOwner?.ContentEquals(h.Owner)==true)
@@ -1470,7 +1508,7 @@ internal static class PalacePaidResponsibility
     internal static bool InstallOnce(Harmony harmony) => PalacePaidHandle.Engine.InstallOnce(harmony);
     internal static PalacePaidPreparationOutcome PrepareAtPlaying(Game game, Kingdom kingdom) => PalacePaidHandle.Engine.PrepareAtPlaying(game,kingdom);
     internal static bool CanBeginCharge(Game game,Kingdom kingdom,Player payer,PayableComponent payable,out string reason) => PalacePaidHandle.Engine.CanBeginCharge(game,kingdom,payer,payable,out reason);
-    internal static bool TryBeginCharge(Game game,Kingdom kingdom,Player payer,PayableComponent payable,PalaceEntryAnchorData anchor,out PalacePaidHandle handle,out string reason) => PalacePaidHandle.Engine.TryBeginCharge(game,kingdom,payer,payable,anchor,out handle,out reason);
+    internal static bool TryBeginCharge(Game game,Kingdom kingdom,Player payer,PayableComponent payable,PalaceEntryAnchorData anchor,PalaceDestinationDecision observed,out PalacePaidHandle handle,out string reason) => PalacePaidHandle.Engine.TryBeginCharge(game,kingdom,payer,payable,anchor,observed,out handle,out reason);
     internal static bool CanContinueCharge(PalacePaidHandle handle,Player payer,PayableComponent payable,out string reason) => PalacePaidHandle.Engine.CanContinueCharge(handle,payer,payable,out reason);
     internal static void ObserveOnPay(PalacePaidHandle handle,Player payer) => PalacePaidHandle.Engine.ObserveOnPay(handle,payer);
     internal static bool TryObserveSettled(PalacePaidHandle handle,Player payer,out string reason) => PalacePaidHandle.Engine.TryObserveSettled(handle,payer,out reason);

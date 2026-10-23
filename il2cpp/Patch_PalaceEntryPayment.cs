@@ -10,6 +10,8 @@ namespace KingdomEnhancedMod;
 internal interface IPalaceIslandTravel
 {
     bool CanStart(Game game, Kingdom kingdom, Player payer, PayableComponent payable, out string reason);
+    bool TryDescribeForCharge(Game game, Kingdom kingdom, Player payer, PayableComponent payable,
+        out PalaceDestinationDecision decision, out string reason);
     bool TryStart(Game game, Kingdom kingdom, Player payer, PayableComponent payable, out string reason);
     bool CanStartPaid(Game game, Kingdom kingdom, Player payer, PayableComponent payable, PalacePaidHandle paid, out string reason);
     bool TryStartPaid(Game game, Kingdom kingdom, Player payer, PayableComponent payable, PalacePaidHandle paid, out string reason);
@@ -286,9 +288,9 @@ internal sealed class PalaceEntryPayment
             if (m == null || m.game == null || m.kingdom == null
                 || !PalacePlayable.TryRequirePaidEntryInstallation(true, out _travelReason)
                 || !PalaceVisitClock.CanBeginPaidVisit(out _travelReason)
-                || _travel == null || !_travel.CanStart(m.game, m.kingdom, player, _payable, out _travelReason)
+                || _travel == null || !_travel.TryDescribeForCharge(m.game, m.kingdom, player, _payable, out var destination, out _travelReason)
                 || !PalaceReturnAnchor.TryCapture(m.game, m.kingdom, player, _payable, out var anchor, out _travelReason)
-                || !PalacePaidResponsibility.TryBeginCharge(m.game, m.kingdom, player, _payable, anchor, out _paid, out _travelReason))
+                || !PalacePaidResponsibility.TryBeginCharge(m.game, m.kingdom, player, _payable, anchor, destination, out _paid, out _travelReason))
             {
                 // Native rechecks this life's CanPay after this synchronous delegate and before first coin.
                 Fail("durable ChargeIntent refused: " + _travelReason);

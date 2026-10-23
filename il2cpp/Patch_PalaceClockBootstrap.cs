@@ -144,7 +144,7 @@ internal static class PalaceClockBootstrap
             {
                 if (!_installed || !VerifyOrder(out reason)) return false;
                 if (paid == null || sourceGame == null || paid.SourceClockReceipt == null
-                    || paid.Stage != PalacePaidStage.DepartureClaimed
+                    || paid.Stage != PalacePaidStage.DepartureClaimed || !PalaceLayoutRecipe.IsKnown(paid.DestinationLayout!)
                     || !TryCurrent(sourceGame, null, out var global, out var campaign, out reason)
                     || sourceGame.currentLand != paid.SourceLand || campaign.CurrentLand != paid.SourceLand
                     || sourceGame.state != Game.State.Playing || IslandSaveData.isSavingGame
@@ -396,11 +396,13 @@ internal static class PalaceClockBootstrap
         if (!PalaceSaveBindingSource.TryGetSemanticOwner(out string guid, out int slot, out int biome, out int reign, out int start, out reason)
             || !Guid.TryParseExact(guid, "D", out Guid id) || id == Guid.Empty) return false;
         owner = new PalacePaidScope(PalaceRuntimeProfile.Id, id, slot, biome, reign, start, 1);
-        if (PalaceTripContext.Read(global, out trip, out reason) != PalaceTripContext.ReadStatus.Ok || trip.Version != 3
+        if (PalaceTripContext.Read(global, out trip, out reason) != PalaceTripContext.ReadStatus.Ok || (trip.Version != 3 && trip.Version != 4)
             || !PalaceTripContext.RecordMatches(campaign, guid, slot, trip, out reason)
             || trip.CampaignGuid != guid || !PalaceSourceClockReceipt.TryParseStrict(trip.SourceClockReceipt, out receipt, out reason)
             || !receipt.SameScope(new PalaceClockScope(guid, slot, biome, reign, start, trip.SourceLand))
-            || !receipt.SameTripId(trip.TripId)) return false;
+            || !receipt.SameTripId(trip.TripId)
+            || (trip.Version==3 && (!PalaceDestinationAdmission.TryResolveTripLayout(campaign,trip,out var layout,out reason)
+                || !ReferenceEquals(layout,PalaceLayoutRecipe.Known44)))) return false;
         return true;
     }
 
@@ -415,7 +417,7 @@ internal static class PalaceClockBootstrap
         PalaceSourceClockReceipt receipt, out string reason)
     {
         reason = "paid-handle-drift";
-        return paid != null && paid.Owner.ContentEquals(owner) && paid.TripId.ToString("D") == trip.TripId
+        return paid != null && paid.MatchesDestination(trip) && paid.Owner.ContentEquals(owner) && paid.TripId.ToString("D") == trip.TripId
             && paid.SourceLand == trip.SourceLand && PalaceIslandTravel.SameAnchor(paid.Anchor, trip.SourceEntryAnchor)
             && paid.SourceClockReceipt != null
             && string.Equals(paid.SourceClockReceipt.WriteCanonicalStrict(), receipt.WriteCanonicalStrict(), StringComparison.Ordinal);

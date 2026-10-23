@@ -1,6 +1,6 @@
-// Native fresh palace court area: dedicated private44u branch, legacy48u branch unchanged.
+// Native fresh palace court area: known44/capital400 dedicated recipes; legacy48 added region unchanged.
 // Dedicated scope owns one inactive draft, validates actual nonshared layout/zero ledger before Last publication,
-// and publishes schema2 only after exact native CloneInto, 11 tiles and authoritative44u collider readback.
+// Publishes the recipe schema only after exact native CloneInto, tile coverage and generated collider readback.
 // No new hook/periodic correction; normal/legacy paths retain their former behavior.
 //
 // 职责与边界（对齐 worker-court-area 合同）：
@@ -43,8 +43,6 @@ using System.Globalization;
 using System.IO;
 using System.Reflection;
 using System.Text;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using BepInEx;
 using HarmonyLib;
 using Il2CppInterop.Runtime;
@@ -53,27 +51,42 @@ using UnityEngine;
 
 namespace KingdomEnhancedMod;
 
-/// <summary>冷进程 span 元数据（闭 schema v1；public get/set 供 strict System.Text.Json 读写）。</summary>
-internal sealed class PalaceCourtAreaMetadata
-{
-    [JsonPropertyName("v")] public int V { get; set; }
-    [JsonPropertyName("kind")] public string Kind { get; set; } = "";
-    [JsonPropertyName("campaignGuid")] public string CampaignGuid { get; set; } = "";
-    [JsonPropertyName("campaignSlot")] public int CampaignSlot { get; set; } = -1;
-    [JsonPropertyName("reign")] public int Reign { get; set; } = -1;
-    [JsonPropertyName("nativeEdgesMin")] public int NativeEdgesMin { get; set; }
-    [JsonPropertyName("nativeEdgesMax")] public int NativeEdgesMax { get; set; }
-    [JsonPropertyName("left")] public double Left { get; set; }
-    [JsonPropertyName("right")] public double Right { get; set; }
-    [JsonPropertyName("blockWidth")] public int BlockWidth { get; set; }
-    [JsonPropertyName("addedBlocks")] public int AddedBlocks { get; set; }
-}
-
 /// <summary>
 /// 私有 land12 宫廷区（fresh 全固定美术的净空地面）。Root 已在 KingdomEnhancedPlugin.Init 预挂
 /// <see cref="InstallOnce"/>；ArrivalPlacement / CourtVisuals / WorldLayout 通过
 /// <see cref="TryGetSpan"/> 取 span 中点做宫廷中心与布局边界。
 /// </summary>
+internal sealed class PalaceCourtLayoutView
+{
+    internal PalaceLayoutRecipe Recipe { get; }
+    internal float Left { get; }
+    internal float Right { get; }
+    internal float GateWorldX => Recipe.GateWorldX;
+    internal ulong LevelPointer { get; }
+    internal ulong GamePointer { get; }
+    internal ulong WorldLayerPointer { get; }
+    internal ulong HolderPointer { get; }
+    internal ulong GlobalPointer { get; }
+    internal ulong CampaignPointer { get; }
+    internal ulong SavedIslandPointer { get; }
+    internal ulong SavedObjectsPointer { get; }
+    internal int SavedObjectCount { get; }
+    internal string CampaignGuid { get; }
+    internal int CampaignSlot { get; }
+    internal int Reign { get; }
+    internal int Generation { get; }
+    internal bool FreshGeneration { get; }
+    internal PalaceCourtLayoutView(PalaceLayoutRecipe recipe, ulong level, ulong game, ulong layer,
+        ulong holder, ulong global, ulong campaign, ulong savedIsland, ulong savedObjects, int objectCount,
+        string guid, int slot, int reign, int generation, bool freshGeneration)
+    {
+        Recipe=recipe; Left=recipe.Left; Right=recipe.Right; LevelPointer=level; GamePointer=game;
+        WorldLayerPointer=layer; HolderPointer=holder; GlobalPointer=global; CampaignPointer=campaign;
+        SavedIslandPointer=savedIsland; SavedObjectsPointer=savedObjects; SavedObjectCount=objectCount;
+        CampaignGuid=guid; CampaignSlot=slot; Reign=reign; Generation=generation; FreshGeneration=freshGeneration;
+    }
+}
+
 internal static class PalaceCourtArea
 {
     internal const int LandIndex = PalaceLand12Runtime.LandIndex;
@@ -120,17 +133,6 @@ internal static class PalaceCourtArea
         PersistentName, FixedTransformName, BiomeSpriteSwapperName, PoolStamperName,
     };
 
-    private static readonly string[] MetadataExpectedKeys =
-    {
-        "v", "kind", "campaignGuid", "campaignSlot", "reign", "nativeEdgesMin",
-        "nativeEdgesMax", "left", "right", "blockWidth", "addedBlocks",
-    };
-
-    private static readonly JsonSerializerOptions JsonOptions = new JsonSerializerOptions
-    {
-        WriteIndented = false,
-    };
-
     private static readonly HashSet<string> ContentLayerNames = BuildContentLayerNames();
     private static readonly HashSet<string> LoggedKeys = new HashSet<string>(StringComparer.Ordinal);
 
@@ -146,6 +148,7 @@ internal static class PalaceCourtArea
         internal bool Dedicated;
         internal ulong ConfigPtr, GlobalPtr, CampaignPtr, GamePtr, HolderPtr, LayoutPtr;
         internal LevelConfig Config;
+        internal PalaceLayoutRecipe Recipe;
         internal int Reign, Seed;
         internal string CampaignGuid = "";
         internal int CampaignSlot = -1;
@@ -210,6 +213,10 @@ internal static class PalaceCourtArea
     private static readonly List<ulong> SupportSourcePointers = new();
 
     // 本进程已验证 span（exact level 指针 + 范围）。
+    private static PalaceCourtLayoutView _layoutView;
+    private static string _coldMetadataKey, _coldMetadataReason, _coldGeometryKey, _coldGeometryFailure;
+    private static CourtAreaMetadataRead _coldMetadata;
+    private static PalaceLayoutRecipe _servedRecipe;
     private static bool _spanValid;
     private static ulong _spanLevelPtr;
     private static float _spanLeft, _spanRight;
@@ -466,8 +473,10 @@ internal static class PalaceCourtArea
             + " actualGameLand=" + actualGameLand + " seed=" + seed);
         if (!PalaceLand12Runtime.Ready || IslandSaveData.isSavingGame)
             throw DedicatedFault(scope, "generation-not-ready-or-saving");
-        if (!PalaceLand12Runtime.TryMatchPublishedGenerationConfig(config, out string publishedReason))
+        if (!PalaceLand12Runtime.TryMatchPublishedGenerationConfig(config, out PalaceLayoutRecipe frozenRecipe, out string publishedReason))
             throw DedicatedFault(scope, "published-config:" + publishedReason);
+        if (!PalaceLayoutRecipe.IsKnown(frozenRecipe)) throw DedicatedFault(scope, "unknown-generation-recipe");
+        scope.Recipe = frozenRecipe;
         if (!string.Equals(SafeName(config), PalacePrivateConfigPlan.PrivateConfigName, StringComparison.Ordinal))
             throw DedicatedFault(scope, "published-config-name-drift");
         if (!CurrentPrivateLand12(level)
@@ -490,6 +499,8 @@ internal static class PalaceCourtArea
             throw DedicatedFault(scope, "second-fresh-allocation-refused:" + _dedicatedAllocationFailure);
         _attemptedGenerationLevelPtr = scope.LevelPtr;
         _spanValid = false;
+        _layoutView = null;
+        _servedRecipe = null;
         _spanLevelPtr = 0;
         _freshCoverageValidated = false;
         _dedicatedSpanScope = null;
@@ -512,8 +523,10 @@ internal static class PalaceCourtArea
             || scope.GlobalPtr == 0 || scope.CampaignPtr == 0 || scope.ConfigPtr == 0
             || PointerOf(scope.Config) != scope.ConfigPtr)
             throw DedicatedFault(scope, "level-config-game-holder-drift");
-        if (!PalaceLand12Runtime.TryMatchPublishedGenerationConfig(scope.Config, out string configReason))
+        if (!PalaceLand12Runtime.TryMatchPublishedGenerationConfig(scope.Config, out PalaceLayoutRecipe currentRecipe, out string configReason))
             throw DedicatedFault(scope, "published-config:" + configReason);
+        if (!ReferenceEquals(scope.Recipe, currentRecipe) || !PalaceLayoutRecipe.IsKnown(scope.Recipe))
+            throw DedicatedFault(scope, "published-config-layout-drift");
         if (!string.Equals(SafeName(scope.Config), PalacePrivateConfigPlan.PrivateConfigName, StringComparison.Ordinal))
             throw DedicatedFault(scope, "published-config-name-drift");
         if (!ExtensionIslandRuntime.TryScope(out CampaignSaveData campaign)
@@ -583,21 +596,21 @@ internal static class PalaceCourtArea
         _dedicatedAllocationAttempted = true;
         _dedicatedAllocationScope = scope;
         _dedicatedHolderPtr = scope.HolderPtr;
-        _dedicatedOwnerRoot = new GameObject("KEM_PalaceDedicated44_Owner");
+        _dedicatedOwnerRoot = new GameObject("KEM_PalaceDedicated_Owner");
         _dedicatedOwnerPtr = PointerOf(_dedicatedOwnerRoot);
         if (_dedicatedOwnerPtr == 0) throw DedicatedFault(scope, "owner-allocation-null");
         _dedicatedOwnerRoot.SetActive(false);
         UnityEngine.Object.DontDestroyOnLoad(_dedicatedOwnerRoot);
         if (_dedicatedOwnerRoot.activeSelf || _dedicatedOwnerRoot.activeInHierarchy)
             throw DedicatedFault(scope, "owner-not-inactive");
-        if (!PalaceDedicatedDraftProducer.TryPrepare(_dedicatedOwnerRoot, layout, camp, spawn,
+        if (!PalaceDedicatedDraftProducer.TryPrepare(_dedicatedOwnerRoot, layout, camp, spawn, scope.Recipe,
                 out var staged, out _dedicatedOwned,
                 out _dedicatedBeachLeft, out _dedicatedBeachRight, out string preparationReason))
             throw DedicatedFault(scope, "prepare:" + preparationReason);
         ulong ownedPtr = PointerOf(_dedicatedOwned);
         if (ownedPtr == 0 || staged == null || staged.Count != 1 || PointerOf(staged[0]) != ownedPtr
-            || !_dedicatedOwned._dimensionsComputed || _dedicatedOwned._width != 44
-            || _dedicatedOwned._left != -22f || _dedicatedOwned._right != 22f
+            || !_dedicatedOwned._dimensionsComputed || _dedicatedOwned._width != scope.Recipe.Width
+            || _dedicatedOwned._left != scope.Recipe.Left || _dedicatedOwned._right != scope.Recipe.Right
             || PointerOf(_dedicatedOwned.transform.parent) != PointerOf(_dedicatedOwnerRoot.transform)
             || _dedicatedOwnerRoot.activeSelf || _dedicatedOwnerRoot.activeInHierarchy)
             throw DedicatedFault(scope, "staged-draft-readback");
@@ -605,11 +618,11 @@ internal static class PalaceCourtArea
         if (PointerOf(layout) != scope.LayoutPtr || _dedicatedHolderPtr != scope.HolderPtr)
             throw DedicatedFault(scope, "publish-layout-or-holder-drift");
         scope.PlannedAdds = 1;
-        scope.TemplateWidth = 44;
+        scope.TemplateWidth = scope.Recipe.Width;
         scope.DedicatedOwnedPtr = ownedPtr;
         scope.Spans.Clear();
         string summary = "dedicated prepared actual layout=" + Hex(scope.LayoutPtr)
-            + " owned=" + Hex(ownedPtr) + " finalCount=1 cachedWidth44 left-22 right22; ledger0 verified";
+            + " owned=" + Hex(ownedPtr) + " finalCount=1 layout=" + scope.Recipe.LayoutId + "; ledger0 verified";
         scope.Published = true;
         result = staged; // Sole successful result publication; no stock fallback or layout-ledger writes.
         Log(summary);
@@ -620,7 +633,7 @@ internal static class PalaceCourtArea
         if (scope != null) scope.Failure = reason;
         _dedicatedAllocationFailure = reason;
         Log("ERROR dedicated attempt stopped: " + reason);
-        return new InvalidOperationException("Palace dedicated44: " + reason);
+        return new InvalidOperationException("Palace dedicated: " + reason);
     }
 
     private static void CleanupDedicatedOwner(GenerationScope scope)
@@ -694,24 +707,24 @@ internal static class PalaceCourtArea
     {
         RequireDedicatedOwner(scope);
         if (PointerOf(level) != scope.LevelPtr || !scope.Published || !scope.Consumed
-            || scope.Spans.Count != 1 || scope.Spans[0].Left != -22f || scope.Spans[0].Right != 22f)
+            || scope.Spans.Count != 1 || scope.Spans[0].Left != scope.Recipe.Left || scope.Spans[0].Right != scope.Recipe.Right)
             throw DedicatedFault(scope, "close-native-clone-span");
         IntRange edges = level._levelEdges;
-        if (edges.min != -22 || edges.max != 22)
+        if (edges.min != scope.Recipe.Left || edges.max != scope.Recipe.Right)
             throw DedicatedFault(scope, "close-native-edges:" + edges.min + "," + edges.max);
-        if (!TryDescribeGround(level, -22f, 22f, out string groundReason))
+        if (!TryDescribeGround(level, scope.Recipe.Left, scope.Recipe.Right, scope.Recipe, out string groundReason))
             throw DedicatedFault(scope, "close-ground-deferred:" + groundReason);
-        if (!TryLiveTileCoverage(-22f, 22f, true, out string tileReason))
-            throw DedicatedFault(scope, "close-eleven-tiles-deferred:" + tileReason);
+        if (!TryLiveTileCoverage(scope.Recipe.Left, scope.Recipe.Right, true, scope.Recipe, out string tileReason))
+            throw DedicatedFault(scope, "close-recipe-tiles-deferred:" + tileReason);
         RequireDedicatedOwner(scope);
         _spanValid = true;
         _spanLevelPtr = scope.LevelPtr;
-        _spanLeft = -22f;
-        _spanRight = 22f;
+        _spanLeft = scope.Recipe.Left;
+        _spanRight = scope.Recipe.Right;
         _freshCoverageValidated = true;
         _dedicatedSpanScope = scope;
         _spanGeneration++;
-        Log("dedicated fresh geometry verified: single44u native span, edges[-22,22], "
+        Log("dedicated fresh geometry verified: layout=" + scope.Recipe.LayoutId + ", "
             + groundReason + "; " + tileReason + "; source-only wiring until actual Native evidence");
         TryPersistMetadata(level);
     }
@@ -722,15 +735,17 @@ internal static class PalaceCourtArea
         GenerationScope scope = _dedicatedSpanScope;
         RequireDedicatedOwner(scope);
         if (PointerOf(level) != scope.LevelPtr || _spanLevelPtr != scope.LevelPtr
-            || !_freshCoverageValidated || _spanLeft != -22f || _spanRight != 22f)
+            || !_freshCoverageValidated || _spanLeft != scope.Recipe.Left || _spanRight != scope.Recipe.Right)
             throw DedicatedFault(scope, "metadata-unverified-span");
         IntRange edges = level._levelEdges;
         var meta = new PalaceCourtAreaMetadata
         {
-            V = 2, Kind = "palace-dedicated-island", CampaignGuid = scope.CampaignGuid,
+            V = scope.Recipe.MetadataSchema, Kind = "palace-dedicated-island", CampaignGuid = scope.CampaignGuid,
             CampaignSlot = scope.CampaignSlot, Reign = scope.Reign,
             NativeEdgesMin = edges.min, NativeEdgesMax = edges.max,
-            Left = -22, Right = 22, BlockWidth = 4, AddedBlocks = 11,
+            Left = scope.Recipe.Left, Right = scope.Recipe.Right, BlockWidth = scope.Recipe.TileWidth, AddedBlocks = scope.Recipe.TileCount,
+            LayoutId = scope.Recipe.MetadataSchema == 3 ? scope.Recipe.LayoutId : "",
+            LayoutVersion = scope.Recipe.MetadataSchema == 3 ? scope.Recipe.LayoutVersion : 0,
         };
         if (!ValidateMetadata(meta, out string invalid))
             throw DedicatedFault(scope, "metadata-invalid:" + invalid);
@@ -738,7 +753,7 @@ internal static class PalaceCourtArea
             throw DedicatedFault(scope, "metadata-write:" + writeReason);
         RequireDedicatedOwner(scope);
         _persistedGeneration = _spanGeneration;
-        Log("dedicated v2 metadata persisted: guid=" + scope.CampaignGuid + " slot=" + scope.CampaignSlot
+        Log("dedicated metadata schema" + scope.Recipe.MetadataSchema + " persisted: guid=" + scope.CampaignGuid + " slot=" + scope.CampaignSlot
             + " reign=" + scope.Reign + "; atomic/readback " + readBack.Length + " chars");
     }
 
@@ -1487,13 +1502,13 @@ internal static class PalaceCourtArea
                 throw DedicatedFault(dedicated, "CloneInto-owner-or-unpublished");
             if (dedicated.Spans.Count != 0)
                 throw DedicatedFault(dedicated, "duplicate-CloneInto");
-            if (!__instance._dimensionsComputed || __instance._width != 44
-                || __instance._left != -22f || __instance._right != 22f
+            if (!__instance._dimensionsComputed || __instance._width != dedicated.Recipe.Width
+                || __instance._left != dedicated.Recipe.Left || __instance._right != dedicated.Recipe.Right
                 || !float.IsFinite(__1) || __1 != 0f)
-                throw DedicatedFault(dedicated, "CloneInto-cached44-or-position");
+                throw DedicatedFault(dedicated, "CloneInto-cached-recipe-or-position");
             dedicated.Spans.Add(new CourtSpan { Left = __1 + __instance._left, Right = __1 + __instance._right });
             Log("dedicated native CloneInto observed: level=" + Hex(dedicated.LevelPtr)
-                + " owned=" + Hex(dedicated.DedicatedOwnedPtr) + " span=[-22,22]");
+                + " owned=" + Hex(dedicated.DedicatedOwnedPtr) + " layout=" + dedicated.Recipe.LayoutId);
             return;
         }
         try
@@ -1617,6 +1632,67 @@ internal static class PalaceCourtArea
     /// </summary>
     internal static bool TryGetSpan(Level level, out float left, out float right, out string reason)
     {
+        if (DedicatedWholeEnabled)
+        {
+            bool ok = TryGetLayout(level, out PalaceCourtLayoutView view, out reason);
+            left = ok ? view.Left : 0; right = ok ? view.Right : 0; return ok;
+        }
+        return TryGetSpanCore(level, out left, out right, out reason);
+    }
+
+    internal static bool TryGetLayout(Level level, out PalaceCourtLayoutView view, out string reason)
+    {
+        view = null; reason = "";
+        if (!DedicatedWholeEnabled) { reason = "legacy added area has no whole-island recipe"; return false; }
+        try
+        {
+            if (_layoutView != null && LayoutIdentityMatches(level, _layoutView))
+            {
+                if (!TryDescribeGround(level,_layoutView.Left,_layoutView.Right,_layoutView.Recipe,out reason)) return false;
+                view=_layoutView; reason="cached-layout"; return true;
+            }
+            _layoutView = null;
+            if (!TryGetSpanCore(level,out _,out _,out reason) || !PalaceLayoutRecipe.IsKnown(_servedRecipe)) return false;
+            Managers m=Managers.Inst;
+            if (!ExtensionIslandRuntime.TryScope(out CampaignSaveData c)
+                || !PalaceTripContext.TryBinding(GlobalSaveData.loaded,c,out string guid,out int slot,out reason)) return false;
+            var islands=c._islands;
+            IslandSaveData saved=islands!=null && islands.Count>LandIndex ? islands[LandIndex] : null;
+            var objects=saved!=null ? saved.objects : null;
+            var candidate=new PalaceCourtLayoutView(_servedRecipe,PointerOf(level),PointerOf(m.game),
+                PointerOf(m.world.gameLayer),PointerOf(BiomeHolder.Inst),PointerOf(GlobalSaveData.loaded),PointerOf(c),
+                PointerOf(saved),PointerOf(objects),objects!=null?objects.Count:-1,guid,slot,c.reign,_spanGeneration,_spanValid && PointerOf(level)==_spanLevelPtr);
+            if (!LayoutIdentityMatches(level,candidate)) { reason="layout identity drift"; return false; }
+            _layoutView=candidate; view=candidate; return true;
+        }
+        catch (Exception e) { reason="layout:"+e.GetType().Name; return false; }
+    }
+
+    private static bool LayoutIdentityMatches(Level level, PalaceCourtLayoutView view)
+    {
+        if (view==null || !CurrentPrivateLand12(level) || !PalaceLayoutRecipe.IsKnown(view.Recipe)) return false;
+        Managers m=Managers.Inst; GlobalSaveData global=GlobalSaveData.loaded;
+        if (!ExtensionIslandRuntime.TryScope(out CampaignSaveData c) || m==null || m.world==null
+            || PointerOf(level)!=view.LevelPointer || PointerOf(m.game)!=view.GamePointer
+            || PointerOf(m.world.gameLayer)!=view.WorldLayerPointer || PointerOf(BiomeHolder.Inst)!=view.HolderPointer
+            || PointerOf(global)!=view.GlobalPointer || PointerOf(c)!=view.CampaignPointer
+            || c.reign!=view.Reign || _spanGeneration!=view.Generation
+            || !PalaceTripContext.TryBinding(global,c,out string guid,out int slot,out _)
+            || guid!=view.CampaignGuid || slot!=view.CampaignSlot) return false;
+        if (view.FreshGeneration)
+        {
+            if (_dedicatedSpanScope==null || !ReferenceEquals(_dedicatedSpanScope.Recipe,view.Recipe)) return false;
+            RequireDedicatedOwner(_dedicatedSpanScope);
+        }
+        var islands=c._islands; IslandSaveData saved=islands!=null && islands.Count>LandIndex ? islands[LandIndex] : null;
+        var objects=saved!=null?saved.objects:null;
+        return PointerOf(saved)==view.SavedIslandPointer && PointerOf(objects)==view.SavedObjectsPointer
+            && (objects!=null?objects.Count:-1)==view.SavedObjectCount
+            && (view.FreshGeneration || (saved!=null && saved._levelEdges.min==view.Recipe.Left && saved._levelEdges.max==view.Recipe.Right));
+    }
+
+    private static bool TryGetSpanCore(Level level, out float left, out float right, out string reason)
+    {
         left = 0f;
         right = 0f;
         reason = "";
@@ -1634,20 +1710,21 @@ internal static class PalaceCourtArea
                     { reason = "dedicated fresh identity missing"; return false; }
                     RequireDedicatedOwner(_dedicatedSpanScope);
                 }
-                if (!TryDescribeGround(level, _spanLeft, _spanRight, out string freshGround))
+                if (!TryDescribeGround(level, _spanLeft, _spanRight, _dedicatedSpanScope != null ? _dedicatedSpanScope.Recipe : null, out string freshGround))
                 {
                     reason = "fresh span ground: " + freshGround;
                     return false;
                 }
                 if (!_freshCoverageValidated)
                 {
-                    if (!TryLiveTileCoverage(_spanLeft, _spanRight, true, out string freshTiles))
+                    if (!TryLiveTileCoverage(_spanLeft, _spanRight, true, _dedicatedSpanScope != null ? _dedicatedSpanScope.Recipe : null, out string freshTiles))
                     { reason = "fresh tiles: " + freshTiles; return false; }
                     _freshCoverageValidated = true;
                     Log("fresh generated tiles verified: " + freshTiles);
                 }
                 left = _spanLeft;
                 right = _spanRight;
+                _servedRecipe = _dedicatedSpanScope != null ? _dedicatedSpanScope.Recipe : null;
                 reason = "fresh-in-memory";
                 TryPersistMetadata(level);   // CourtPlaying 时刻的延迟持久化（事件驱动，每代至多一次）
                 return true;
@@ -1667,8 +1744,26 @@ internal static class PalaceCourtArea
                 reason = "campaign identity unavailable: " + bind;
                 return false;
             }
-            CourtAreaMetadataRead meta = ReadSidecar(out string readReason);
+            Managers coldManagers=Managers.Inst;
+            Transform coldLayer=coldManagers!=null && coldManagers.world!=null ? coldManagers.world.gameLayer : null;
+            string coldKey=Hex(PointerOf(level))+":"+Hex(PointerOf(coldManagers!=null?coldManagers.game:null))
+                +":"+Hex(PointerOf(coldLayer))+":"+Hex(PointerOf(BiomeHolder.Inst))+":"+Hex(PointerOf(GlobalSaveData.loaded))
+                +":"+Hex(PointerOf(campaign))+":"+guid+":"+slot+":"+campaign.reign+":"+_spanGeneration;
+            CourtAreaMetadataRead meta;
+            string readReason;
+            if (DedicatedWholeEnabled)
+            {
+                if (!string.Equals(_coldMetadataKey,coldKey,StringComparison.Ordinal))
+                {
+                    _coldMetadataKey=coldKey;
+                    _coldMetadata=ReadSidecar(out _coldMetadataReason);
+                    _coldGeometryKey=null; _coldGeometryFailure=null;
+                }
+                meta=_coldMetadata; readReason=_coldMetadataReason;
+            }
+            else meta=ReadSidecar(out readReason);
             if (meta == null) { reason = "sidecar: " + readReason; return false; }
+            if (DedicatedWholeEnabled != (meta.Recipe != null)) { reason="sidecar mode mismatch"; return false; }
             if (meta.CampaignGuid != guid || meta.CampaignSlot != slot
                 || (DedicatedWholeEnabled && meta.Reign != campaign.reign))
             {
@@ -1690,16 +1785,24 @@ internal static class PalaceCourtArea
             }
             float coldLeft = (float)meta.Left;
             float coldRight = (float)meta.Right;
-            if (!TryDescribeGround(level, coldLeft, coldRight, out string coldGround))
+            if (!TryDescribeGround(level, coldLeft, coldRight, meta.Recipe, out string coldGround))
+            { reason = "cold ground: " + coldGround; return false; }
+            var savedObjects=islands[LandIndex].objects;
+            string geometryKey=coldKey+":"+Hex(PointerOf(islands[LandIndex]))+":"+Hex(PointerOf(savedObjects))
+                +":"+(savedObjects!=null?savedObjects.Count:-1)+":"+(coldLayer!=null?coldLayer.childCount:-1);
+            if (DedicatedWholeEnabled && string.Equals(_coldGeometryKey,geometryKey,StringComparison.Ordinal) && _coldGeometryFailure!=null)
+            { reason=_coldGeometryFailure; return false; }
+            if(DedicatedWholeEnabled) _coldGeometryKey=geometryKey;
+            if (DedicatedWholeEnabled)
             {
-                reason = "cold ground: " + coldGround;
-                return false;
+                if (meta.Recipe==null) { reason="cold saved geometry recipe missing"; _coldGeometryFailure=reason; return false; }
+                if (!PalaceLayoutCoverage.TryValidateSavedGeometry(JsonUtility.ToJson(islands[LandIndex]),meta.Recipe,out string savedGeometryReason))
+                { reason="cold saved geometry: "+savedGeometryReason; _coldGeometryFailure=reason; return false; }
             }
-            if (!TryLiveTileCoverage(coldLeft, coldRight, false, out string tileDetail))
-            {
-                reason = "cold tiles: " + tileDetail;
-                return false;
-            }
+            if (!TryLiveTileCoverage(coldLeft, coldRight, false, meta.Recipe, out string tileDetail))
+            { reason = "cold tiles: " + tileDetail; if(DedicatedWholeEnabled)_coldGeometryFailure=reason; return false; }
+            _coldGeometryFailure=null;
+            _servedRecipe = meta.Recipe;
             left = coldLeft;
             right = coldRight;
             reason = "sidecar-ok";
@@ -1737,6 +1840,9 @@ internal static class PalaceCourtArea
     /// bounds 覆盖 span、ClosestPoint 有限。失败给出可读 detail（fail-closed，不猜）。
     /// </summary>
     private static bool TryDescribeGround(Level level, float left, float right, out string detail)
+        => TryDescribeGround(level,left,right,null,out detail);
+
+    private static bool TryDescribeGround(Level level, float left, float right, PalaceLayoutRecipe recipe, out string detail)
     {
         detail = "";
         try
@@ -1750,14 +1856,16 @@ internal static class PalaceCourtArea
             Transform layer = managers != null && managers.world != null ? managers.world.gameLayer : null;
             if (layer != null && collider.gameObject.scene.handle != layer.gameObject.scene.handle)
             { detail = "collider-scene-mismatch"; return false; }
-            if (DedicatedWholeEnabled)
+            if (recipe != null)
             {
+                if (!PalaceLayoutRecipe.IsKnown(recipe)) { detail="unknown-ground-recipe"; return false; }
                 Transform gt = collider.transform;
-                // Physics2D bounds include contact skin; the authored BoxCollider shape proves44u directly.
-                if (gt == null || gt.position.x != 0f || gt.lossyScale.x != 1f || gt.lossyScale.y != 1f
+                // Physics2D bounds include contact skin; read the authored BoxCollider shape directly.
+                if (gt == null || gt.position.x != 0f || gt.position.y != 0f || gt.position.z != 0f
+                    || gt.lossyScale.x != 1f || gt.lossyScale.y != 1f || gt.lossyScale.z != 1f
                     || gt.rotation != Quaternion.identity || collider.offset.x != 0f || collider.offset.y != .4375f
-                    || collider.size.x != 44f || collider.size.y != .875f)
-                { detail = "schema2 authored collider differs from44u recipe"; return false; }
+                    || collider.size.x != recipe.Width || collider.size.y != .875f)
+                { detail = "authored collider differs from frozen recipe"; return false; }
             }
             Bounds bounds = collider.bounds;
             if (!float.IsFinite(bounds.min.x) || !float.IsFinite(bounds.max.x))
@@ -1785,7 +1893,7 @@ internal static class PalaceCourtArea
     /// 一次有界只读活体复核：遍历 world.gameLayer 直接子对象，取严格位于 span 内部的 Tile，
     /// 验证覆盖连续且全部 scatter 为 false。不写任何 RuntimeTiles、不救援。
     /// </summary>
-    private static bool TryLiveTileCoverage(float left, float right, bool freshGeneration, out string detail)
+    private static bool TryLiveTileCoverage(float left, float right, bool freshGeneration, PalaceLayoutRecipe recipe, out string detail)
     {
         detail = "";
         try
@@ -1795,7 +1903,8 @@ internal static class PalaceCourtArea
             if (layer == null) { detail = "gameLayer-missing"; return false; }
             float offset = layer.position.x;
             var spans = new List<CourtSpan>();
-            int actualTiles = 0;
+            int actualTiles = 0, beachCount = 0;
+            bool beachLeft=false, beachRight=false;
             int childCount = layer.childCount;
             for (int i = 0; i < childCount; i++)
             {
@@ -1803,9 +1912,22 @@ internal static class PalaceCourtArea
                 if (child == null) continue;
                 GameObject go = child.gameObject;
                 if (go == null || !go.activeInHierarchy) continue;
+                if(recipe!=null && go.GetComponent<Beach>()!=null)
+                {
+                    beachCount++;
+                    Vector3 bp=child.localPosition, bs=child.localScale;
+                    if(bp.y!=0f || bp.z!=0f || bs.y!=1f || bs.z!=1f)
+                    { detail="live beach transform"; return false; }
+                    if(bp.x+offset==recipe.BeachLeftX && bs.x==1f && !beachLeft) beachLeft=true;
+                    else if(bp.x+offset==recipe.BeachRightX && bs.x==-1f && !beachRight) beachRight=true;
+                    else { detail="live beach differs from frozen recipe"; return false; }
+                }
                 Tile tile = go.GetComponent<Tile>();
                 if (tile == null) continue;
                 actualTiles++;
+                if (recipe!=null && (child.lossyScale.x!=1f || child.lossyScale.y!=1f || child.lossyScale.z!=1f
+                    || child.rotation!=Quaternion.identity))
+                { detail="live tile scale differs from authored recipe"; return false; }
                 float tileLeft = tile.GetLeft() + offset;
                 float tileRight = tile.GetRight() + offset;
                 if (!float.IsFinite(tileLeft) || !float.IsFinite(tileRight) || tileRight <= tileLeft) continue;
@@ -1816,14 +1938,15 @@ internal static class PalaceCourtArea
                 // Cold restore proves the saved ground geometry here; WorldLayout separately checks actual occupants.
                 spans.Add(new CourtSpan { Left = tileLeft, Right = tileRight });
             }
-            if (DedicatedWholeEnabled && (actualTiles != 11 || spans.Count != 11))
-            { detail = "schema2 expected exactly11 live tiles, all within full island; actual=" + actualTiles + " inside=" + spans.Count; return false; }
             if (spans.Count == 0) { detail = "no live tiles inside span"; return false; }
             spans.Sort((a, b) => a.Left != b.Left ? a.Left.CompareTo(b.Left) : a.Right.CompareTo(b.Right));
-            if (DedicatedWholeEnabled)
-                for (int i = 0; i < 11; i++)
-                    if (spans[i].Left != left + i * 4f || spans[i].Right != left + (i + 1) * 4f)
-                    { detail = "schema2 tile segment" + i + " differs from contiguous4u recipe"; return false; }
+            if (recipe != null)
+            {
+                if(beachCount!=2 || !beachLeft || !beachRight) { detail="live beach count"; return false; }
+                var actual = new List<PalaceTileSpan>(spans.Count);
+                foreach (CourtSpan span in spans) actual.Add(new PalaceTileSpan(span.Left,span.Right));
+                if (!PalaceLayoutCoverage.TryValidate(recipe,actual,actualTiles,out detail)) return false;
+            }
             if (spans[0].Left > left + 0.5f || spans[spans.Count - 1].Right < right - 0.5f)
             {
                 detail = "live tiles [" + F(spans[0].Left) + "," + F(spans[spans.Count - 1].Right)
@@ -1920,6 +2043,9 @@ internal static class PalaceCourtArea
         }
     }
 
+    // Admission freezes this same writer-owned path; it does not invent a second filename.
+    internal static string SidecarPathForAdmission() => SidecarPath();
+
     private static string SidecarPath()
     {
         try
@@ -1939,8 +2065,24 @@ internal static class PalaceCourtArea
         reason = "";
         string path = SidecarPath();
         if (path == null) { reason = "config-path-unavailable"; return null; }
-        if (!File.Exists(path)) { reason = "missing"; return null; }
-        string json = File.ReadAllText(path);
+        string json;
+        try
+        {
+            using var stream=new FileStream(path,FileMode.Open,FileAccess.Read,FileShare.Read);
+            if(stream.Length<1 || stream.Length>MaxJsonChars*4) { reason="size"; return null; }
+            using var reader=new StreamReader(stream,new UTF8Encoding(false,true),true);
+            char[] chars=new char[MaxJsonChars+1]; int total=0;
+            while(total<chars.Length)
+            {
+                int n=reader.Read(chars,total,chars.Length-total);
+                if(n==0)break;
+                total+=n;
+            }
+            if(total>MaxJsonChars) { reason="size"; return null; }
+            json=new string(chars,0,total);
+        }
+        catch (FileNotFoundException) { reason="missing"; return null; }
+        catch (Exception e) { reason="read:"+e.GetType().Name; return null; }
         if (string.IsNullOrEmpty(json) || json.Length > MaxJsonChars)
         {
             reason = "size:" + (json != null ? json.Length : -1);
@@ -1960,7 +2102,7 @@ internal static class PalaceCourtArea
         readBack = null;
         string path = SidecarPath();
         if (path == null) { reason = "config-path-unavailable"; return false; }
-        string json = JsonSerializer.Serialize(meta, JsonOptions);
+        if (!PalaceLayoutMetadata.TrySerialize(meta, out string json, out reason)) return false;
         if (json.Length > MaxJsonChars) { reason = "json-too-long:" + json.Length; return false; }
         string temp = path + ".tmp";
         File.WriteAllText(temp, json);
@@ -1982,107 +2124,38 @@ internal static class PalaceCourtArea
 
     /// <summary>闭 schema 严格解析：非对象 / 未知键 / 重复键 / 键数不符 / 反序列化失败 / 校验失败一律拒绝。</summary>
     private static bool TryParseMetadataStrict(string json, out PalaceCourtAreaMetadata meta, out string reason)
-    {
-        meta = null;
-        reason = "";
-        try
-        {
-            using JsonDocument document = JsonDocument.Parse(json);
-            JsonElement root = document.RootElement;
-            if (root.ValueKind != JsonValueKind.Object) { reason = "not-object"; return false; }
-            int count = 0;
-            var names = new HashSet<string>(StringComparer.Ordinal);
-            foreach (JsonProperty property in root.EnumerateObject())
-            {
-                count++;
-                if (!names.Add(property.Name)) { reason = "duplicate-key:" + property.Name; return false; }
-                bool known = false;
-                for (int i = 0; i < MetadataExpectedKeys.Length; i++)
-                    if (MetadataExpectedKeys[i] == property.Name) { known = true; break; }
-                if (!known) { reason = "unknown-key:" + property.Name; return false; }
-            }
-            if (count != MetadataExpectedKeys.Length) { reason = "key-count:" + count; return false; }
-            PalaceCourtAreaMetadata parsed = JsonSerializer.Deserialize<PalaceCourtAreaMetadata>(json, JsonOptions);
-            if (parsed == null) { reason = "deserialize-null"; return false; }
-            if (!ValidateMetadata(parsed, out reason)) return false;
-            meta = parsed;
-            return true;
-        }
-        catch (Exception e)
-        {
-            reason = "parse-fault:" + e.GetType().Name;
-            return false;
-        }
-    }
+        => PalaceLayoutMetadata.TryParse(json, out meta, out reason);
 
-    private static bool ValidateMetadata(PalaceCourtAreaMetadata m, out string reason)
-    {
-        reason = "";
-        if (m == null) { reason = "null"; return false; }
-        int version = DedicatedWholeEnabled ? 2 : MetadataVersion;
-        string kind = DedicatedWholeEnabled ? "palace-dedicated-island" : MetadataKind;
-        int expectedWidth = DedicatedWholeEnabled ? 44 : CourtAddedWidth;
-        if (m.V != version) { reason = "version:" + m.V; return false; }
-        if (!string.Equals(m.Kind, kind, StringComparison.Ordinal)) { reason = "kind"; return false; }
-        if (!ValidGuidD(m.CampaignGuid)) { reason = "campaignGuid"; return false; }
-        if (m.CampaignSlot < 0) { reason = "campaignSlot:" + m.CampaignSlot; return false; }
-        if (m.Reign < 0) { reason = "reign:" + m.Reign; return false; }
-        if (m.NativeEdgesMin > m.NativeEdgesMax) { reason = "edges:" + m.NativeEdgesMin + ">" + m.NativeEdgesMax; return false; }
-        if (!double.IsFinite(m.Left) || !double.IsFinite(m.Right)) { reason = "range-nonfinite"; return false; }
-        if (!(m.Left < m.Right)) { reason = "range-order"; return false; }
-        if (DedicatedWholeEnabled && (m.NativeEdgesMin != -22 || m.NativeEdgesMax != 22
-            || m.Left != -22 || m.Right != 22 || m.BlockWidth != 4 || m.AddedBlocks != 11))
-        { reason = "schema2 fixed target recipe differs"; return false; }
-        if (Math.Abs((m.Right - m.Left) - expectedWidth) > 0.000001)
-        { reason = "width:" + (m.Right - m.Left).ToString("F3", CultureInfo.InvariantCulture); return false; }
-        if (m.BlockWidth <= 0 || m.BlockWidth > expectedWidth || expectedWidth % m.BlockWidth != 0)
-        { reason = "blockWidth:" + m.BlockWidth; return false; }
-        if (m.AddedBlocks != expectedWidth / m.BlockWidth)
-        { reason = "addedBlocks:" + m.AddedBlocks; return false; }
-        return true;
-    }
+    private static bool ValidateMetadata(PalaceCourtAreaMetadata meta, out string reason)
+        => PalaceLayoutMetadata.Validate(meta, out _, out reason);
 
     private static bool MetadataEquals(PalaceCourtAreaMetadata a, PalaceCourtAreaMetadata b)
-    {
-        return a.V == b.V
-            && string.Equals(a.Kind, b.Kind, StringComparison.Ordinal)
-            && string.Equals(a.CampaignGuid, b.CampaignGuid, StringComparison.Ordinal)
-            && a.CampaignSlot == b.CampaignSlot
-            && a.Reign == b.Reign
-            && a.NativeEdgesMin == b.NativeEdgesMin
-            && a.NativeEdgesMax == b.NativeEdgesMax
-            && a.Left == b.Left
-            && a.Right == b.Right
-            && a.BlockWidth == b.BlockWidth
-            && a.AddedBlocks == b.AddedBlocks;
-    }
-
-    private static bool ValidGuidD(string text)
-        => !string.IsNullOrEmpty(text) && text.Length == 36
-            && Guid.TryParseExact(text, "D", out Guid parsed) && parsed != Guid.Empty;
+        => PalaceLayoutMetadata.ContentEquals(a, b);
 
     /// <summary>sidecar 读结果（值拷贝，避免调用方持有反序列化实例的可变引用）。</summary>
     internal sealed class CourtAreaMetadataRead
     {
-        internal string CampaignGuid;
-        internal int CampaignSlot;
-        internal int Reign;
-        internal int NativeEdgesMin;
-        internal int NativeEdgesMax;
-        internal double Left;
-        internal double Right;
-
+        internal string CampaignGuid { get; }
+        internal int CampaignSlot { get; }
+        internal int Reign { get; }
+        internal int NativeEdgesMin { get; }
+        internal int NativeEdgesMax { get; }
+        internal double Left { get; }
+        internal double Right { get; }
+        internal int MetadataSchema { get; }
+        internal string Kind { get; }
+        internal PalaceLayoutRecipe Recipe { get; }
+        internal int BlockWidth { get; }
+        internal int AddedBlocks { get; }
+        private CourtAreaMetadataRead(PalaceCourtAreaMetadata m, PalaceLayoutRecipe recipe)
+        {
+            CampaignGuid=m.CampaignGuid; CampaignSlot=m.CampaignSlot; Reign=m.Reign;
+            NativeEdgesMin=m.NativeEdgesMin; NativeEdgesMax=m.NativeEdgesMax;
+            Left=m.Left; Right=m.Right; MetadataSchema=m.V; Kind=m.Kind; Recipe=recipe;
+            BlockWidth=m.BlockWidth; AddedBlocks=m.AddedBlocks;
+        }
         internal static CourtAreaMetadataRead From(PalaceCourtAreaMetadata meta)
-            => new CourtAreaMetadataRead
-            {
-                CampaignGuid = meta.CampaignGuid,
-                CampaignSlot = meta.CampaignSlot,
-                Reign = meta.Reign,
-                NativeEdgesMin = meta.NativeEdgesMin,
-                NativeEdgesMax = meta.NativeEdgesMax,
-                Left = meta.Left,
-                Right = meta.Right,
-            };
+            => PalaceLayoutMetadata.Validate(meta, out var recipe, out _) ? new CourtAreaMetadataRead(meta,recipe) : null;
     }
 
     // ------------------------------------------------------------------ KEM 塔/墙位阻断
@@ -2199,11 +2272,13 @@ internal static class PalaceCourtArea
         }
         catch (Exception) { }
     }
-    // Schema2 dedicated scope selects the single44u draft; existing cold metadata/geometry remain strict.
+    // Capability gate only; recipe identity comes from the published config and verified layout view.
     internal static bool DedicatedWholeEnabled => Enabled
         && PalaceRuntimeProfile.Capability("PALACE_DEDICATED_ISLAND_PRIVATE");
-    internal static float RenderAxis(float left, float right) => DedicatedWholeEnabled
-        ? (left + right) * .5f + (645f - 1448f * .5f) / 32f : (left + right) * .5f;
+    internal static float RenderAxis(float left, float right) => _layoutView != null
+        && left == _layoutView.Left && right == _layoutView.Right
+        ? _layoutView.GateWorldX : DedicatedWholeEnabled
+            ? (left + right) * .5f + PalaceLayoutRecipe.Known44.GateWorldX : (left + right) * .5f;
 
 
 }

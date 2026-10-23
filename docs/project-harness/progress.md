@@ -1,3 +1,7 @@
+## 2026-10-23 — #101 400u核心接线已验源码，完整素材与Native仍待完成
+
+已实现100×4u/门0、schema3地面、journal2/trip4同layout接线，以及首币前四证freeze和共享表Ready前置；旧44不自动迁移、旧pending不重扣/改账。Root独立针对复跑及default/diagnostic×net6/net8四完整构建均0W0E；正式PC输入无测试桩，Android236输入未变复用Phase A。完整R12的54主体/registry/layout仍在制作，scene消费者和实际相机/水/脚点未齐，400资源门保持拒收费。未启动Native、未合并安装；PR265仍Draft，#101进行中，正常DLL保持原SHA，未写正常存档/配置，Windows测试暂停。详见[连续检查点](tasks/issue-101/r12-runtime-foundation-20261023.md#phase-b--400u源级接线检查点2026-10-23)。下文为历史记录。
+
 ## 2026-10-22 — #260 已交付修复收尾，旧 PR #264 撤回
 
 首次登岛生成、地图剪影/船位/配色与保存冷读已由 #271/#273/#274 合并并安装；当前正常 Mac DLL 仍为 `25d9ffef…f4c156`，本轮只读核对一致。用户明确选择撤回未完成原生验收的旧空岛恢复 PR #264，保留分支，将“已访问空岛原位回填”完整转入 [#277](https://github.com/baisiqi6/ohmymods/issues/277) 延期待办；#264 关闭未合并，不称旧档回填已完成或实装。#260 按已交付替代方案收尾，详情见 [收尾记录](tasks/issue-260/closeout.md)。

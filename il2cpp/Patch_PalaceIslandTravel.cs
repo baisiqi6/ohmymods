@@ -54,6 +54,9 @@ internal sealed class PalaceIslandTravel : IPalaceIslandTravel
         internal Phase Stage = Phase.SourceSave;
         internal bool Returning;
         internal PalacePaidHandle Paid;
+        internal PalaceLayoutRecipe DestinationLayout;
+        internal int RecordVersion;
+        internal PalaceTripRecord SourceRecord, WrittenRecord;
         internal PalaceSourceClockReceipt ClockReceipt;
         internal bool DepartureClaimed;
         internal bool UsedDurableResume;
@@ -139,9 +142,13 @@ internal sealed class PalaceIslandTravel : IPalaceIslandTravel
     /// </summary>
     public bool CanStart(Game game, Kingdom kingdom, Player payer, PayableComponent payable, out string reason)
     {
-        if (!Evaluate(game, kingdom, payer, payable, out reason)) return false;
+        if (!TryDescribeForCharge(game, kingdom, payer, payable, out _, out reason)) return false;
         return !ReturnAnchorEnabled || PalaceReturnAnchor.TryCapture(game, kingdom, payer, payable, out _, out reason);
     }
+
+    public bool TryDescribeForCharge(Game game, Kingdom kingdom, Player payer, PayableComponent payable,
+        out PalaceDestinationDecision decision, out string reason)
+        => Evaluate(game,kingdom,payer,payable,PalaceLayoutRecipe.Capital400,out decision,out reason);
 
     /// <summary>控制器在 native settlement 后调用：条件复核 + 同步 claim 一次 visit（先标记）再唯一源 TriggerSave。</summary>
     public bool TryStart(Game game, Kingdom kingdom, Player payer, PayableComponent payable, out string reason)
@@ -150,10 +157,12 @@ internal sealed class PalaceIslandTravel : IPalaceIslandTravel
     public bool CanStartPaid(Game game, Kingdom kingdom, Player payer, PayableComponent payable, PalacePaidHandle paid, out string reason)
     {
         reason = "paid source not settled/resumable";
+        if (paid!=null && !PalaceLayoutRecipe.IsKnown(paid.DestinationLayout))
+        { reason="legacy-destination-layout-unknown"; return false; }
         if (paid == null || paid.HasFault || paid.SourceLand != game.currentLand
             || !(paid.Stage == PalacePaidStage.Resumable || paid.Stage == PalacePaidStage.SourceCaptured
                  || (paid.Stage == PalacePaidStage.PaidObserved && paid.SettlementObserved))) return false;
-        return Evaluate(game, kingdom, payer, payable, out reason, false);
+        return Evaluate(game, kingdom, payer, payable, paid.DestinationLayout, out _, out reason, false);
     }
 
     public bool TryStartPaid(Game game, Kingdom kingdom, Player payer, PayableComponent payable, PalacePaidHandle paid, out string reason)
@@ -258,6 +267,20 @@ internal sealed class PalaceIslandTravel : IPalaceIslandTravel
                 && game.currentLand == PalaceLand12;
         }
     }
+    internal static bool TryGetActiveArrivalLayout(Game game,string tripId,out PalaceLayoutRecipe recipe)
+    {
+        recipe=null;
+        lock(Gate)
+        {
+            Visit v=_visit; Managers m=Managers.Inst;
+            if(m==null||m.game==null||game==null||m.game.Pointer!=game.Pointer||v==null
+                ||v.Stage!=Phase.ReloadIssued||v.Fault.Length!=0||!v.RecordWritten||v.RecordVersion!=4
+                ||tripId!=v.TripId||game.Pointer==v.Game||v.ArrivalGame==IntPtr.Zero||game.Pointer!=v.ArrivalGame
+                ||game.currentLand!=v.TargetLand||!VisitDestinationMatches(v)
+                ||!VerifyWrittenDestination(v,GlobalSaveData.loaded,out _)) return false;
+            recipe=v.DestinationLayout; return true;
+        }
+    }
     // 0 pending, 1 exact arrived, -1 failed/unknown; never equate new Playing with arrival.
     internal static int PrivateJourneyOutcome(Game game, string tripId, int target, out string reason)
     {
@@ -292,7 +315,7 @@ internal sealed class PalaceIslandTravel : IPalaceIslandTravel
         { reason = "QA source is not the current ordinary island"; return false; }
         if (!PalaceTripContext.TryBinding(global, campaign, out var guid, out var slot, out reason)
             || !OutboundRecordAllowed(global, campaign, guid, slot, out reason)) return false;
-        if (!PalaceLand12Runtime.CanEnterPrepared(game, out reason)) return false;
+        if (!PalaceLand12Runtime.CanEnterPrepared(game, PalaceLayoutRecipe.Capital400, out reason)) return false;
         if (!ReturnAnchorEnabled) return true;
         // This bounded QA only publishes a V2 anchor when the real current entry exists.
         if (!PalaceVisibleEntry.TryGetCurrentEntry(out _, out PayableComponent entry))
@@ -346,18 +369,23 @@ internal sealed class PalaceIslandTravel : IPalaceIslandTravel
             if (!PalaceTripContext.TryBinding(global, campaign, out string guid, out int slot, out string bindDetail))
             { detail = "binding:" + bindDetail; return false; }
             if (guid != v.CampaignGuid || slot != v.CampaignSlot) { detail = "claimed-campaign-identity-drift"; return false; }
+            if (!VisitDestinationMatches(v)) { detail="visit-destination-drift"; return false; }
             if (v.Returning)
             {
                 if (PalaceTripContext.Read(global, out var old, out detail) != PalaceTripContext.ReadStatus.Ok
                     || old.TripId != v.TripId || old.SourceLand != v.TargetLand || old.Phase != PalaceTripContext.PhasePalaceSelected
                     || !PalaceTripContext.RecordMatches(campaign, guid, slot, old, out detail)
-                    || !SameAnchor(old.SourceEntryAnchor, v.SourceEntryAnchor))
+                    || !SameAnchor(old.SourceEntryAnchor, v.SourceEntryAnchor)
+                    || v.SourceRecord==null || !PalaceTripContext.TupleEquals(old,v.SourceRecord)
+                    || !v.Paid.MatchesDestination(old))
                 { detail = "return-record-drift:" + detail; return false; }
             }
             else if (!OutboundRecordAllowed(global, campaign, guid, slot, out detail)) return false;
             var record = new PalaceTripRecord
             {
-                Version = 3,
+                Version = v.RecordVersion,
+                DestinationLayoutId = v.DestinationLayout?.LayoutId,
+                DestinationLayoutVersion = v.DestinationLayout?.LayoutVersion,
                 SourceEntryAnchor = CloneAnchor(v.SourceEntryAnchor),
                 SourceClockReceipt = v.ClockReceipt != null ? v.ClockReceipt.WriteCanonicalStrict() : null,
                 TripId = v.TripId,
@@ -371,8 +399,10 @@ internal sealed class PalaceIslandTravel : IPalaceIslandTravel
                 Phase = v.RecordPhase,
                 MigrationEvidence = v.Returning ? (v.RecordEvidence ?? "") : ""
             };
+            if (!RecordDestinationMatches(v,record)) { detail="record-destination-drift"; return false; }
             if (!PalaceTripContext.Write(global, record, out string writeDetail))
             { detail = "write:" + writeDetail; return false; }
+            v.WrittenRecord = record;
             v.RecordWritten = true;
             Log("trip record phase=" + record.Phase + " sourceLand=" + record.SourceLand + " trip=" + record.TripId
                 + " slot=" + slot + "; " + writeDetail + "; readback verified before selection");
@@ -387,11 +417,13 @@ internal sealed class PalaceIslandTravel : IPalaceIslandTravel
 
     // ---- 评估 ----
 
-    private static bool Evaluate(Game game, Kingdom kingdom, Player payer, PayableComponent payable, out string reason, bool newFee = true)
+    private static bool Evaluate(Game game, Kingdom kingdom, Player payer, PayableComponent payable, PalaceLayoutRecipe required, out PalaceDestinationDecision decision, out string reason, bool newFee = true)
     {
+        decision=null;
         reason = "";
         try
         {
+            if (!PalaceLayoutRecipe.IsKnown(required)) { reason="destination-layout-unknown"; return false; }
             if (!_installed) { reason = "adapter 未安装 hook（Root 未完成 InstallOnce）"; return false; }
             if (!ActivationReady(EnterEnv, out reason)) return false;
             if (newFee && (ModConfig.Enabled == null || !ModConfig.Enabled.Value))
@@ -407,8 +439,8 @@ internal sealed class PalaceIslandTravel : IPalaceIslandTravel
             { reason = "campaign 与 Game 当前岛不一致"; return false; }
             if (campaign.CurrentLand < 0 || campaign.CurrentLand > 11)
             { reason = "当前岛暂不支持天朝往返，未收取金币"; return false; }
-            if (!PalaceDestinationAdmission.TryDescribeDestination(campaign, out _, out reason)) return false;
-            if (!PalaceDestinationAdmission.TryGetResourcePrecheck(out string resourceReason))
+            if (!PalaceDestinationAdmission.TryDescribeDestination(campaign, required, out decision, out reason)) return false;
+            if (!PalaceDestinationAdmission.TryGetResourcePrecheck(required, out string resourceReason))
             { reason = "profile 资源预检未通过：" + resourceReason; return false; }
             if (payable.gameObject == null || !payable.gameObject.activeInHierarchy || !payable.isActiveAndEnabled)
             { reason = "入口 payable 不可用"; return false; }
@@ -420,7 +452,7 @@ internal sealed class PalaceIslandTravel : IPalaceIslandTravel
             if (!PalaceTripContext.TryBinding(global, campaign, out string guid, out int slot, out string bindReason))
             { reason = "记录所需 campaign 身份不可用：" + bindReason; return false; }
             if (!OutboundRecordAllowed(global, campaign, guid, slot, out reason)) return false;
-            if (!PalaceLand12Runtime.CanEnterPrepared(game, out reason)) return false;
+            if (!PalaceLand12Runtime.CanEnterPrepared(game, required, out reason)) return false;
             reason = "可出发：源 land=" + campaign.CurrentLand + " -> " + PalaceLand12;
             return true;
         }
@@ -456,8 +488,9 @@ internal sealed class PalaceIslandTravel : IPalaceIslandTravel
             { reason = "记录与当前档不一致：" + matchReason; return false; }
             if (!PalaceTripContext.TryTargetIsland(campaign, loaded.SourceLand, out string islandDetail))
             { reason = "目标岛记录不可读：" + islandDetail; return false; }
-            if (loaded.Version != 3 || !PalacePaidResponsibility.TryGetPreparedHandle(game,kingdom,payer,out var paid,out reason)
-                || paid.Stage != PalacePaidStage.Entered || paid.TripId.ToString("D") != loaded.TripId) return false;
+            if ((loaded.Version!=3 && loaded.Version!=4) || !PalacePaidResponsibility.TryGetPreparedHandle(game,kingdom,payer,out var paid,out reason)
+                || paid.Stage != PalacePaidStage.Entered || paid.TripId.ToString("D") != loaded.TripId
+                || !paid.MatchesDestination(loaded)) return false;
             record = loaded;
             reason = "可回程：land12 -> " + loaded.SourceLand;
             return true;
@@ -663,6 +696,8 @@ internal sealed class PalaceIslandTravel : IPalaceIslandTravel
         if (!SameSource(v, game, out Kingdom kingdom, out GlobalSaveData global, out CampaignSaveData campaign))
         { Fail(v, "durable source identity drift"); return; }
         if (IslandSaveData.isSavingGame || v.CarryAttempted) return;
+        if (!VisitDestinationMatches(v) || (v.Returning && !VerifyReturnSourceRecord(v,global,out _)))
+        { Fail(v,"destination drift before source effects"); return; }
         if (!v.Returning && !v.DepartureClaimed)
         {
             string claimReason = "missing handle";
@@ -697,7 +732,8 @@ internal sealed class PalaceIslandTravel : IPalaceIslandTravel
             Fail(v, "行程记录失败：" + recordDetail);
             return;
         }
-        if (!SameSource(v, game, out _, out _, out _) || IslandSaveData.isSavingGame)
+        if (!SameSource(v, game, out _, out _, out _) || IslandSaveData.isSavingGame
+            || !VerifyWrittenDestination(v,global,out _))
         {
             Fail(v, "selection 前源身份漂移");
             return;
@@ -711,7 +747,8 @@ internal sealed class PalaceIslandTravel : IPalaceIslandTravel
             v.Deadline = Time.realtimeSinceStartup + GlobalSaveSeconds;
         }
         campaign.CurrentLand = v.TargetLand;
-        if (!SameSelectedSource(v, game, out _, out GlobalSaveData g, out _))
+        if (!SameSelectedSource(v, game, out _, out GlobalSaveData g, out _)
+            || !VerifyWrittenDestination(v,g,out _))
         {
             Fail(v, "selection 读回被拒（不把 setter 当到达）");
             return;
@@ -744,9 +781,10 @@ internal sealed class PalaceIslandTravel : IPalaceIslandTravel
     /// <summary>选择后：源身份不变 + 单回调 72 + 非保存中 → 下一帧先标记再唯一一次 Reload。</summary>
     private static void AdvanceGlobalSave(Visit v, Game game)
     {
-        if (!SameSelectedSource(v, game, out _, out _, out _))
+        if (!SameSelectedSource(v, game, out _, out var global, out _)
+            || !VerifyWrittenDestination(v,global,out _))
         {
-            Fail(v, "选择后的源身份漂移");
+            Fail(v, "选择后的源身份/布局漂移");
             return;
         }
         bool finished;
@@ -836,7 +874,9 @@ internal sealed class PalaceIslandTravel : IPalaceIslandTravel
         if (!PalaceTripContext.TryBinding(global, campaign, out string arrivalGuid, out int arrivalSlot, out _)) return;
         if (PalaceTripContext.Read(global, out var arrivedRecord, out _) != PalaceTripContext.ReadStatus.Ok
             || arrivalGuid != v.CampaignGuid || arrivalSlot != v.CampaignSlot || arrivedRecord.TripId != v.TripId
-            || arrivedRecord.Phase != v.RecordPhase || !PalaceTripContext.RecordMatches(campaign, arrivalGuid, arrivalSlot, arrivedRecord, out _))
+            || arrivedRecord.Phase != v.RecordPhase || !PalaceTripContext.RecordMatches(campaign, arrivalGuid, arrivalSlot, arrivedRecord, out _)
+            || !RecordDestinationMatches(v,arrivedRecord) || v.WrittenRecord==null
+            || !PalaceTripContext.TupleEquals(v.WrittenRecord,arrivedRecord))
         { Fail(v, "arrival durable trip/campaign identity mismatch"); return; }
         if (!PalaceClockBootstrap.WasPreparedFor(game, v.TripId, out string clockArrival))
         { Fail(v, "early clock boundary not verified: " + clockArrival); return; }
@@ -1139,7 +1179,18 @@ internal sealed class PalaceIslandTravel : IPalaceIslandTravel
             if (c.CurrentLand == PalaceLand12 || c.CurrentLand != game.currentLand)
             { reason = "进入源岛无效：" + c.CurrentLand + " (game " + game.currentLand + ")"; return false; }
         }
-        if (!returning && !PalaceLand12Runtime.CanEnterPrepared(game, out reason)) return false;
+        if (paid==null || paid.HasFault || paid.TripId.ToString("D")!=tripId)
+        { reason="durable-paid-handle-required"; return false; }
+        PalaceTripRecord sourceRecord=null;
+        if (returning)
+        {
+            if (PalaceTripContext.Read(g,out sourceRecord,out reason)!=PalaceTripContext.ReadStatus.Ok
+                || sourceRecord.Phase!=PalaceTripContext.PhasePalaceSelected || sourceRecord.TripId!=tripId
+                || sourceRecord.SourceLand!=targetLand || !paid.MatchesDestination(sourceRecord)
+                || !SameAnchor(sourceRecord.SourceEntryAnchor,anchor)) return false;
+        }
+        else if (!PalaceLayoutRecipe.IsKnown(paid.DestinationLayout)
+            || !PalaceLand12Runtime.CanEnterPrepared(game, paid.DestinationLayout, out reason)) return false;
         if (!PalaceTripContext.TryBinding(g, c, out string claimGuid, out int claimSlot, out reason)) return false;
         Visit v;
         lock (Gate)
@@ -1151,6 +1202,9 @@ internal sealed class PalaceIslandTravel : IPalaceIslandTravel
                 Stage = Phase.SourceSave,
                 Returning = returning,
                 Paid = paid,
+                DestinationLayout = paid.DestinationLayout,
+                RecordVersion = returning ? sourceRecord.Version : 4,
+                SourceRecord = sourceRecord,
                 ClockReceipt = paid != null ? paid.SourceClockReceipt : null,
                 SourceEntryAnchor = CloneAnchor(anchor),
                 CampaignGuid = claimGuid,
@@ -1203,6 +1257,31 @@ internal sealed class PalaceIslandTravel : IPalaceIslandTravel
         return true;
     }
 
+
+    private static bool VisitDestinationMatches(Visit v)
+    {
+        if(v==null||v.Paid==null||v.Paid.HasFault||v.Paid.TripId.ToString("D")!=v.TripId) return false;
+        if(v.RecordVersion==4)
+            return PalaceLayoutRecipe.IsKnown(v.DestinationLayout)&&ReferenceEquals(v.DestinationLayout,v.Paid.DestinationLayout);
+        return v.Returning&&v.RecordVersion==3&&v.DestinationLayout==null&&v.Paid.DestinationLayout==null
+            &&v.SourceRecord!=null&&v.Paid.MatchesDestination(v.SourceRecord);
+    }
+    private static bool RecordDestinationMatches(Visit v,PalaceTripRecord record)
+        => VisitDestinationMatches(v)&&record!=null&&record.Version==v.RecordVersion
+            &&v.Paid.MatchesDestination(record)
+            &&(record.Version==3 || ReferenceEquals(record.DestinationLayout,v.DestinationLayout));
+    private static bool VerifyReturnSourceRecord(Visit v,GlobalSaveData global,out string reason)
+    {
+        reason="return-source-record-drift";
+        return v.SourceRecord!=null&&PalaceTripContext.Read(global,out var current,out reason)==PalaceTripContext.ReadStatus.Ok
+            &&PalaceTripContext.TupleEquals(current,v.SourceRecord)&&v.Paid.MatchesDestination(current);
+    }
+    private static bool VerifyWrittenDestination(Visit v,GlobalSaveData global,out string reason)
+    {
+        reason="written-destination-drift";
+        return v.WrittenRecord!=null&&PalaceTripContext.Read(global,out var current,out reason)==PalaceTripContext.ReadStatus.Ok
+            &&RecordDestinationMatches(v,current)&&PalaceTripContext.TupleEquals(current,v.WrittenRecord);
+    }
 
     private static bool SourceSaveProven(Visit v)
         => v.UsedDurableResume

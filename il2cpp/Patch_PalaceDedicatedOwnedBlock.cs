@@ -21,10 +21,10 @@
 //   typed Camp/三店 placeholder 与含 Animator 的 Native Beggar（local x 不动），移除 owned 旧 Tile/Grass/确证 Wall0/Tower0；从
 //   spawn GameLayer 全量复制非 Tile/Grass 直接角色树（预算 exact：2×PrefabPlaceholder、1×WreckPlaceholder、
 //   1×BoatSailPosition、1×Ghost、1×CrownLostHint；其它未知直接子角色显式拒绝，不静默 drop），
-//   复制根 localPosition.x += -16（Wreck 4→-12、Sail -5→-21，保持 9u），y/z/scale/rotation/组件/池/网络
+//   复制根 localPosition.x += recipe.SpawnRootShiftX（44u 为 -16、400u 为 -194，保持 9u），y/z/scale/rotation/组件/池/网络
 //   依赖原样；不创建静态人物贴图、不写钱包/steed/save。
 // - 地面：借用 camp GameLayer 的 exact TileBig（component multiset / Persistent path / rect / scale /
-//   geometry 可信门，复用 PalaceCourtArea 的 terrain 模式）作 borrowed prototype，复制 11 份到 x=-22+4*i
+//   geometry 可信门，复用 PalaceCourtArea 的 terrain 模式）作 borrowed prototype，按冻结 recipe 复制 11 或 100 份到 x=Left+4*i
 //   （保持 native 组件与物理尺寸，不改 scale/collider/组件），清空全部 owned ground Tile 的 33 个 scatter
 //   布尔并丢弃 scatter* versionOverrides，只删各 clone 自身子树内的 Grass；雪/天气/随机 sprite/物理责任保留。
 /// - 端部两岸：DraftProducer 在同一 ≤256 候选 walk 内按 exact 名解析 BeachLeft/BeachRight_Blocks_Greece
@@ -32,11 +32,12 @@
 ///   根 8 组件 multiset、Persistent path/persistObject=true/persistInactive=false/serializeComponents=false/
 ///   mode=0、位置 finite 且 y/z=0、镜像 scale.x=+1/-1、子树无 Tile/Grass 且 collider=2），分配后把两 typed
 ///   Beach 完整根各 Instantiate 一次进 owned GameLayer（exclusive handle、组件 refs 原样），唯一写入是
-///   clone 根 localPosition=∓14.6875（±22−7.3125 恒偏移，a554 普通岛证据）；壁体/Box/Effector/trigger/镜像
+///   clone 根 localPosition=recipe 两岸（边缘内缩7.3125，400u为待Native验证候选）；壁体/Box/Effector/trigger/镜像
 ///   保持，不自造隐藏墙、不整块克隆 BeachBlock/Portal/Cliff；两 beach source 同样纳入前后指纹对账。
-// - 结果门：owned.BuildIndex()+ComputeDimensions()（只 owned）后 cached _left=-22 / _right=22 / _width=44
+// - 结果门：owned.BuildIndex()+ComputeDimensions()（只 owned）后 cached left/right/width 严格等于冻结 recipe
 //   严格核验；结构计数、组别、hideFlags、absoluteCenter 读回复核；source 快照对账不变。
-/// - 遍历上限：≤256 节点 / 深度 ≤8 / 每层直接子 ≤32；只遍历 campSource、spawnSource、两 beach source
+/// - 源与嵌套遍历上限：≤256 节点 / 深度 ≤8 / 每层直接子 ≤32；最终owned GameLayer
+///   直接子精确等于源角色计数+recipe.TileCount+6spawn+2Beach；只遍历 campSource、spawnSource、两 beach source
 ///   与自有 clone 子树，不新增任何全场景扫描。
 // - 无 static 可变状态/缓存：本类字段只有编译期常量与 immutable 名称表。
 using System;
@@ -67,13 +68,6 @@ internal static class PalaceDedicatedOwnedBlock
     private const string GameLayerName = "GameLayer";
     private const string TileBigPath = "Prefabs/Environment/Tile Big";
     private const string GrassName = "Grass";
-
-    private const int OwnedTileCount = 11;
-    private const float OwnedTileStep = 4f;
-    private const float OwnedLeft = -22f;
-    private const float OwnedRight = 22f;
-    private const int OwnedWidth = 44;
-    private const float SpawnRoleShiftX = -16f;
 
     // ------------------------------------------------------------ spawn 角色预算（exact）
     private const string RolePrefabPlaceholder = "PrefabPlaceholder";
@@ -115,6 +109,10 @@ internal static class PalaceDedicatedOwnedBlock
     /// <summary>单次构造的上下文；每次 TryBuild 新建，绝不跨调用保存 source 引用。</summary>
     private sealed class BuildContext
     {
+        internal readonly PalaceLayoutRecipe Recipe;
+        internal int ExpectedDirectChildren;
+
+        internal BuildContext(PalaceLayoutRecipe recipe) { Recipe = recipe; }
         internal ulong OwnerPtr;
         internal ulong CampBlockPtr, CampGoPtr, SpawnBlockPtr, SpawnGoPtr;
         internal string CampBefore = "";
@@ -175,14 +173,19 @@ internal static class PalaceDedicatedOwnedBlock
     /// 成功/失败/异常一律保留给 Root 单 writer 清理，本类不销毁）。源对象零写入；无重试、无跨调用缓存。
     /// </summary>
     internal static bool TryBuild(GameObject inactiveOwner, LevelBlock campSource, LevelBlock spawnSource,
-        LevelBlock beachLeftSource, LevelBlock beachRightSource,
+        LevelBlock beachLeftSource, LevelBlock beachRightSource, PalaceLayoutRecipe recipe,
         out LevelBlock owned, out GameObject leftOwned, out GameObject rightOwned, out string reason)
     {
         owned = null;
         leftOwned = null;
         rightOwned = null;
         reason = "";
-        var ctx = new BuildContext();
+        if (!PalaceLayoutRecipe.IsKnown(recipe))
+        {
+            reason = "layout-recipe-unknown";
+            return false;
+        }
+        var ctx = new BuildContext(recipe);
         GameObject ownedGo = null;
         try
         {
@@ -287,6 +290,12 @@ internal static class PalaceDedicatedOwnedBlock
                 ctx.CampBlockPtr, ctx.CampGoPtr, ctx.SpawnBlockPtr, ctx.SpawnGoPtr,
                 out ctx.BeachLeft, out ctx.BeachRight, out reason))
             return false;
+        // Exact output budget comes only from approved source roots and the frozen recipe,
+        // never from the already-expanded clone. Source walks keep their original 32-child cap.
+        ctx.ExpectedDirectChildren = checked(ctx.Recipe.TileCount + ctx.CampKept + ctx.ShopKept
+            + ctx.BeggarKept + ExpectedPrefabPlaceholders + ExpectedWreckPlaceholders
+            + ExpectedBoatSailPositions + ExpectedGhosts + ExpectedCrownLostHints
+            + PalaceDedicatedEndpoints.ExpectedEndpoints);
         if (!TryFingerprintSource(campSource, out string campFp, out string fpFailure))
         {
             reason = "camp-fingerprint:" + fpFailure;
@@ -595,9 +604,9 @@ internal static class PalaceDedicatedOwnedBlock
             return false;
         }
         float width = right - left;
-        if (Math.Abs(width - OwnedTileStep) > Tolerance)
+        if (Math.Abs(width - ctx.Recipe.TileWidth) > Tolerance)
         {
-            reason = "camp-prototype-geometry:width=" + F(width) + "/" + F(OwnedTileStep);
+            reason = "camp-prototype-geometry:width=" + F(width) + "/" + F(ctx.Recipe.TileWidth);
             return false;
         }
         Transform transform = prototype.transform;
@@ -739,8 +748,8 @@ internal static class PalaceDedicatedOwnedBlock
         if (!TryPruneOwnedTree(ownedGo, ownedLayer, ctx, out reason)) return false;
         if (!TryCopyTileGrid(ownedLayer, ctx, out reason)) return false;
         if (!TryCopySpawnRoles(ownedLayer, ctx, out reason)) return false;
-        // 两岸 canonical Beach 完整根各 clone 一次进 owned GameLayer（唯一写入 clone 根 localPosition=±14.6875）。
-        if (!PalaceDedicatedEndpoints.TryCloneEndpoints(ownedLayer, ctx.BeachLeft, ctx.BeachRight,
+        // 两岸 canonical Beach 完整根各 clone 一次进 owned GameLayer（唯一写入 clone 根 localPosition=recipe 两岸）。
+        if (!PalaceDedicatedEndpoints.TryCloneEndpoints(ownedLayer, ctx.BeachLeft, ctx.BeachRight, ctx.Recipe,
                 out ctx.BeachLeftOwned, out ctx.BeachRightOwned, out string beachDetail, out reason))
             return false;
         ctx.BeachClones = PalaceDedicatedEndpoints.ExpectedEndpoints;
@@ -839,7 +848,7 @@ internal static class PalaceDedicatedOwnedBlock
     }
 
     /// <summary>
-    /// 用 borrowed prototype 复制 11 个 4u Tile 到 x=-22+4*i（只改 localPosition.x，保留 y/z/scale/rotation/组件），
+    /// 用 borrowed prototype 按冻结 recipe 复制原宽4u Tile 到 x=Left+4*i（只改 localPosition.x，保留 y/z/scale/rotation/组件），
     /// 每个 clone 只删自身子树内的 Grass，并清空其全部 Tile 的 33 个 scatter 布尔 + scatter* versionOverrides。
     /// </summary>
     private static bool TryCopyTileGrid(Transform ownedLayer, BuildContext ctx, out string reason)
@@ -849,9 +858,9 @@ internal static class PalaceDedicatedOwnedBlock
         GameObject protoGo = prototype.gameObject;
         ulong protoGoPtr = PointerOf(protoGo);
         ulong protoTilePtr = PointerOf(prototype);
-        for (int i = 0; i < OwnedTileCount; i++)
+        for (int i = 0; i < ctx.Recipe.TileCount; i++)
         {
-            float x = OwnedLeft + OwnedTileStep * i;
+            float x = ctx.Recipe.TileLeft(i);
             GameObject go;
             try
             {
@@ -959,8 +968,8 @@ internal static class PalaceDedicatedOwnedBlock
     }
 
     /// <summary>
-    /// 全量复制 spawn GameLayer 的非 Tile/Grass 直接角色树到 owned GameLayer，复制根 localPosition.x += -16
-    /// （Wreck 4→-12、Sail -5→-21，间距保持），其余 transform/组件/动画/池/网络依赖原样，不额外写任何字段。
+    /// 全量复制 spawn GameLayer 的非 Tile/Grass 直接角色树到 owned GameLayer，复制根 localPosition.x += recipe.SpawnRootShiftX
+    /// （400u Wreck 4→-190、Sail -5→-199，间距保持），其余 transform/组件/动画/池/网络依赖原样，不额外写任何字段。
     /// </summary>
     private static bool TryCopySpawnRoles(Transform ownedLayer, BuildContext ctx, out string reason)
     {
@@ -1015,7 +1024,7 @@ internal static class PalaceDedicatedOwnedBlock
                 reason = "role-copy-transform:" + role.Token;
                 return false;
             }
-            float dstX = srcLocal.x + SpawnRoleShiftX;
+            float dstX = srcLocal.x + ctx.Recipe.SpawnRootShiftX;
             transform.localPosition = new Vector3(dstX, srcLocal.y, srcLocal.z);
             Vector3 applied = transform.localPosition;
             if (!Approx(applied.x, dstX) || !Approx(applied.y, srcLocal.y) || !Approx(applied.z, srcLocal.z))
@@ -1068,13 +1077,13 @@ internal static class PalaceDedicatedOwnedBlock
             }
         }
         ctx.RoleDetail = detail.ToString();
-        Log("spawn roles copied: copies=" + ctx.RoleCopies + " shiftX=" + F(SpawnRoleShiftX) + ctx.RoleDetail);
+        Log("spawn roles copied: copies=" + ctx.RoleCopies + " shiftX=" + F(ctx.Recipe.SpawnRootShiftX) + ctx.RoleDetail);
         return true;
     }
 
     /// <summary>
-    /// owned GameLayer 直接子终态核验：11 个 TileBig clone、6 个角色 clone（预算 exact）、恰好 2 个 typed
-    /// Beach 端部 clone（左 -14.6875/+1、右 +14.6875/-1，PalaceDedicatedEndpoints 契约）、Camp/Shop/Beggar
+    /// owned GameLayer 直接子终态核验：recipe.TileCount 个 TileBig clone、6 个角色 clone（预算 exact）、恰好 2 个 typed
+    /// Beach 端部 clone（recipe 两岸/+1与-1，PalaceDedicatedEndpoints 契约）、Camp/Shop/Beggar
     /// 保留、无 Grass、无未知；各 Tile clone 子树无 Grass 且 scatter 已清。
     /// </summary>
     private static bool TryVerifyOwnedStructure(Transform ownedLayer, BuildContext ctx, out string reason)
@@ -1085,7 +1094,10 @@ internal static class PalaceDedicatedOwnedBlock
         int beaches = 0, beachLeft = 0, beachRight = 0;
         string unknownName = "";
         int kids = ownedLayer.childCount;
-        if (kids > WalkMaxChildren) { reason = "owned-layer-child-budget:" + kids; return false; }
+        // This final GameLayer is the only expanded direct-child budget. Every source,
+        // pre-prune clone and nested subtree retains the original 32-child cap.
+        if (kids != ctx.ExpectedDirectChildren)
+        { reason = "owned-layer-child-count:" + kids + "/" + ctx.ExpectedDirectChildren; return false; }
         for (int i = 0; i < kids; i++)
         {
             Transform child = ownedLayer.GetChild(i);
@@ -1122,9 +1134,9 @@ internal static class PalaceDedicatedOwnedBlock
             if (PalaceDedicatedEndpoints.IsBeachEndpoint(go))
             {
                 beaches++;
-                if (Approx(child.localPosition.x, PalaceDedicatedEndpoints.OwnedBeachLeftX)
+                if (Approx(child.localPosition.x, ctx.Recipe.BeachLeftX)
                     && Approx(child.localScale.x, 1f)) beachLeft++;
-                else if (Approx(child.localPosition.x, PalaceDedicatedEndpoints.OwnedBeachRightX)
+                else if (Approx(child.localPosition.x, ctx.Recipe.BeachRightX)
                     && Approx(child.localScale.x, -1f)) beachRight++;
                 else
                 {
@@ -1152,9 +1164,9 @@ internal static class PalaceDedicatedOwnedBlock
         }
         if (grass != 0) { reason = "owned-direct-grass:" + grass; return false; }
         if (unknown != 0) { reason = "owned-unknown-child:" + unknownName; return false; }
-        if (tiles != OwnedTileCount || tiles != ctx.TileCopies)
+        if (tiles != ctx.Recipe.TileCount || tiles != ctx.TileCopies)
         {
-            reason = "owned-tile-count:" + tiles + "/" + OwnedTileCount + "/" + ctx.TileCopies;
+            reason = "owned-tile-count:" + tiles + "/" + ctx.Recipe.TileCount + "/" + ctx.TileCopies;
             return false;
         }
         if (prefabPh != ExpectedPrefabPlaceholders || wreck != ExpectedWreckPlaceholders
@@ -1179,9 +1191,10 @@ internal static class PalaceDedicatedOwnedBlock
                 + ",left=" + beachLeft + ",right=" + beachRight;
             return false;
         }
-        if (camp < 1 || shop < 1 || beggar < 1)
+        if (camp != ctx.CampKept || shop != ctx.ShopKept || beggar != ctx.BeggarKept)
         {
-            reason = "owned-camp-roles:camp=" + camp + ",shop=" + shop + ",beggar=" + beggar;
+            reason = "owned-camp-roles:camp=" + camp + "/" + ctx.CampKept
+                + ",shop=" + shop + "/" + ctx.ShopKept + ",beggar=" + beggar + "/" + ctx.BeggarKept;
             return false;
         }
         ctx.OwnedCampKept = camp;
@@ -1203,9 +1216,9 @@ internal static class PalaceDedicatedOwnedBlock
         int width = owned._width;
         float left = owned._left;
         float right = owned._right;
-        if (width != OwnedWidth) { reason = "owned-width:" + width + "/" + OwnedWidth; return false; }
-        if (!Approx(left, OwnedLeft)) { reason = "owned-left:" + F(left) + "/" + F(OwnedLeft); return false; }
-        if (!Approx(right, OwnedRight)) { reason = "owned-right:" + F(right) + "/" + F(OwnedRight); return false; }
+        if (width != ctx.Recipe.Width) { reason = "owned-width:" + width + "/" + ctx.Recipe.Width; return false; }
+        if (!Approx(left, ctx.Recipe.Left)) { reason = "owned-left:" + F(left) + "/" + F(ctx.Recipe.Left); return false; }
+        if (!Approx(right, ctx.Recipe.Right)) { reason = "owned-right:" + F(right) + "/" + F(ctx.Recipe.Right); return false; }
         string cross;
         try
         {

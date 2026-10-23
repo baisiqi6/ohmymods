@@ -2,8 +2,51 @@ using System;
 
 namespace KingdomEnhancedMod;
 
+/// <summary>Explicit logical master/transport coordinates. Caller owns reviewed asset provenance;
+/// construction validates shape only and never declares art/native acceptance.</summary>
+internal sealed class PalaceScrollDescriptor
+{
+    internal PalaceLayoutRecipe Recipe { get; }
+    internal int MasterWidthPx { get; }
+    internal int MasterHeightPx { get; }
+    internal int AxisPixelX { get; }
+    internal int FootlinePixelY { get; }
+    internal int TransportLeftPx { get; }
+    internal int TransportTopPx { get; }
+    internal int TransportRightPx { get; }
+    internal int TransportBottomPx { get; }
+    internal int TransportWidthPx => TransportRightPx-TransportLeftPx;
+    internal int TransportHeightPx => TransportBottomPx-TransportTopPx;
+    internal static readonly PalaceScrollDescriptor LegacyR4 = new();
+    internal static readonly PalaceScrollDescriptor Legacy44 = new(PalaceLayoutRecipe.Known44,1448,252,187,-32,0,1480,252);
+
+    // The old R4 canvas is also used by the legacy48 added region. It is not a whole-island recipe.
+    private PalaceScrollDescriptor()
+    {
+        Recipe=null; MasterWidthPx=1448; MasterHeightPx=252; AxisPixelX=645; FootlinePixelY=187;
+        TransportLeftPx=-32; TransportTopPx=0; TransportRightPx=1480; TransportBottomPx=252;
+    }
+
+    internal PalaceScrollDescriptor(PalaceLayoutRecipe recipe,int masterWidthPx,int masterHeightPx,
+        int footlinePixelY,int transportLeftPx,int transportTopPx,int transportRightPx,int transportBottomPx)
+    {
+        if(!PalaceLayoutRecipe.IsKnown(recipe))throw new ArgumentException("Unknown layout recipe.",nameof(recipe));
+        if(masterWidthPx!=recipe.MasterWidthPx || masterHeightPx!=recipe.MasterHeightPx)
+            throw new ArgumentException("Master dimensions differ from the known layout.");
+        if(footlinePixelY<=0 || footlinePixelY>=masterHeightPx)
+            throw new ArgumentOutOfRangeException(nameof(footlinePixelY));
+        long tw=(long)transportRightPx-transportLeftPx,th=(long)transportBottomPx-transportTopPx;
+        // Bounds arithmetic/descriptor extent; not individual texture size or a camera exposure claim.
+        if(tw<masterWidthPx || tw>65536 || th<masterHeightPx || th>2048 || transportLeftPx>0 || transportTopPx>0
+            || transportRightPx<masterWidthPx || transportBottomPx<masterHeightPx)
+            throw new ArgumentOutOfRangeException(nameof(transportRightPx),"Transport must contain the explicit master within the bounded canvas.");
+        Recipe=recipe; AxisPixelX=recipe.AxisPx; MasterWidthPx=masterWidthPx; MasterHeightPx=masterHeightPx; FootlinePixelY=footlinePixelY;
+        TransportLeftPx=transportLeftPx; TransportTopPx=transportTopPx; TransportRightPx=transportRightPx; TransportBottomPx=transportBottomPx;
+    }
+}
+
 /// <summary>
-/// R4「诸岛共天、同入天朝」1448×252 卷轴的共享坐标标定：逻辑像素（left-top 原点、x 向右、y 向下）
+/// R4 compatibility and explicit known-layout scroll calibration: logical pixels (left-top, x right, y down)
 /// 与归一化 pivot（BottomLeft）到世界坐标的换算。
 /// source-only 纯离线数学：仅依赖 System；无 Unity/Native/GUI/系统调用/文件读取/环境变量，
 /// 无周期扫描、无 hook、无全局可变状态、无 clamp/fallback（非法值一律拒绝）。
@@ -29,6 +72,8 @@ internal sealed class PalaceScrollCalibration
     internal const int FootlinePixelY = 187;
 
     /// <summary>世界单位/逻辑像素（s）；由创建 owner 显式给出，本模块不提供默认值。</summary>
+    internal PalaceScrollDescriptor Descriptor { get; }
+
     internal double UnitsPerPixel { get; }
 
     /// <summary>锚点垂线（主图 x=645）的世界 X；由创建 owner 显式给出。</summary>
@@ -46,7 +91,17 @@ internal sealed class PalaceScrollCalibration
     /// 任一不满足抛 ArgumentOutOfRangeException——拒绝而非默认。
     /// </summary>
     internal PalaceScrollCalibration(double unitsPerPixel, double anchorWorldX, double groundWorldY)
+        : this(PalaceScrollDescriptor.LegacyR4,unitsPerPixel,anchorWorldX,groundWorldY,false) { }
+
+    internal PalaceScrollCalibration(PalaceScrollDescriptor descriptor,double unitsPerPixel,double anchorWorldX,double groundWorldY)
+        : this(descriptor,unitsPerPixel,anchorWorldX,groundWorldY,true) { }
+
+    private PalaceScrollCalibration(PalaceScrollDescriptor descriptor,double unitsPerPixel,double anchorWorldX,double groundWorldY,bool physicalRecipe)
     {
+        Descriptor=descriptor ?? throw new ArgumentNullException(nameof(descriptor));
+        if(physicalRecipe && (!PalaceLayoutRecipe.IsKnown(descriptor.Recipe)
+            || unitsPerPixel!=descriptor.Recipe.UnitsPerPixel || anchorWorldX!=descriptor.Recipe.GateWorldX))
+            throw new ArgumentException("Physical layout calibration must match the frozen recipe grid/gate.");
         if (!IsFinite(unitsPerPixel))
             throw new ArgumentOutOfRangeException(nameof(unitsPerPixel), unitsPerPixel, "unitsPerPixel must be finite.");
         if (unitsPerPixel <= 0.0)
@@ -72,29 +127,45 @@ internal sealed class PalaceScrollCalibration
     }
 
     /// <summary>
-    /// 主图逻辑像素 X → 世界 X：anchorWorldX + s*(pixelX-AnchorPixelX)。
+    /// Master logical X → world X: anchorWorldX + s*(pixelX-descriptor.AxisPixelX).
     /// 输入与结果都必须 finite；非 finite 或溢出抛 ArgumentOutOfRangeException，不 clamp、不 fallback。
     /// </summary>
     internal double WorldX(double masterPixelX)
     {
         RequireFinite(masterPixelX, nameof(masterPixelX));
-        double worldX = AnchorWorldX + UnitsPerPixel * (masterPixelX - AnchorPixelX);
+        double worldX = AnchorWorldX + UnitsPerPixel * (masterPixelX - Descriptor.AxisPixelX);
         if (!IsFinite(worldX))
             throw new ArgumentOutOfRangeException(nameof(masterPixelX), masterPixelX, "world X result must be finite.");
         return worldX;
     }
 
     /// <summary>
-    /// 主图逻辑像素 Y → 世界 Y：groundY + s*(FootlinePixelY-pixelY)（像素 y 向下，世界 y 向上）。
+    /// Logical master Y → world Y uses the descriptor street reference. Individual assets use semantic local supports.
     /// 输入与结果都必须 finite；非 finite 或溢出抛 ArgumentOutOfRangeException，不 clamp、不 fallback。
     /// </summary>
     internal double WorldY(double masterPixelY)
     {
         RequireFinite(masterPixelY, nameof(masterPixelY));
-        double worldY = GroundWorldY + UnitsPerPixel * (FootlinePixelY - masterPixelY);
+        double worldY = GroundWorldY + UnitsPerPixel * (Descriptor.FootlinePixelY - masterPixelY);
         if (!IsFinite(worldY))
             throw new ArgumentOutOfRangeException(nameof(masterPixelY), masterPixelY, "world Y result must be finite.");
         return worldY;
+    }
+
+    // Local semantic support placement for street assets. Source/master transport Y is deliberately
+    // not an input. Boat waterlines and theatre-deck actors require their own measured/transformed plane.
+    internal double StreetWorldX(double designSupportX,double supportLocalX,double localX)
+    {
+        RequireFinite(supportLocalX,nameof(supportLocalX)); RequireFinite(localX,nameof(localX));
+        double result=WorldX(designSupportX)+UnitsPerPixel*(localX-supportLocalX);
+        RequireFinite(result,nameof(localX)); return result;
+    }
+    internal double StreetWorldY(double supportLocalY,double localY,double authoredOffsetYUnits)
+    {
+        RequireFinite(supportLocalY,nameof(supportLocalY)); RequireFinite(localY,nameof(localY));
+        RequireFinite(authoredOffsetYUnits,nameof(authoredOffsetYUnits));
+        double result=GroundWorldY+authoredOffsetYUnits+UnitsPerPixel*(supportLocalY-localY);
+        RequireFinite(result,nameof(localY)); return result;
     }
 
     // The adapter crosses from CLR doubles to Unity floats. Reject lost/overflowed canvas
@@ -102,9 +173,9 @@ internal sealed class PalaceScrollCalibration
     internal void RequireUnityCanvas()
     {
         float ppu = (float)PixelsPerUnit;
-        float width = 1512f / ppu, height = CanvasHeight / ppu;
-        float left = (float)WorldX(-32), axis = (float)WorldX(AnchorPixelX), right = (float)WorldX(1480);
-        float bottom = (float)WorldY(CanvasHeight), ground = (float)WorldY(FootlinePixelY), top = (float)WorldY(0);
+        float width = Descriptor.TransportWidthPx / ppu, height = Descriptor.TransportHeightPx / ppu;
+        float left = (float)WorldX(Descriptor.TransportLeftPx), axis = (float)WorldX(Descriptor.AxisPixelX), right = (float)WorldX(Descriptor.TransportRightPx);
+        float bottom = (float)WorldY(Descriptor.TransportBottomPx), ground = (float)WorldY(Descriptor.FootlinePixelY), top = (float)WorldY(Descriptor.TransportTopPx);
         if (!float.IsFinite(width) || !float.IsFinite(height) || width <= 0f || height <= 0f
             || !float.IsFinite(left) || !float.IsFinite(axis) || !float.IsFinite(right)
             || !float.IsFinite(bottom) || !float.IsFinite(ground) || !float.IsFinite(top)
@@ -126,8 +197,8 @@ internal sealed class PalaceScrollCalibration
             throw new ArgumentOutOfRangeException(nameof(height), height, "height must be > 0.");
 
         // origin 先提升为 double 再相减：避免极值 origin 下 int 减法回绕。
-        double x = (AnchorPixelX - (double)cropOriginX) / width;
-        double y = (height - (FootlinePixelY - (double)cropOriginY)) / height;
+        double x = (Descriptor.AxisPixelX - (double)cropOriginX) / width;
+        double y = (height - (Descriptor.FootlinePixelY - (double)cropOriginY)) / height;
         return new PalaceScrollPivot(x, y);
     }
 

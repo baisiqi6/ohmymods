@@ -1,0 +1,16 @@
+using KingdomEnhancedMod;using UnityEngine;
+int checks=0;void Check(bool b,string n){checks++;if(!b)throw new Exception(n);}void Refuse(Action a,string n){try{a();throw new Exception("not refused: "+n);}catch(InvalidOperationException){checks++;}}
+var layer=new Transform{Pointer=(IntPtr)7};var ground=new BoxCollider2D{bounds=new Bounds{min=new Vector3(-200,0,0),max=new Vector3(200,.885f,0),size=new Vector3(400,.885f,0)}};
+Managers.Inst=new Managers{level=new Level{GroundCollider=ground},world=new World{gameLayer=layer}};var binding=new CourtBinding{Parent=new Transform{parent=layer}};
+Refuse(()=>PalaceScrollNativeBinding.Calibrate(binding,0,.885f),"400 cannot reuse R4 descriptor");
+var d=new PalaceScrollDescriptor(PalaceLayoutRecipe.Capital400,12840,252,224,0,0,12840,252);
+var c=PalaceScrollNativeBinding.Calibrate(binding,PalaceCourtArea.View,d,.885f);Check(ground.Probes==3,"exactly3 collider probes");Check(c.WorldX(20)==-200&&c.WorldX(6420)==0&&c.WorldX(12820)==200,"physical endpoints and gate");
+Refuse(()=>PalaceScrollNativeBinding.Calibrate(binding,PalaceCourtArea.View,null,.885f),"missing descriptor");
+Refuse(()=>PalaceScrollNativeBinding.Calibrate(binding,PalaceCourtArea.View,PalaceScrollDescriptor.Legacy44,.885f),"wrong descriptor recipe");
+Refuse(()=>PalaceScrollNativeBinding.Calibrate(binding,new PalaceCourtLayoutView{Recipe=PalaceLayoutRecipe.Capital400},d,.885f),"stale view identity");
+PalaceCourtArea.Available=false;Refuse(()=>PalaceScrollNativeBinding.Calibrate(binding,PalaceCourtArea.View,d,.885f),"current layout unavailable");PalaceCourtArea.Available=true;
+PalaceCourtArea.View=new(){Recipe=PalaceLayoutRecipe.Known44};ground.bounds=new(){min=new Vector3(-22,0,0),max=new Vector3(22,.885f,0),size=new Vector3(44,.885f,0)};
+var old=PalaceScrollNativeBinding.Calibrate(binding,PalaceLayoutRecipe.Known44.GateWorldX,.885f);Check(old.Descriptor.FootlinePixelY==187&&old.WorldX(645)==-2.46875,"Known44 wrapper retains R4");
+PalaceCourtArea.DedicatedWholeEnabled=false;ground.bounds=new(){min=new Vector3(-300,0,0),max=new Vector3(300,.885f,0),size=new Vector3(600,.885f,0)};
+var legacy=PalaceScrollNativeBinding.Calibrate(binding,0,.885f);Check(legacy.Descriptor.MasterWidthPx==1448&&legacy.Descriptor.Recipe==null,"legacy48 original span route must not fabricate Known44 recipe");
+Console.WriteLine("PASS "+checks+" actual NativeBinding host checks; native collider physics unverified");

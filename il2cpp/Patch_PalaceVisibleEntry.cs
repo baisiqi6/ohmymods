@@ -307,6 +307,9 @@ internal sealed class PalaceVisibleEntryScene : MonoBehaviour
                 && !PalaceLand12Runtime.CanEnterPrepared(managers.game, out _))
             {
                 if (PalaceIslandTravel.HasActiveJourney) { WaitFor("config awaits travel handoff"); return; }
+                // The destination witness now depends on the existing prepared file table. Wait
+                // inside this bounded Playing window before consuming the one-shot attempt.
+                if (!PalaceLand12Runtime.Ready) { WaitFor("config generation/file table not ready"); return; }
                 var currentGlobal = GlobalSaveData.loaded;
                 var currentCampaign = CampaignSaveData.current;
                 if (currentGlobal == null || currentCampaign == null

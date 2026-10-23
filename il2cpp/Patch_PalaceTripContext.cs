@@ -3,6 +3,8 @@
 // sourceEntryAnchor（PalaceEntryAnchorData，必须非 null 且内部一致）；V3 = 13 keys，= V2 的 12 keys +
 // 唯一 sourceClockReceipt（真实 PalaceSourceClockReceipt 的 canonical JSON 串，必须与外层 tuple 全等：
 // tripId/campaignGuid 按 ordinal 逐字符，与真实 Clock SameTripId / Scope.Equals 同语义，不做大小写归一）。
+// V4 adds destinationLayoutId/version to V3 (15 keys); it requires a known immutable recipe.
+// V1-V3 never gain layout keys or inferred defaults; V4 retains the V3 receipt/size contracts.
 // schema 由 root 实际 version 决定，形态不互相塞字段：V1 带锚或带 receipt、V2 缺锚或带 receipt、V3 缺锚或
 // 缺 receipt 都判 Invalid；receipt 键出现在 V1/V2（null 也一样）按未知键拒绝，不迁移、不补 receipt。
 // TryParse 对 root、嵌套锚与 receipt 都做 exact key 复核（重复/未知/缺字段/类型/非有限/非整 side 全拒），
@@ -19,7 +21,7 @@ using System.Text.Json.Serialization;
 
 namespace KingdomEnhancedMod;
 
-/// <summary>行程记录（单条足够本私有 case）。keys 固定：V1=11 无锚，V2=12 带真实锚，V3=13 带真实锚 + 唯一 receipt。</summary>
+/// <summary>Single trip: V1=11 keys, V2=12 with anchor, V3=13 with receipt, V4=15 with known destination layout.</summary>
 internal sealed class PalaceTripRecord
 {
     [JsonPropertyName("version")] public int Version { get; set; } = 1;
@@ -41,6 +43,19 @@ internal sealed class PalaceTripRecord
     [JsonPropertyName("sourceClockReceipt")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string SourceClockReceipt { get; set; }
+    // Layout is absent (unknown) in v1-v3, required and known in v4.
+#nullable enable
+    [JsonPropertyName("destinationLayoutId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? DestinationLayoutId { get; set; }
+    [JsonPropertyName("destinationLayoutVersion")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? DestinationLayoutVersion { get; set; }
+    [JsonIgnore]
+    public PalaceLayoutRecipe? DestinationLayout => Version == 4 && DestinationLayoutId != null && DestinationLayoutVersion.HasValue
+        && PalaceLayoutRecipe.TryResolve(DestinationLayoutId, DestinationLayoutVersion.Value, out var recipe) ? recipe : null;
+#nullable restore
+
 }
 
 /// <summary>
@@ -76,6 +91,13 @@ internal static class PalaceTripContext
         "version", "tripId", "campaignGuid", "campaignSlot", "biome", "reign",
         "start", "sourceLand", "palaceLand", "phase", "migrationEvidence", "sourceEntryAnchor",
         "sourceClockReceipt"
+    };
+
+    private static readonly string[] ExpectedKeysV4 =
+    {
+        "version", "tripId", "campaignGuid", "campaignSlot", "biome", "reign",
+        "start", "sourceLand", "palaceLand", "phase", "migrationEvidence", "sourceEntryAnchor",
+        "sourceClockReceipt", "destinationLayoutId", "destinationLayoutVersion"
     };
 
     private static readonly string[] AnchorKeys =
@@ -233,6 +255,8 @@ internal static class PalaceTripContext
     internal static bool TupleEquals(PalaceTripRecord a, PalaceTripRecord b)
     {
         if (a == null || b == null) return false;
+        if ((a.Version == 4 || b.Version == 4)
+            && (!PalaceLayoutRecipe.IsKnown(a.DestinationLayout) || !PalaceLayoutRecipe.IsKnown(b.DestinationLayout))) return false;
         return a.Version == b.Version
             && string.Equals(a.TripId, b.TripId, StringComparison.Ordinal)
             && string.Equals(a.CampaignGuid, b.CampaignGuid, StringComparison.Ordinal)
@@ -244,6 +268,8 @@ internal static class PalaceTripContext
             && a.PalaceLand == b.PalaceLand
             && string.Equals(a.Phase, b.Phase, StringComparison.Ordinal)
             && string.Equals(a.MigrationEvidence, b.MigrationEvidence, StringComparison.Ordinal)
+            && string.Equals(a.DestinationLayoutId, b.DestinationLayoutId, StringComparison.Ordinal)
+            && a.DestinationLayoutVersion == b.DestinationLayoutVersion
             && AnchorEquals(a.Version, a.SourceEntryAnchor, b.SourceEntryAnchor)
             && ReceiptEquals(a, b);
     }
@@ -252,7 +278,13 @@ internal static class PalaceTripContext
     {
         reason = "";
         if (r == null) { reason = "null"; return false; }
-        if (r.Version != 1 && r.Version != 2 && r.Version != 3) { reason = "version:" + r.Version; return false; }
+        if (r.Version != 1 && r.Version != 2 && r.Version != 3 && r.Version != 4) { reason = "version:" + r.Version; return false; }
+        if (r.Version == 4)
+        {
+            if (!PalaceLayoutRecipe.IsKnown(r.DestinationLayout)) { reason = "v4-layout-unknown"; return false; }
+        }
+        else if (r.DestinationLayoutId != null || r.DestinationLayoutVersion != null)
+        { reason = "legacy-layout-not-null"; return false; }
         if (!ValidGuidD(r.TripId)) { reason = "tripId"; return false; }
         if (!ValidGuidD(r.CampaignGuid)) { reason = "campaignGuid"; return false; }
         if (r.CampaignSlot < 0) { reason = "campaignSlot:" + r.CampaignSlot; return false; }
@@ -328,9 +360,9 @@ internal static class PalaceTripContext
                 }
             }
             if (!versionSeen) { reason = "version-missing"; return false; }
-            if (version != 1 && version != 2 && version != 3) { reason = "version:" + version; return false; }
+            if (version != 1 && version != 2 && version != 3 && version != 4) { reason = "version:" + version; return false; }
             if (!LegacyCharsOk(version, json, out reason)) return false;
-            string[] expected = version == 1 ? ExpectedKeysV1 : version == 2 ? ExpectedKeysV2 : ExpectedKeysV3;
+            string[] expected = version == 1 ? ExpectedKeysV1 : version == 2 ? ExpectedKeysV2 : version == 3 ? ExpectedKeysV3 : ExpectedKeysV4;
             if (count != expected.Length) { reason = "key-count:" + count; return false; }
             foreach (string name in names)
             {
@@ -340,10 +372,10 @@ internal static class PalaceTripContext
                 if (!known) { reason = "unknown-key:" + name; return false; }
             }
             if (version >= 2 && !CheckAnchorShape(anchorElement, out reason)) return false;
-            if (version == 3 && !CheckReceiptShape(receiptElement, out reason)) return false;
+            if ((version == 3 || version == 4) && !CheckReceiptShape(receiptElement, out reason)) return false;
             PalaceTripRecord parsed = JsonSerializer.Deserialize<PalaceTripRecord>(json, Options);
             if (parsed == null) { reason = "deserialize-null"; return false; }
-            if (version == 3)
+            if (version == 3 || version == 4)
             {
                 if (!TryDecodeReceipt(parsed.SourceClockReceipt, out PalaceSourceClockReceipt receipt, out string receiptReason))
                 { reason = "receipt:" + receiptReason; return false; }
@@ -480,7 +512,7 @@ internal static class PalaceTripContext
         receipt = null;
         reason = "";
         if (r == null) { reason = "record-null"; return false; }
-        if (r.Version != 3) { reason = "version:" + r.Version; return false; }
+        if (r.Version != 3 && r.Version != 4) { reason = "version:" + r.Version; return false; }
         if (string.IsNullOrEmpty(r.SourceClockReceipt)) { reason = "v3-receipt-missing"; return false; }
         if (!TryDecodeReceipt(r.SourceClockReceipt, out receipt, out string receiptReason))
         { reason = "receipt:" + receiptReason; return false; }

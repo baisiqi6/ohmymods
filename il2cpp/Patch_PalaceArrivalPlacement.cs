@@ -1,6 +1,6 @@
 // Land12 arrival placement (private QA): after native ApplyStartPosition has placed P1 at the wreck
 // dock point (wreck.x + 0.5) for the single active PalaceSelected arrival, move P1 exactly once to
-// campfire.x - 2 so the player lands outside the courtyard door.
+// the frozen layout gate minus 2; legacy added-region gateway remains unchanged.
 // Patched current-interop overloads (exactly two):
 //   CampaignSaveData.ApplyToScene()  prefix = open arrival window | finalizer = close own window
 //   CampaignSaveData.ApplyStartPosition(Player,Player,Boat,WreckPlaceholder,bool,bool,bool)
@@ -158,14 +158,25 @@ internal static class PalaceArrivalPlacement
                 }
                 else
                 {
-                    Campfire campfire=m.kingdom.campfire;
-                    if (campfire==null || campfire.gameObject==null || campfire.transform==null || !campfire.gameObject.activeInHierarchy) reason="campfire";
+                    if(__state.Layout!=null)
+                    {
+                        if(!EntryLayoutCurrent(__state,m)) reason="entry-layout/trip-drift";
+                        else if(!NativeNear(__3.transform.position.x,4f+__state.Recipe.SpawnRootShiftX)) reason="recipe-wreck-x";
+                        else if(!GroundOk(m,__state.Recipe.FreshStandX,old.y,out IntPtr ground) || ground!=__state.Ground) reason="ground";
+                        else targetX=__state.Recipe.FreshStandX;
+                    }
                     else
                     {
-                        float anchorX=PalaceEntryAnchor(m,campfire);
-                        if (!Finite(anchorX) || Math.Abs(anchorX-__state.CampfireX)>AnchorTol) reason="anchor-x";
-                        else if (!GroundOk(m,anchorX-2f,old.y,out IntPtr ground) || ground!=__state.Ground) reason="ground";
-                        else targetX=anchorX-2f;
+                        Campfire campfire=m.kingdom.campfire;
+                        if(PalaceCourtArea.DedicatedWholeEnabled) reason="legacy-layout-mode-drift";
+                        else if (campfire==null || campfire.gameObject==null || campfire.transform==null || !campfire.gameObject.activeInHierarchy) reason="campfire";
+                        else
+                        {
+                            float anchorX=PalaceEntryAnchor(m,campfire);
+                            if (!Finite(anchorX) || Math.Abs(anchorX-__state.CampfireX)>AnchorTol) reason="anchor-x";
+                            else if (!GroundOk(m,anchorX-2f,old.y,out IntPtr ground) || ground!=__state.Ground) reason="ground";
+                            else targetX=anchorX-2f;
+                        }
                     }
                 }
                 if (reason=="ok")
@@ -210,7 +221,7 @@ internal static class PalaceArrivalPlacement
         PalaceEntryAnchorData entry=null;
         if (returning)
         {
-            if (!PalaceIslandTravel.ReturnAnchorEnabled || trip.Version!=2 || trip.SourceEntryAnchor==null
+            if (!PalaceIslandTravel.ReturnAnchorEnabled || !ReturnVersionAllowed(game,trip) || trip.SourceEntryAnchor==null
                 || instance.CurrentLand!=trip.SourceLand || !PalaceTripContext.TryBinding(global,instance,out string guid,out int slot,out reason)
                 || !PalaceTripContext.RecordMatches(instance,guid,slot,trip,out reason)
                 || !PalaceIslandTravel.TryGetReturningArrivalAnchor(game,tripId,out entry)
@@ -224,7 +235,14 @@ internal static class PalaceArrivalPlacement
         Player p1=m.kingdom.playerOne;
         if (p1==null || p1.Pointer==IntPtr.Zero) { reason="p1"; return null; }
         float anchorX;
+        PalaceCourtLayoutView layout=null;
         if (returning) anchorX=entry.EntryX;
+        else if(PalaceCourtArea.DedicatedWholeEnabled || trip.Version==4)
+        {
+            if(!PalaceCourtArea.TryGetLayout(m.level,out layout,out reason) || !EntryRecipeMatches(game,trip,layout))
+            { reason="entry-layout-key:"+reason; return null; }
+            anchorX=layout.GateWorldX;
+        }
         else
         {
             Campfire campfire=m.kingdom.campfire;
@@ -235,7 +253,43 @@ internal static class PalaceArrivalPlacement
         if (!Finite(anchorX) || !GroundOk(m,standX,null,out IntPtr ground)) { reason="ground/anchor"; return null; }
         return new Window { Game=game.Pointer,Kingdom=m.kingdom.Pointer,Campaign=instance.Pointer,
             PlayerOne=p1.Pointer,TripId=tripId,CampfireX=anchorX,Ground=ground,Returning=returning,EntryAnchor=entry,
-            Global=global.Pointer,Agent=exactAgent.Pointer };
+            Global=global.Pointer,Agent=exactAgent.Pointer,Layout=layout,Recipe=layout!=null?layout.Recipe:null };
+    }
+
+    private static bool EntryRecipeMatches(Game game,PalaceTripRecord trip,PalaceCourtLayoutView view)
+    {
+        if(view==null || !PalaceLayoutRecipe.IsKnown(view.Recipe))return false;
+        if(trip.Version==4)
+            return ReferenceEquals(trip.DestinationLayout,view.Recipe)
+                && PalaceIslandTravel.TryGetActiveArrivalLayout(game,trip.TripId,out var active)
+                && ReferenceEquals(active,view.Recipe);
+        return (trip.Version==1 || trip.Version==2 || trip.Version==3)
+            && ReferenceEquals(view.Recipe,PalaceLayoutRecipe.Known44);
+    }
+
+    private static bool ReturnVersionAllowed(Game game,PalaceTripRecord trip)
+        => trip.Version==2 || (trip.Version==4 && PalaceLayoutRecipe.IsKnown(trip.DestinationLayout)
+            && PalaceIslandTravel.TryGetActiveArrivalLayout(game,trip.TripId,out var active)
+            && ReferenceEquals(active,trip.DestinationLayout));
+
+    private static bool EntryLayoutCurrent(Window w,Managers m)
+    {
+        GlobalSaveData g=GlobalSaveData.loaded;
+        CampaignSaveData c=CampaignSaveData.current;
+        Il2CppObjectBase agent=Filer.agent as Il2CppObjectBase;
+        if(g==null || g.Pointer!=w.Global || g.InChallenge || c==null || c.Pointer!=w.Campaign
+            || c.CurrentLand!=PalaceLand12Runtime.LandIndex || m.game.currentLand!=PalaceLand12Runtime.LandIndex
+            || agent==null || agent.Pointer!=w.Agent || !AgentProved()
+            || g.GetCurrentCampaign()==null || g.GetCurrentCampaign().Pointer!=w.Campaign
+            || !PalaceIslandTravel.IsEnteringArrivalGame(m.game,w.TripId)
+            || !PalaceTripContext.TryBinding(g,c,out string guid,out int slot,out _)
+            || PalaceTripContext.Read(g,out var trip,out _)!=PalaceTripContext.ReadStatus.Ok
+            || trip.TripId!=w.TripId || trip.Phase!=PalaceTripContext.PhasePalaceSelected
+            || !PalaceTripContext.RecordMatches(c,guid,slot,trip,out _)
+            || !PalaceCourtArea.TryGetLayout(m.level,out var current,out _)
+            || !ReferenceEquals(current,w.Layout) || !ReferenceEquals(current.Recipe,w.Recipe)
+            || Math.Abs(current.GateWorldX-w.CampfireX)>AnchorTol) return false;
+        return EntryRecipeMatches(m.game,trip,current);
     }
 
     private static float PalaceEntryAnchor(Managers managers, Campfire campfire)
@@ -282,10 +336,12 @@ internal static class PalaceArrivalPlacement
     {
         internal IntPtr Game, Kingdom, Campaign, PlayerOne, Ground, Global, Agent;
         internal string TripId = "";
-        internal float CampfireX;
+        internal float CampfireX; // Historical name; freezes the verified layout gate for whole-island arrivals.
         internal bool BudgetConsumed;
         internal bool Returning;
         internal PalaceEntryAnchorData EntryAnchor;
+        internal PalaceCourtLayoutView Layout;
+        internal PalaceLayoutRecipe Recipe;
         internal int Depth = 1;
     }
 
@@ -313,7 +369,7 @@ internal static class PalaceArrivalPlacement
         if (owner==null || owner.Pointer!=w.Campaign || campaign.CurrentLand!=game.currentLand
             || !PalaceTripContext.TryBinding(global,campaign,out string guid,out int slot,out _)
             || PalaceTripContext.Read(global,out PalaceTripRecord trip,out _)!=PalaceTripContext.ReadStatus.Ok
-            || trip.Version!=2 || trip.Phase!=PalaceTripContext.PhaseReturnSelected || trip.TripId!=w.TripId
+            || !ReturnVersionAllowed(game,trip) || trip.Phase!=PalaceTripContext.PhaseReturnSelected || trip.TripId!=w.TripId
             || trip.SourceLand!=game.currentLand || !PalaceTripContext.RecordMatches(campaign,guid,slot,trip,out _)
             || !PalaceIslandTravel.SameAnchor(trip.SourceEntryAnchor,w.EntryAnchor)) return false;
         return true;

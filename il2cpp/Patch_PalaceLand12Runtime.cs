@@ -71,6 +71,7 @@ internal static class PalaceLand12Runtime
         internal int Start = -1; // Begin 时 campaign.realStartDateTime（int）
         internal ulong OldGame, OldManagers, Global, Campaign, Holder, NewGame;
         internal bool OwnerAdopted;
+        internal PalaceLayoutRecipe Recipe;
     }
 
     private static readonly HashSet<string> LoggedKeys = new HashSet<string>(StringComparer.Ordinal);
@@ -89,6 +90,7 @@ internal static class PalaceLand12Runtime
     private static int _prepReign = -1;
     private static string _prepGuid = "";
     private static int _prepSlot = -1;
+    private static PalaceLayoutRecipe _preparedRecipe, _publishedRecipe;
 
     // 唯一 active Reload 交接 token（无重试；成功完成或中止后为空）。
     private static ReloadHandoffToken _handoff;
@@ -220,6 +222,8 @@ internal static class PalaceLand12Runtime
         if (globalPtr == 0 || campaignPtr == 0 || holderPtr == 0 || gamePtr == 0 || reign < 0)
         { LogOnce("owner-unknown", "owned land12 identity unavailable; config blocked"); return true; }
 
+        if (!TryResolveConfigRecipe(campaign, out PalaceLayoutRecipe requestedRecipe, out string recipeReason))
+        { LogServe("config layout refused:" + recipeReason,holderPtr,globalPtr,campaignPtr,gamePtr); return true; }
         if (!_ownerBound)
         {
             BindOwner(globalPtr, campaignPtr, holderPtr, gamePtr, reign, campaign, "config-first-bind");
@@ -235,7 +239,7 @@ internal static class PalaceLand12Runtime
             }
         }
 
-        if (!TryGetReusableClone(holder, holderPtr, out LevelConfig clone, out string report))
+        if (!TryGetReusableClone(holder, holderPtr, requestedRecipe, out LevelConfig clone, out string report))
         {
             LogServe("config request failed closed: " + report, holderPtr, globalPtr, campaignPtr, gamePtr);
             return true;
@@ -261,8 +265,13 @@ internal static class PalaceLand12Runtime
     /// 同 owner/同 holder（含同 game）只复用；任何失败不重建、不二次分配。不是 CanStart。
     /// </summary>
     internal static bool PrepareForEntry(Game game, out string reason)
+        => PrepareForEntry(game, PalaceLayoutRecipe.Capital400, out reason);
+
+    internal static bool PrepareForEntry(Game game, PalaceLayoutRecipe required, out string reason)
     {
         reason = "";
+        if (!PalaceLayoutRecipe.IsKnown(required)) { reason="prepare-layout-unknown"; return false; }
+        if (!Ready) { reason="prepare-generation-or-file-table-not-ready"; return false; }
         if (!Enabled) { reason = "land12 私有模式未启用"; return false; }
         try
         {
@@ -289,6 +298,8 @@ internal static class PalaceLand12Runtime
             if (!PalaceTripContext.TryBinding(GlobalSaveData.loaded, campaign, out string guid, out int slot, out string bindDetail))
             { reason = "durable campaign 身份不可用：" + bindDetail; return false; }
 
+            if (_entryPrepared && !ReferenceEquals(required,_preparedRecipe))
+            { reason="prepare-layout-drift-within-epoch"; return false; }
             // 同 owner/同 holder/同 game 且已准备：只读复用，不再触发任何 cache 分配路径。
             if (_entryPrepared && globalPtr == _prepGlobal && campaignPtr == _prepCampaign
                 && holderPtr == _prepHolder && gamePtr == _prepGame && reign == _prepReign
@@ -316,7 +327,7 @@ internal static class PalaceLand12Runtime
                 return false;
             }
 
-            if (!TryGetReusableClone(holder, holderPtr, out _, out string cacheReport))
+            if (!TryGetReusableClone(holder, holderPtr, required, out _, out string cacheReport))
             {
                 reason = "配置准备失败（不重建）：" + cacheReport;
                 LogPrepare("prepare=failed; " + reason + "; " + IdentityLine(holderPtr, globalPtr, campaignPtr, gamePtr));
@@ -339,9 +350,10 @@ internal static class PalaceLand12Runtime
                 _boundSlot = slot;
                 Log("owner durable identity backfilled from prepare; guid=" + guid + " slot=" + slot);
             }
-            PalaceDestinationAdmission.NoteDestinationPrepare(campaign); // sidecar 磁盘 IO 只在源岛准备窗口执行
-            PalaceDestinationAdmission.RunResourcePrecheck();            // 资源预检（有界 IO）只在准备窗口执行一次
+            PalaceDestinationAdmission.NoteDestinationPrepare(campaign, required); // sidecar 磁盘 IO 只在源岛准备窗口执行
+            PalaceDestinationAdmission.RunResourcePrecheck(required);            // 资源预检（有界 IO）只在准备窗口执行一次
             _entryPrepared = true;
+            _preparedRecipe = required;
             _prepGlobal = globalPtr;
             _prepCampaign = campaignPtr;
             _prepHolder = holderPtr;
@@ -369,8 +381,14 @@ internal static class PalaceLand12Runtime
     /// 未知/未准备/漂移/交接进行中一律拒绝收费（fail-closed）。
     /// </summary>
     internal static bool CanEnterPrepared(Game game, out string reason)
+        => CanEnterPrepared(game, PalaceLayoutRecipe.Capital400, out reason);
+
+    internal static bool CanEnterPrepared(Game game, PalaceLayoutRecipe required, out string reason)
     {
         reason = "";
+        if (!PalaceLayoutRecipe.IsKnown(required) || !ReferenceEquals(required,_preparedRecipe)
+            || !ReferenceEquals(required,_publishedRecipe))
+        { reason="prepared-layout-mismatch"; return false; }
         if (!Enabled) { reason = "land12 私有模式未启用"; return false; }
         try
         {
@@ -504,8 +522,13 @@ internal static class PalaceLand12Runtime
             else
             { reason = "行程记录 phase 未知：" + record.Phase; return false; }
 
+            PalaceLayoutRecipe tripRecipe=record.Version==4?record.DestinationLayout:null;
+            if(record.Version==3 && !PalaceDestinationAdmission.TryResolveTripLayout(campaign,record,out tripRecipe,out reason))return false;
+            if(!PalaceLayoutRecipe.IsKnown(tripRecipe) || !ReferenceEquals(tripRecipe,_publishedRecipe))
+            { reason="handoff-layout-mismatch"; return false; }
             _handoff = new ReloadHandoffToken
             {
+                Recipe = tripRecipe,
                 TripId = tripId,
                 Phase = record.Phase,
                 TargetLand = targetLand,
@@ -593,7 +616,7 @@ internal static class PalaceLand12Runtime
                 if (TryMarkPreparedFromReusableClone(globalPtr, campaignPtr, holderPtr, gamePtr, reign, guid, slot, out string prepDetail))
                 {
                     // 新 epoch 必须刷新 sidecar 分类：clone reuse 早返回不得沿用 fresh 的 none 缓存。
-                    PalaceDestinationAdmission.NoteDestinationPrepare(campaign);
+                    PalaceDestinationAdmission.NoteDestinationPrepare(campaign,token.Recipe);
                     Log("handoff complete (return); entry re-prepared for next visit; " + prepDetail + "; trip=" + token.TripId);
                 }
                 else
@@ -673,6 +696,10 @@ internal static class PalaceLand12Runtime
         if (PalaceTripContext.Read(GlobalSaveData.loaded, out PalaceTripRecord record, out string readDetail)
             != PalaceTripContext.ReadStatus.Ok)
         { reason = "trip-record-unreadable:" + readDetail; return false; }
+        if ((record.Version==4 && !ReferenceEquals(record.DestinationLayout,token.Recipe))
+            || (record.Version==3 && !ReferenceEquals(token.Recipe,PalaceLayoutRecipe.Known44))
+            || (record.Version!=3 && record.Version!=4))
+        { reason="trip-layout-token-drift"; return false; }
         if (record.TripId != token.TripId || record.Phase != token.Phase || record.SourceLand != token.RecordSourceLand
             || record.CampaignGuid != token.CampaignGuid || record.CampaignSlot != token.CampaignSlot)
         { reason = "trip-record-drift"; return false; }
@@ -829,7 +856,9 @@ internal static class PalaceLand12Runtime
     {
         if (!CloneReusableForHolder(holderPtr, out string reuseReason))
         { detail = "clone 不可复用：" + reuseReason; return false; }
+        if(!PalaceLayoutRecipe.IsKnown(_publishedRecipe)) { detail="published-layout-unknown"; return false; }
         _entryPrepared = true;
+        _preparedRecipe = _publishedRecipe;
         _prepGlobal = globalPtr;
         _prepCampaign = campaignPtr;
         _prepHolder = holderPtr;
@@ -873,6 +902,32 @@ internal static class PalaceLand12Runtime
     /// 不进入 cache（避免把瞬时状态升级为 sticky，也杜绝第二次 Instantiate）；其余交给现有 TryGetClone
     /// （同 exact holder 只读复用；无 published 的首次才走一次有界构建）。
     /// </summary>
+    private static bool TryGetReusableClone(BiomeHolder holder,ulong holderPtr,PalaceLayoutRecipe recipe,
+        out LevelConfig clone,out string report)
+    {
+        clone=null;report="";
+        if(!PalaceLayoutRecipe.IsKnown(recipe) || (_publishedRecipe!=null && !ReferenceEquals(_publishedRecipe,recipe)))
+        { report="published-layout-reuse-mismatch";return false; }
+        if(!TryGetReusableClone(holder,holderPtr,out clone,out report))return false;
+        _publishedRecipe=recipe;return true;
+    }
+
+    private static bool TryResolveConfigRecipe(CampaignSaveData campaign,out PalaceLayoutRecipe recipe,out string reason)
+    {
+        recipe=null;reason="";
+        if(_handoff!=null)
+        {
+            if(!PalaceLayoutRecipe.IsKnown(_handoff.Recipe)) { reason="handoff-layout-unknown";return false; }
+            if(PalaceTripContext.Read(GlobalSaveData.loaded,out var trip,out reason)!=PalaceTripContext.ReadStatus.Ok
+                || trip.TripId!=_handoff.TripId || (trip.Version!=3 && trip.Version!=4)
+                || (trip.Version==4 && !ReferenceEquals(trip.DestinationLayout,_handoff.Recipe))
+                || (trip.Version==3 && !ReferenceEquals(_handoff.Recipe,PalaceLayoutRecipe.Known44)))return false;
+            recipe=_handoff.Recipe;return true;
+        }
+        if(PalaceTripContext.Read(GlobalSaveData.loaded,out var coldTrip,out reason)!=PalaceTripContext.ReadStatus.Ok)return false;
+        return PalaceDestinationAdmission.TryResolveTripLayout(campaign,coldTrip,out recipe,out reason);
+    }
+
     private static bool TryGetReusableClone(BiomeHolder holder, ulong holderPtr, out LevelConfig clone, out string report)
     {
         clone = null;
@@ -911,6 +966,14 @@ internal static class PalaceLand12Runtime
     }
 
     // Reader only: the existing owner and single published config certify this request.
+    internal static bool TryMatchPublishedGenerationConfig(LevelConfig config,out PalaceLayoutRecipe recipe,out string reason)
+    {
+        recipe=null;
+        if(!PalaceLayoutRecipe.IsKnown(_publishedRecipe)) { reason="published-layout-unknown";return false; }
+        if(!TryMatchPublishedGenerationConfig(config,out reason))return false;
+        recipe=_publishedRecipe;return true;
+    }
+
     internal static bool TryMatchPublishedGenerationConfig(LevelConfig config, out string reason)
     {
         reason = "";

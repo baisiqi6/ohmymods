@@ -8,7 +8,7 @@
 //   * 不实现文件 CAS、原子写或并发；R4 负责存储接线与真实费用记账。
 //
 // 契约要点：
-//   * schema = 1；stage 为固定字符串枚举；
+//   * schema1 preserves legacy unknown layout; schema2 binds a known current destination; stage strings are fixed;
 //   * owner 七元组：profile, campaignGuid, campaignSlot, biome(5), reign, start, playerSlot(1)，逐项精确比较；
 //   * sourceLand 属于 record（0..11），palaceLand 固定 12，两者都不进 ScopeKey；
 //   * ScopeKey = 长度前缀 UTF-8 → SHA-256 → 小写 64 hex；文件名算法只返回安全字符串；
@@ -721,6 +721,7 @@ namespace KingdomEnhancedMod
         public int SourceLand { get; }
         public int PalaceLand { get; }
         public PalacePaidAnchor Anchor { get; }
+        public PalaceLayoutRecipe? DestinationLayout { get; }
         public bool OnPayObserved { get; }
         public bool SettlementObserved { get; }
         public PalacePaidCaptureProof? CaptureProof { get; }
@@ -739,8 +740,11 @@ namespace KingdomEnhancedMod
             bool settlementObserved,
             PalacePaidCaptureProof? captureProof,
             PalacePaidFileProof? fileProof,
-            string? reason)
+            string? reason,
+            PalaceLayoutRecipe? destinationLayout = null)
         {
+            if (destinationLayout != null && !PalaceLayoutRecipe.IsKnown(destinationLayout))
+                throw new PalacePaidContractException("record.destinationLayout must be known or legacy unknown");
             if (tripId == Guid.Empty)
             {
                 throw new PalacePaidContractException("record.tripId must be a non-empty Guid");
@@ -917,6 +921,7 @@ namespace KingdomEnhancedMod
             SourceLand = sourceLand;
             PalaceLand = palaceLand;
             Anchor = anchor;
+            DestinationLayout = destinationLayout;
             OnPayObserved = onPayObserved;
             SettlementObserved = settlementObserved;
             CaptureProof = captureProof;
@@ -978,6 +983,7 @@ namespace KingdomEnhancedMod
             if (TripId != other.TripId || Revision != other.Revision || Stage != other.Stage) return false;
             if (!Owner.ContentEquals(other.Owner)) return false;
             if (SourceLand != other.SourceLand || PalaceLand != other.PalaceLand) return false;
+            if (!ReferenceEquals(DestinationLayout, other.DestinationLayout)) return false;
             if (!Anchor.ContentEquals(other.Anchor)) return false;
             if (OnPayObserved != other.OnPayObserved || SettlementObserved != other.SettlementObserved) return false;
             if ((CaptureProof == null) != (other.CaptureProof == null)) return false;
@@ -991,7 +997,8 @@ namespace KingdomEnhancedMod
     // ───────────────────────── envelope（current + 最多一笔 terminal history） ─────────────────────────
     internal sealed class PalacePaidEnvelope
     {
-        public const int CurrentSchema = 1;
+        public const int CurrentSchema = 2;
+        public const int LegacySchema = 1;
         public const int MaxHistory = 1;
 
         private readonly IReadOnlyList<PalacePaidRecord> _history;
@@ -1009,7 +1016,8 @@ namespace KingdomEnhancedMod
         public PalacePaidEnvelope(
             PalacePaidRecord current,
             IReadOnlyList<PalacePaidRecord>? history = null,
-            int schema = CurrentSchema)
+            // Compatibility default for legacy DTO callers. New Begin explicitly selects schema2.
+            int schema = LegacySchema)
             : this(current, history, schema, null)
         {
         }
@@ -1025,10 +1033,12 @@ namespace KingdomEnhancedMod
             {
                 throw new PalacePaidContractException("envelope.current is required");
             }
-            if (schema != CurrentSchema)
-            {
-                throw new PalacePaidContractException("envelope.schema must be 1");
-            }
+            if (schema != LegacySchema && schema != CurrentSchema)
+                throw new PalacePaidContractException("envelope.schema must be 1 or 2");
+            if (schema == LegacySchema && current.DestinationLayout != null)
+                throw new PalacePaidContractException("schema1 current has no layout");
+            if (schema == CurrentSchema && !PalaceLayoutRecipe.IsKnown(current.DestinationLayout!))
+                throw new PalacePaidContractException("schema2 current requires a known layout");
             if (boundRawSha != null && !PalacePaidText.IsLowerHex(boundRawSha, 64))
             {
                 throw new PalacePaidContractException("envelope.sourceBytesSha256 must be 64 lowercase hex");
@@ -1058,6 +1068,8 @@ namespace KingdomEnhancedMod
                 {
                     throw new PalacePaidContractException("envelope.history entries must be full records");
                 }
+                if (schema == LegacySchema && item.DestinationLayout != null)
+                    throw new PalacePaidContractException("schema1 history has no layout");
                 if (!PalacePaidStages.IsTerminal(item.Stage))
                 {
                     throw new PalacePaidContractException("envelope.history may only hold terminal records");
@@ -1151,6 +1163,7 @@ namespace KingdomEnhancedMod
         public PalacePaidExpectation Expectation { get; }
         public int SourceLand { get; }
         public PalacePaidAnchor? Anchor { get; }
+        public PalaceLayoutRecipe? DestinationLayout { get; }
         public PalacePaidCaptureProof? CaptureProof { get; }
         public PalacePaidFileProof? FileProof { get; }
         public string? Reason { get; }
@@ -1163,7 +1176,8 @@ namespace KingdomEnhancedMod
             PalacePaidAnchor? anchor,
             PalacePaidCaptureProof? captureProof,
             PalacePaidFileProof? fileProof,
-            string? reason)
+            string? reason,
+            PalaceLayoutRecipe? destinationLayout = null)
         {
             if (expectation == null)
             {
@@ -1171,6 +1185,7 @@ namespace KingdomEnhancedMod
             }
             Action = action;
             Expectation = expectation;
+            DestinationLayout = destinationLayout;
             TripId = tripId;
             SourceLand = sourceLand;
             Anchor = anchor;
@@ -1179,13 +1194,15 @@ namespace KingdomEnhancedMod
             Reason = reason;
         }
 
-        public static PalacePaidRequest Begin(PalacePaidExpectation expectation, Guid tripId, int sourceLand, PalacePaidAnchor anchor)
+        public static PalacePaidRequest Begin(PalacePaidExpectation expectation, Guid tripId, int sourceLand, PalacePaidAnchor anchor, PalaceLayoutRecipe destinationLayout)
         {
             if (anchor == null)
             {
                 throw new PalacePaidContractException("Begin requires an anchor");
             }
-            return new PalacePaidRequest(PalacePaidAction.Begin, expectation, tripId, sourceLand, anchor, null, null, null);
+            if (!PalaceLayoutRecipe.IsKnown(destinationLayout))
+                throw new PalacePaidContractException("Begin requires a known destination layout");
+            return new PalacePaidRequest(PalacePaidAction.Begin, expectation, tripId, sourceLand, anchor, null, null, null, destinationLayout);
         }
 
         public static PalacePaidRequest Cancel(PalacePaidExpectation expectation, Guid tripId)
@@ -1445,12 +1462,12 @@ namespace KingdomEnhancedMod
             var sb = new StringBuilder(1024);
             PalacePaidText.AppendInt(sb, "{\"schema\":", envelope.Schema);
             sb.Append(",\"current\":");
-            WriteRecord(sb, envelope.Current);
+            WriteRecord(sb, envelope.Current, envelope.Schema);
             sb.Append(",\"history\":[");
             for (int i = 0; i < envelope.History.Count; i++)
             {
                 if (i > 0) sb.Append(',');
-                WriteRecord(sb, envelope.History[i]);
+                WriteRecord(sb, envelope.History[i], envelope.Schema);
             }
             sb.Append("]}");
             return Encoding.UTF8.GetBytes(sb.ToString());
@@ -1463,7 +1480,7 @@ namespace KingdomEnhancedMod
             return PalacePaidText.ToLowerHex(hash);
         }
 
-        private static void WriteRecord(StringBuilder sb, PalacePaidRecord record)
+        private static void WriteRecord(StringBuilder sb, PalacePaidRecord record, int schema)
         {
             sb.Append("{\"tripId\":\"").Append(record.TripId.ToString("D")).Append('"');
             PalacePaidText.AppendInt(sb, ",\"revision\":", record.Revision);
@@ -1482,6 +1499,15 @@ namespace KingdomEnhancedMod
             if (record.FileProof == null) sb.Append("null"); else WriteFileProof(sb, record.FileProof);
             sb.Append(",\"reason\":");
             if (record.Reason == null) sb.Append("null"); else PalacePaidText.AppendQuoted(sb, record.Reason);
+            if (schema == PalacePaidEnvelope.CurrentSchema)
+            {
+                sb.Append(",\"destinationLayoutId\":");
+                if (record.DestinationLayout == null) sb.Append("null");
+                else PalacePaidText.AppendQuoted(sb, record.DestinationLayout.LayoutId);
+                sb.Append(",\"destinationLayoutVersion\":");
+                if (record.DestinationLayout == null) sb.Append("null");
+                else sb.Append(record.DestinationLayout.LayoutVersion.ToString(CultureInfo.InvariantCulture));
+            }
             sb.Append('}');
         }
 
@@ -1557,6 +1583,8 @@ namespace KingdomEnhancedMod
 
         private sealed class ParseState
         {
+            // Parse-local presence mask; root schema may occur after current/history.
+            internal readonly Dictionary<PalacePaidRecord, int> LayoutPresence = new();
             public PalacePaidError Error { get; private set; }
             public string? Detail { get; private set; }
 
@@ -1712,14 +1740,26 @@ namespace KingdomEnhancedMod
             if (!seenSchema) return state.Fail(PalacePaidError.MissingField, "schema");
             if (!seenCurrent) return state.Fail(PalacePaidError.MissingField, "current");
             if (!seenHistory) return state.Fail(PalacePaidError.MissingField, "history");
-            if (schema != PalacePaidEnvelope.CurrentSchema)
-            {
-                return state.Fail(PalacePaidError.BadVersion, "schema must be 1");
-            }
+            if (schema != PalacePaidEnvelope.LegacySchema && schema != PalacePaidEnvelope.CurrentSchema)
+                return state.Fail(PalacePaidError.BadVersion, "schema must be 1 or 2");
+            if (!ValidateLayoutFields(state, current!, schema, false, "current")) return false;
+            foreach (var item in history!)
+                if (!ValidateLayoutFields(state, item, schema, true, "history")) return false;
             if (reader.Read())
             {
                 return state.Fail(PalacePaidError.Trailing, "data after the root object");
             }
+            return true;
+        }
+
+        private static bool ValidateLayoutFields(ParseState state, PalacePaidRecord record, int schema, bool history, string path)
+        {
+            int fields = state.LayoutPresence[record];
+            if (schema == PalacePaidEnvelope.LegacySchema)
+                return fields == 0 || state.Fail(PalacePaidError.UnknownKey, path + ".destinationLayout");
+            if (fields != 3) return state.Fail(PalacePaidError.MissingField, path + ".destinationLayout");
+            if (!history && record.DestinationLayout == null)
+                return state.Fail(PalacePaidError.BadRecord, path + ".destinationLayout must be known");
             return true;
         }
 
@@ -1759,6 +1799,9 @@ namespace KingdomEnhancedMod
             bool seenTripId = false, seenRevision = false, seenStage = false, seenOwner = false;
             bool seenSourceLand = false, seenPalaceLand = false, seenAnchor = false;
             bool seenOnPay = false, seenSettlement = false, seenCapture = false, seenFile = false, seenReason = false;
+            bool seenLayoutId = false, seenLayoutVersion = false;
+            string? layoutId = null;
+            int? layoutVersion = null;
             bool sawEnd = false;
 
             Guid tripId = Guid.Empty;
@@ -1881,6 +1924,20 @@ namespace KingdomEnhancedMod
                             return false;
                         }
                         break;
+                    case "destinationLayoutId":
+                        if (seenLayoutId) return state.Fail(PalacePaidError.DuplicateKey, path + ".destinationLayoutId");
+                        seenLayoutId = true;
+                        if (reader.TokenType != JsonTokenType.Null && !ReadString(state, ref reader, path + ".destinationLayoutId", out layoutId)) return false;
+                        break;
+                    case "destinationLayoutVersion":
+                        if (seenLayoutVersion) return state.Fail(PalacePaidError.DuplicateKey, path + ".destinationLayoutVersion");
+                        seenLayoutVersion = true;
+                        if (reader.TokenType != JsonTokenType.Null)
+                        {
+                            if (!ReadInt(state, ref reader, path + ".destinationLayoutVersion", out int parsedVersion)) return false;
+                            layoutVersion = parsedVersion;
+                        }
+                        break;
                     default:
                         return state.Fail(PalacePaidError.UnknownKey, path + "." + name);
                 }
@@ -1907,7 +1964,13 @@ namespace KingdomEnhancedMod
 
             try
             {
-                record = new PalacePaidRecord(tripId, revision, stage, owner!, sourceLand, palaceLand, anchor!, onPay, settlement, capture, file, reason);
+                PalaceLayoutRecipe? layout = null;
+                if ((layoutId == null) != (layoutVersion == null))
+                    return state.Fail(PalacePaidError.BadRecord, path + ".destinationLayout null pair");
+                if (layoutId != null && !PalaceLayoutRecipe.TryResolve(layoutId, layoutVersion!.Value, out layout!))
+                    return state.Fail(PalacePaidError.BadRecord, path + ".destinationLayout unknown");
+                record = new PalacePaidRecord(tripId, revision, stage, owner!, sourceLand, palaceLand, anchor!, onPay, settlement, capture, file, reason, layout);
+                state.LayoutPresence.Add(record, (seenLayoutId ? 1 : 0) | (seenLayoutVersion ? 2 : 0));
             }
             catch (PalacePaidContractException ex)
             {
@@ -2707,6 +2770,8 @@ namespace KingdomEnhancedMod
                 }
 
                 case PalacePaidAction.ClaimDeparture:
+                    if (current.DestinationLayout == null)
+                        return PalacePaidApplyResult.Rejected(PalacePaidError.Payload, "legacy destination layout unknown; departure refused");
                     if (current.Stage == PalacePaidStage.DepartureClaimed) return PalacePaidApplyResult.NoChange(existing);
                     if (current.Stage != PalacePaidStage.Resumable) return StageRejected(current);
                     return Transition(existing, PalacePaidStage.DepartureClaimed, true, true, current.CaptureProof, current.FileProof);
@@ -2783,7 +2848,7 @@ namespace KingdomEnhancedMod
             PalacePaidRecord record;
             try
             {
-                record = new PalacePaidRecord(request.TripId, 1, PalacePaidStage.ChargeIntent, owner, request.SourceLand, PalacePaidRecord.RequiredPalaceLand, request.Anchor!, false, false, null, null, null);
+                record = new PalacePaidRecord(request.TripId, 1, PalacePaidStage.ChargeIntent, owner, request.SourceLand, PalacePaidRecord.RequiredPalaceLand, request.Anchor!, false, false, null, null, null, request.DestinationLayout);
             }
             catch (PalacePaidContractException ex)
             {
@@ -2805,7 +2870,7 @@ namespace KingdomEnhancedMod
             PalacePaidEnvelope envelope;
             try
             {
-                envelope = new PalacePaidEnvelope(record, historyRecords);
+                envelope = new PalacePaidEnvelope(record, historyRecords, PalacePaidEnvelope.CurrentSchema);
             }
             catch (PalacePaidContractException ex)
             {
@@ -2853,7 +2918,8 @@ namespace KingdomEnhancedMod
                     settlementObserved,
                     captureProof,
                     fileProof,
-                    reason);
+                    reason,
+                    current.DestinationLayout);
             }
             catch (PalacePaidContractException ex)
             {
@@ -2863,7 +2929,7 @@ namespace KingdomEnhancedMod
             PalacePaidEnvelope envelope;
             try
             {
-                envelope = new PalacePaidEnvelope(next, existing.History);
+                envelope = new PalacePaidEnvelope(next, existing.History, existing.Schema);
             }
             catch (PalacePaidContractException ex)
             {

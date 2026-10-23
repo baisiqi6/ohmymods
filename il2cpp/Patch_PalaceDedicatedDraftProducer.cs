@@ -23,7 +23,7 @@ internal static class PalaceDedicatedDraftProducer
     private const string BeachRightSourceName = "BeachRight_Blocks_Greece";
 
     internal static bool TryPrepare(GameObject inactiveOwner, LevelLayout layout,
-        LevelBlock campSource, LevelBlock spawnSource,
+        LevelBlock campSource, LevelBlock spawnSource, PalaceLayoutRecipe recipe,
         out Il2CppSystem.Collections.Generic.List<LevelBlock> finalDraft,
         out LevelBlock owned, out GameObject leftOwned, out GameObject rightOwned, out string reason)
     {
@@ -34,6 +34,8 @@ internal static class PalaceDedicatedDraftProducer
         reason = "";
         try
         {
+            if (!PalaceLayoutRecipe.IsKnown(recipe))
+                return Reject("layout-recipe-unknown", out reason);
             if (inactiveOwner == null || layout == null || PointerOf(layout) == IntPtr.Zero)
                 return Reject("owner-or-layout-null", out reason);
             IntPtr campPtr = PointerOf(campSource);
@@ -131,14 +133,14 @@ internal static class PalaceDedicatedDraftProducer
             // All input eligibility precedes this sole clone-construction call.
             // On failure, partial owned is kept for the caller's independent owner cleanup.
             if (!PalaceDedicatedOwnedBlock.TryBuild(inactiveOwner, campSource, spawnSource,
-                    beachLeftSource, beachRightSource,
+                    beachLeftSource, beachRightSource, recipe,
                     out owned, out leftOwned, out rightOwned, out string buildReason))
                 return Reject("owned-build:" + buildReason, out reason);
             IntPtr ownedPtr = PointerOf(owned);
             if (ownedPtr == IntPtr.Zero || ownedPtr == campPtr || ownedPtr == spawnPtr)
                 return Reject("owned-null-or-alias", out reason);
-            if (!owned._dimensionsComputed || owned._width != 44
-                || owned._left != -22f || owned._right != 22f)
+            if (!owned._dimensionsComputed || owned._width != recipe.Width
+                || owned._left != recipe.Left || owned._right != recipe.Right)
                 return Reject("owned-cached-geometry", out reason);
 
             // Stage and verify locally; only the caller subsequently publishes this list.

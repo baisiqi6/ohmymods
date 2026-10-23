@@ -27,6 +27,28 @@ internal static class PalaceScrollNativeBinding
     /// </summary>
     internal static PalaceScrollCalibration Calibrate(CourtBinding binding, float axisWorldX, float groundWorldY)
     {
+        if (!PalaceCourtArea.DedicatedWholeEnabled)
+            return CalibrateCore(binding,axisWorldX,groundWorldY,null,null); // legacy48 added-region route
+        Managers m=Managers.Inst;
+        if(m==null) throw new InvalidOperationException("Scroll whole-island managers unavailable.");
+        if(!PalaceCourtArea.TryGetLayout(m.level,out PalaceCourtLayoutView view,out string reason))
+            throw new InvalidOperationException("Scroll whole-island layout unavailable: "+reason);
+        if(!ReferenceEquals(view.Recipe,PalaceLayoutRecipe.Known44))
+            throw new InvalidOperationException("Capital400 requires an explicit reviewed scroll descriptor; no R4 footline fallback.");
+        return CalibrateCore(binding,axisWorldX,groundWorldY,view,PalaceScrollDescriptor.Legacy44);
+    }
+
+    internal static PalaceScrollCalibration Calibrate(CourtBinding binding, PalaceCourtLayoutView view,
+        PalaceScrollDescriptor descriptor, float groundWorldY)
+    {
+        if(view==null || descriptor==null || !ReferenceEquals(view.Recipe,descriptor.Recipe))
+            throw new InvalidOperationException("Scroll descriptor/current layout recipe mismatch or missing descriptor.");
+        return CalibrateCore(binding,view.GateWorldX,groundWorldY,view,descriptor);
+    }
+
+    private static PalaceScrollCalibration CalibrateCore(CourtBinding binding,float axisWorldX,float groundWorldY,
+        PalaceCourtLayoutView view,PalaceScrollDescriptor descriptor)
+    {
         Managers managers = Managers.Inst;
         if (managers == null || managers.level == null || managers.world == null || managers.world.gameLayer == null)
             throw new InvalidOperationException("R4 scroll calibration owner unavailable: Managers/level/world/gameLayer missing");
@@ -41,9 +63,22 @@ internal static class PalaceScrollNativeBinding
 
         if (!Finite(axisWorldX) || !Finite(groundWorldY))
             throw new InvalidOperationException("R4 anchor coordinates are not finite");
-        if (!PalaceCourtArea.TryGetSpan(managers.level, out float courtLeft, out float courtRight, out string courtReason))
-            throw new InvalidOperationException("R4 requires the verified owned court span; no camp fallback: " + courtReason);
-        float courtAxis = PalaceCourtArea.RenderAxis(courtLeft, courtRight);
+        float courtLeft,courtRight,courtAxis;
+        if(view!=null)
+        {
+            if(!PalaceCourtArea.TryGetLayout(managers.level,out PalaceCourtLayoutView current,out string layoutReason)
+                || !ReferenceEquals(current,view) || !ReferenceEquals(view.Recipe,descriptor.Recipe)
+                || view.LevelPointer!=(ulong)managers.level.Pointer.ToInt64()
+                || view.WorldLayerPointer!=(ulong)layer.Pointer.ToInt64())
+                throw new InvalidOperationException("Scroll layout owner/recipe drift: "+layoutReason);
+            courtLeft=view.Left; courtRight=view.Right; courtAxis=view.GateWorldX;
+        }
+        else
+        {
+            if (!PalaceCourtArea.TryGetSpan(managers.level, out courtLeft, out courtRight, out string courtReason))
+                throw new InvalidOperationException("R4 requires the verified owned court span; no camp fallback: " + courtReason);
+            courtAxis = PalaceCourtArea.RenderAxis(courtLeft, courtRight);
+        }
         if (Math.Abs(courtAxis - axisWorldX) > .02f)
             throw new InvalidOperationException("R4 axis differs from the current owned court span");
 
@@ -62,22 +97,30 @@ internal static class PalaceScrollNativeBinding
 
         if (PalaceCourtArea.DedicatedWholeEnabled && unitsPerPixel != 1d / 32d)
             throw new InvalidOperationException("Schema2 physical recipe and current native pixel grid disagree");
-        var calibration = new PalaceScrollCalibration(unitsPerPixel, axisWorldX, groundWorldY);
+        var calibration = descriptor!=null
+            ? new PalaceScrollCalibration(descriptor,unitsPerPixel,axisWorldX,groundWorldY)
+            : new PalaceScrollCalibration(unitsPerPixel,axisWorldX,groundWorldY);
         calibration.RequireUnityCanvas();
 
         float probeY = bounds.max.y + 2f;
         // The complete art includes20px of decorative shore beyond each physical edge in schema2.
         // Probe the owned physical endpoints; retain art scale/origin and viewport exposure guards unchanged.
-        double leftPixel = PalaceCourtArea.DedicatedWholeEnabled ? 645d + (courtLeft - axisWorldX) / unitsPerPixel : 0d;
-        double rightPixel = PalaceCourtArea.DedicatedWholeEnabled ? 645d + (courtRight - axisWorldX) / unitsPerPixel : 1448d;
-        string point0 = Probe(ground, bounds, calibration.WorldX(leftPixel), probeY, groundWorldY, "physicalLeftPixel=" + leftPixel.ToString("R"));
-        string pointAxis = Probe(ground, bounds, calibration.WorldX(645d), probeY, groundWorldY, "masterPixelX=645");
-        string pointRight = Probe(ground, bounds, calibration.WorldX(rightPixel), probeY, groundWorldY, "physicalRightPixel=" + rightPixel.ToString("R"));
+        double leftPixel = descriptor!=null ? descriptor.Recipe.BodyLeftPx : 0d;
+        double axisPixel = descriptor!=null ? descriptor.AxisPixelX : PalaceScrollCalibration.AnchorPixelX;
+        double rightPixel = descriptor!=null ? descriptor.Recipe.BodyRightPx : PalaceScrollCalibration.CanvasWidth;
+        string point0 = Probe(ground,bounds,calibration.WorldX(leftPixel),probeY,groundWorldY,"physicalLeftPixel="+leftPixel.ToString("R"));
+        string pointAxis = Probe(ground,bounds,calibration.WorldX(axisPixel),probeY,groundWorldY,"masterPixelX="+axisPixel.ToString("R"));
+        string pointRight = Probe(ground,bounds,calibration.WorldX(rightPixel),probeY,groundWorldY,"physicalRightPixel="+rightPixel.ToString("R"));
+        if(view!=null && (!PalaceCourtArea.TryGetLayout(managers.level,out var after,out _)
+            || !ReferenceEquals(after,view) || managers.level.GroundCollider==null
+            || managers.level.GroundCollider.Pointer!=ground.Pointer))
+            throw new InvalidOperationException("Scroll layout/ground changed during calibration.");
 
         PalaceCourtVisuals.Log("[PalaceScrollR4] calibrated unitsPerPixel=" + unitsPerPixel.ToString("R")
             + " pixelsPerUnit=" + calibration.PixelsPerUnit.ToString("R")
             + " axisWorldX=" + axisWorldX.ToString("R") + " groundWorldY=" + groundWorldY.ToString("R")
-            + " canvas=1448x252 axisPixelX=645 footlinePixelY=187"
+            + " canvas="+calibration.Descriptor.MasterWidthPx+"x"+calibration.Descriptor.MasterHeightPx
+            + " axisPixelX="+calibration.Descriptor.AxisPixelX+" footlinePixelY="+calibration.Descriptor.FootlinePixelY
             + " probes[" + point0 + " " + pointAxis + " " + pointRight + "]"
             + " evidence={" + (evidence ?? "(no evidence)") + "}"
             + "; environment ground pixel grid; adult BODY/camera world width/native water plane remain unmeasured; no actors placed; Native screen pending");
