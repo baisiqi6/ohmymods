@@ -1,3 +1,9 @@
+## 2026-10-23 — Android 零额外 Hook 加载对照：packet 已批准、plan 已登记，Native 启动被 DSH 沙箱 ps 权限阻止
+
+DSH 已完成 Batch A 最小工具派生与两级 source 增量复审（R3 资源身份、R4 正常包 protection pin），Codex 批准 source 与 packet 草案；packet/reviewed-source/source-review/gate/window 已冻结（manifest `26dbd6f0…`、gate `382b3058…`），新 case plan `a8e4b771…` 已按现有 Coordinate lifecycle 完成 revise/approve 并登记到 canonical，lease 刷新至 19:48:30Z，单次 gate 未消费。
+
+实际启动两次均在 VM/设备动作前 host-only 拒绝，原件保留：第一次为操作者预建空 `actual/` 目录触发“new host case directory required; no reuse”，第二次为 `PermissionError: [Errno 1] Operation not permitted: ps`——DSH 沙箱拒绝控制器执行 `ps` 进行 ADB/进程身份 preflight。两次均未启动 VM、未写设备、gate 未消费；资源保持（ADB 85922、端口空闲）。本单次窗口（endsAt 18:13:16Z）不执行即失效；继续需新窗口/plan 登记，并解决执行入口的 `ps` 权限：请求一次性 sandbox 例外，或由用户/Codex 在沙箱外执行冻结的 root-launch（同一实例单一实际操作者）。R2 判定边界不变，采集 exit0 不等于加载成功。
+
 ## 2026-10-23 — DSH 正式承接 Android 专项，主线 f2b6dc 合并入候选分支
 
 按用户 2026-10-23 原会话授权（readback 已存），DSH 原桌面会话经原生 envelope 完成正式交接；Coordinate #232/#262 已按 DSH 身份 `mac-dsh-ohmymods-android-operator`（session `dsh-android-profession-archery-20261023`）完成 assignment request/accept，canonical checklist 的 owner/session/workflow/lease 已更新，旧 owner 记录保留。原 Codex 转为增量 Reviewer，不再并行修改 Android 产品。

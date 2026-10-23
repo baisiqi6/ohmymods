@@ -1,6 +1,6 @@
 {
-  "case": "controlled-candidate133-native-definitions-fix-isolated-20261021-single1",
-  "objective": "boat-pool-definitions-fix-diagnostic",
+  "case": "controlled-candidate133-zero-extra-hook-control-isolated-20261023-single1",
+  "objective": "zero-extra-hook-load-control",
   "serial": "emulator-5582",
   "avd": "ohmymods_android35_inprocess",
   "emulator": "/opt/homebrew/share/android-commandlinetools/emulator/emulator",
@@ -36,8 +36,8 @@
     "preferenceKeys": 58
   },
   "addon": {
-    "path": "/Users/Admin/projects/ohmymods/.local/tasks/android-profession-archery-20261014/boat-upstream-20261021/pool-phase-fix-probe/root-build/bin/OhMyMods.NativeSceneControlProbe.dll",
-    "sha256": "f415a21bcad85e6cfa808425c73f77684652dd212d55c5c342300a80832897b6",
+    "path": "/Users/Admin/projects/ohmymods/.local/tasks/android-profession-archery-20261014/g19-s1-runtime-preparation-20261018/resume-20261019/loader-control-probe-worker/root-build/bin/OhMyMods.NativeSceneControlProbe.dll",
+    "sha256": "609efed2b058d398f3333c06d39d2c8318a72bbc827f0b68fa781927932b74f8",
     "dest": "/sdcard/Android/data/com.rawfury.kingdom2crowns/files/MelonLoader/Mods/OhMyMods.NativeSceneControlProbe.dll",
     "assembly": "OhMyMods.NativeSceneControlProbe"
   },
@@ -74,21 +74,6 @@
       "remote": "/sdcard/Android/data/com.rawfury.kingdom2crowns/files/MelonLoader/MelonLoader/Il2CppAssemblies/UnityEngine.CoreModule.dll",
       "local": "/Users/Admin/projects/ohmymods/.local/tasks/android-profession-archery-20261014/g1-native-memory-apkbudget/cases/swiftshader-memory-20261015-apkbudget-single1/original-logs/Il2CppAssemblies/UnityEngine.CoreModule.dll",
       "sha256": "4f50e9afbd69f692b4347a3ed12a548e2882c35f8dc3063dbdcf2cb9d10274f2"
-    },
-    {
-      "local": "/Users/Admin/projects/ohmymods/.local/tasks/android-inprocess-probe-20261003/loader-payload/assets/LemonLoader/runtime/loader/net6/0Harmony.dll",
-      "remote": "/sdcard/Android/data/com.rawfury.kingdom2crowns/files/MelonLoader/MelonLoader/net6/0Harmony.dll",
-      "sha256": "97b517c9b0f4907d36fc5dcd7d442a68408f3d3debe8ad8bc25a2368b1ca4fba"
-    },
-    {
-      "local": "/Users/Admin/projects/ohmymods/.local/tasks/android-inprocess-probe-20261003/loader-payload/assets/LemonLoader/runtime/loader/net6/Il2CppInterop.Common.dll",
-      "remote": "/sdcard/Android/data/com.rawfury.kingdom2crowns/files/MelonLoader/MelonLoader/net6/Il2CppInterop.Common.dll",
-      "sha256": "de8798e2db69d2dca1effecfcc46cb45579c4fe8e8afc32e045dc9c691beed76"
-    },
-    {
-      "local": "/Users/Admin/projects/ohmymods/.local/tasks/android-inprocess-probe-20261003/loader-payload/assets/LemonLoader/runtime/loader/net6/Il2CppInterop.HarmonySupport.dll",
-      "remote": "/sdcard/Android/data/com.rawfury.kingdom2crowns/files/MelonLoader/MelonLoader/net6/Il2CppInterop.HarmonySupport.dll",
-      "sha256": "bf1026831b71828e842a1a3c4a45d6d02ba48bb8bd81d529ddbc09d88fc96f1c"
     }
   ],
   "hostProtection": [
@@ -150,13 +135,13 @@
     "launchActivity": "eagle.simple.sdks.manage.FakeActivity",
     "probe": "/sdcard/Android/data/com.rawfury.kingdom2crowns/files/MelonLoader/Mods/OhMyMods.NativeSceneControlProbe.dll"
   },
-  "gateSHA256": "372d837778cd689abd83358536b12cfd250f75cc2f639b1c236f213e56bbf68b",
-  "sourceReviewSHA256": "d77bac42988b4bca54a7e85c19acf3a8b5671fda3018500d4200ef802c9cc124",
-  "resourceWindowSHA256": "563c5385b76324f45a38d0f5d7dc9d8d943a55c1dd42b740c3b4f8448edc87ed",
+  "gateSHA256": "382b305863e52c83d9c13bc64d0e09e66f1654526dd064675630eb2d02fd52a5",
+  "sourceReviewSHA256": "c855d0f1a9e7cc8e09186a183ecf02d35f98ab536e49629f27a4b53562c03cf9",
+  "resourceWindowSHA256": "54658e1996e33ea4ca74ec3f36f966197ff56bdb153fc88459050e9e0f497211",
   "taskIdentity": {
     "issue": 232,
-    "owner": "mac-codex-ohmymods-android-operator",
-    "session": "codex-android-profession-archery-20261014",
+    "owner": "mac-dsh-ohmymods-android-operator",
+    "session": "dsh-android-profession-archery-20261023",
     "operation": "a7459a58-3446-4856-aaa3-5f02e1115de2"
   }
 }
