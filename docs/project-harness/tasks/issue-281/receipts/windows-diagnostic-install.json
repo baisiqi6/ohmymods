@@ -1,0 +1,25 @@
+{
+  "utc": "2026-10-24T14:16:10.4150516Z",
+  "environment": "Windows x64 2.4.3 current independent player package",
+  "version": "10.9.39-win243-diag.281.1",
+  "installedDLLSHA256": "16a0ddb5d508997595019cc14d5bb6faa96908522977cd7cd3ca75f6ec2cc4e7",
+  "previousDLLSHA256": "730b58fdb22185f7bc58678f68d1b386031ed283469dd72c534477a810c06d63",
+  "minimalSourceDelta": "2 replaced production files + 1 diagnostic file + version shim; other 278 sources and 38 assets unchanged",
+  "backupFiles": 25,
+  "backupBytes": 11979487,
+  "backupReverified": true,
+  "sourceDataUnchanged": true,
+  "configurationUnchanged": true,
+  "noAutomaticRestore": true,
+  "noGameLaunched": true,
+  "phaseDecisionReview": "zhipu-coding-plan/glm-5.3 max; approved installation scope and transport delta",
+  "executionDeltaReview": "independent built-in Reviewer approved final explicit-backup atomic replacement",
+  "finalApplyScriptSHA256": "c911feca338028fd7894fef2c1402d00e6cffd76e20478590012d73d7228367b",
+  "attemptHistory": [
+    "stdin transfer stalled; only owned helper stopped after identity/data checks, original DLL unchanged",
+    "PowerShell5.1 null backup argument rejected before replace; original DLL/data unchanged",
+    "SCP and explicit atomic-backup filename passed; exact stage and 25 backup/data files reverified before fresh apply"
+  ],
+  "runtimeStatus": "read-only collector armed; user manual voyage diagnosis pending; save-semantic repair not claimed",
+  "publicEvidenceBoundary": "raw player logs/save/config/process identifiers and backup paths retained locally only"
+}

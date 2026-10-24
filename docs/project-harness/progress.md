@@ -1,6 +1,6 @@
 ## 2026-10-24 — #281 出航灰图修复与保存拒绝诊断待实机
 
-Windows 2.4.3 实际首错是来源岛出航 `save-missed-row → CaptureFault`，writer 保护拒绝；具体缺失 career 尚待诊断，不称存档语义已修。F5 owned-close 遗留 root CanvasGroup=false 的错误已修，独立 panel 37/37；identity default659/diag779（含target127）通过，四种240/243默认/诊断编译0W0E，Android host1265/0，未代验设备或Windows玩法。用户明确允许正常版手动测试和游戏读写当前档，先备份、不自动恢复；最小候选保留已安装旧基线，未带入新版宫廷。安装/原生结果另行留证，Issue保持开放。详见[阶段计划](tasks/issue-281/plan.md)。
+Windows 2.4.3 实际首错是来源岛出航 `save-missed-row → CaptureFault`，writer 保护拒绝；具体缺失 career 尚待诊断，不称存档语义已修。F5 owned-close 遗留 root CanvasGroup=false 的错误已修，独立 panel 37/37；identity default659/diag779（含target127）通过，四种240/243默认/诊断编译0W0E，Android host1265/0，未代验设备或Windows玩法。用户明确允许正常版手动测试和游戏读写当前档，先备份、不自动恢复；最小候选保留已安装旧基线，未带入新版宫廷。最小Windows诊断版16a0ddb5…cc4e7已安装，25份存档/配置完整备份并复验、写后保持，未自动开游戏或恢复；原生手动出航待采集，保存语义仍未修。安装回执单列，Issue保持开放。详见[阶段计划](tasks/issue-281/plan.md)。
 
 ## 2026-10-23 — #101 400u宫廷已合并并安装到正常ARM64包
 

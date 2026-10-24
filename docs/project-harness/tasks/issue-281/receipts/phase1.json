@@ -44,21 +44,19 @@
       "provider": "zhipu-coding-plan",
       "model": "glm-5.3",
       "thinking": "max",
-      "session": "01a16df3-f4b1-70ce-8df3-aa96f5ce2dba",
       "scope": "phase1 implementation/private builds, not runtime or merge"
     },
     "workers": {
       "provider": "deepseek",
       "model": "deepseek-flash",
-      "thinking": "max",
-      "saveSession": "01a16dff-5101-77a7-8941-5512ff9aa52b",
-      "panelSession": "01a16dff-50ff-74e2-9dc0-ea655af665c1"
+      "thinking": "max"
     },
     "independent": {
       "save": "approved A-v2 after read-fault counterexample",
       "panel": "approved B-v2 after partial-Hide counterexample",
       "nativePE": "gpt-6-astra, static only"
-    }
+    },
+    "nativeEvidence": "Provider-native session/transcripts retained task-locally; public model identity verified"
   },
   "boundaries": [
     "save-semantic fix not implemented",
