@@ -1069,8 +1069,18 @@ internal static class Program
 
         // Inconsistent query count: keep native flee.
         worker._enemyScanner._lastRefresh = 63f;
+#if ANDROID
+        // Android 数组 overload 只返回写入条数，没有 PC List 的 Count 交叉校验（真实 native 不会
+        // 返回超过容量的条数）；改为核对数组路径的两个 fail-closed 界：越界 count 与满缓冲截断。
+        Physics2D.ForceCount = 300;   // > 缓冲容量：越界 count 不可信
+        Check(!WallEngineerRuntime.MaySuppressFlee(worker), "android out-of-range count keeps native flee");
+        Physics2D.ForceCount = 256;   // == 缓冲容量：可能被截断 → 存疑
+        worker._enemyScanner._lastRefresh = 63.5f;
+        Check(!WallEngineerRuntime.MaySuppressFlee(worker), "android full buffer keeps native flee");
+#else
         Physics2D.ForceCount = 5;
         Check(!WallEngineerRuntime.MaySuppressFlee(worker), "count mismatch keeps native flee");
+#endif
         Physics2D.ForceCount = null;
 
         // Non-finite scanner parameters: keep native flee.
