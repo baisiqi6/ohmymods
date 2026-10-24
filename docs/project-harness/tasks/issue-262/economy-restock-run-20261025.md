@@ -30,3 +30,9 @@
 1. 分组补齐其余补货角色（弹药/火铳，按 issue-262 验收顺序），用同 fixture loader-control 机制 + 对应 cfg 变体。
 2. 原生保存/读档/换岛与池重建批次（需要新的 fixture/动作契约）。
 3. #232 职业激活付款正例、付费枪 park/unpark 与画面观察；#262/#232 保持 open，PR #263 保持 Draft。
+
+## 追加观察与下一组前提（2026-10-25 同 run）
+
+- 同 run 另有 `[BankAssistants] first assignment helper=1 … age=3.52s` → `first submission helper=1 … accepted=1`：8 助手池中至少一个助手完成了真实“领币→交银行”闭环（与 paid purchase 同段），但这不是原生银行账本持久化/保存验收。
+- r5 世界（day32 fixture）里 AutoRestock 只能看到 Workers 采购；Archers/Ninjas 已达标，其余 6 类（狂战士/无业村民/农夫/投石车油桶/火塔罐/火枪手）在该世界无对应店铺/塔（log 无 MusketeerShop/HeroShop/fire tower/catapult 等），因此下一组“弹药/火铳/全部助手”不能靠简单换 cfg 取得正例，需要另一份包含相应店铺/塔的 fixture 世界或新场景，否则只能记录为 world-precondition-missing（inconclusive）。
+- 保存/读档/换岛/池重建仍需新的动作/状态契约（当前 loader-control 零输入模型只覆盖首世界观察）。
