@@ -1,3 +1,7 @@
+## 2026-10-24 — 零额外 Hook 加载对照完成：init 正常返回 109，第 8 岛 Playing，无同船 NRE
+
+用户给予完全访问后 `ps` 阻塞解除；发现正常 Mac 包被其它任务更新（`055368a3…`，package-manifest/SHA256SUMS 有据），按 Operator 自审 R5 刷新 protection pin，并让 register 支持续窗 OLD plan。新 plan `0f6e69a5…` 已重新登记，lease `08:24:19Z`，单次 gate 消费一次。唯一 Native：c1e43/cfg16b/609e/F35fae，controller exit0、evidenceReportable true；候选归属/609e controlValid/READY 正常 STOP/无同船 NRE，且同段产品 `[AndroidPoolLifecycle] native InitPools returned count=109`。观察 249.3s，world Playing/2、island/campaign/game 8；Root postflight fullOriginal/sourceThree true、reap proven、root inputs 0/PNGs 0、baseline PNG 1；postrun F 仅 READ。BankAssistants 观察到八池 spawn 与一次 accepted，CrossbowBolt 池注册；HeavyShieldRuntime 与 CoinCourierTeleportFx 两条 MissingICall 警告仍在，运行 Signature 未取。结论限定为启动期无该 NRE + InitPools 自然返回；不证九自定义池正确、Native 兼容、保存/支付/玩法/手机。PR263 仍 Draft，232 继续 doing。
+
 ## 2026-10-23 — Android 零额外 Hook 加载对照：packet 已批准、plan 已登记，Native 启动被 DSH 沙箱 ps 权限阻止
 
 DSH 已完成 Batch A 最小工具派生与两级 source 增量复审（R3 资源身份、R4 正常包 protection pin），Codex 批准 source 与 packet 草案；packet/reviewed-source/source-review/gate/window 已冻结（manifest `26dbd6f0…`、gate `382b3058…`），新 case plan `a8e4b771…` 已按现有 Coordinate lifecycle 完成 revise/approve 并登记到 canonical，lease 刷新至 19:48:30Z，单次 gate 未消费。

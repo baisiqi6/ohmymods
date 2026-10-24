@@ -80,7 +80,7 @@
     {
       "label": "normalDLL",
       "path": "/Applications/ohmymods/arm64/BepInEx/plugins/KingdomEnhancedMod/KingdomEnhancedMod.dll",
-      "sha256": "25d9ffef5ad20436bf49c8f7f7c7fdb395e16a86f2bae63900ee6df0a8f4c156"
+      "sha256": "055368a3964d307b9a3155160d6a2036cd554f8765c7ea79bdac198b6e59fcaf"
     },
     {
       "label": "localChecklist",
@@ -135,9 +135,9 @@
     "launchActivity": "eagle.simple.sdks.manage.FakeActivity",
     "probe": "/sdcard/Android/data/com.rawfury.kingdom2crowns/files/MelonLoader/Mods/OhMyMods.NativeSceneControlProbe.dll"
   },
-  "gateSHA256": "382b305863e52c83d9c13bc64d0e09e66f1654526dd064675630eb2d02fd52a5",
-  "sourceReviewSHA256": "c855d0f1a9e7cc8e09186a183ecf02d35f98ab536e49629f27a4b53562c03cf9",
-  "resourceWindowSHA256": "54658e1996e33ea4ca74ec3f36f966197ff56bdb153fc88459050e9e0f497211",
+  "gateSHA256": "84f773707e8b5d6a27e05c553a86bcaec7f3dfd59ea61e81d11aa8af449a53d9",
+  "sourceReviewSHA256": "ec2fa93014d15f4f4ca7dab8c92404b60c1f1f8be22e5fceb20b8450f8162d01",
+  "resourceWindowSHA256": "80f5da3fa4b558c9fd0a363439aeba811ea74c1dd1f0b1f257cc7d6fda11552b",
   "taskIdentity": {
     "issue": 232,
     "owner": "mac-dsh-ohmymods-android-operator",
