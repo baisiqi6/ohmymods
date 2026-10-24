@@ -12,9 +12,11 @@
 //       枪口偏移（MusketeerCombat.TryComputeMuzzle）乘同一常量，所见与出膛一致；
 //       绝不复制一次性的世界坐标、不改父链任何 local 值。
 //
-// 原生隐藏：native.forceRenderingOff = true（CAS：凭据 HidNative，只写我们写过的 true，
-//       归还只写 false）。任何一步失败整组回滚（销毁自有子物体 + 归还原生渲染）。
-//       原生本来不可见（enabled=false / 第三方 forceRenderingOff）→ 不接管。
+// 原生隐藏：PC 原路径为 native.forceRenderingOff = true（CAS：凭据 HidNative，只写我们写过的
+//       true，归还只写 false）；Android 2.4 没有该 ICall，隐藏原语改为共享 Renderer.enabled
+//       （AndroidUnityCompat.Hide/Show，写后读回确认，凭据纪律不变：先记 HidNative 再写、
+//       只归还自己写下的隐藏、失败保留凭据）。任何一步失败整组回滚（销毁自有子物体 + 归还原生渲染）。
+//       原生本来不可见（enabled=false / 第三方隐藏，PC 为 forceRenderingOff）→ 不接管。
 //
 // 帧选择：每帧读原生 Animator 当前 state（shortNameHash + unwrapped normalizedTime + clip 长度）
 //       喂 <see cref="MusketeerAnimationState"/>：locomotion 用 "(nt × clip 长度) mod authored"，
@@ -32,7 +34,7 @@ using UnityEngine;
 
 namespace KingdomEnhancedMod;
 
-/// <summary>未显示自有帧的原因（诊断；同时决定是否归还原生 forceRenderingOff）。</summary>
+/// <summary>未显示自有帧的原因（诊断；同时决定是否归还原生渲染隐藏）。</summary>
 internal enum MusketeerVisualFallback
 {
     None = 0,
@@ -84,12 +86,18 @@ internal static class MusketeerVisuals
 
     private static readonly Dictionary<int, VisualState> Visuals = new Dictionary<int, VisualState>(8);
     private static readonly List<int> Scratch = new List<int>(8);
-    /// <summary>BeforeReuse 里归还 native forceRenderingOff 失败的状态（回调里不能重试/销毁）：保留凭据。</summary>
+    /// <summary>BeforeReuse 里归还 native 渲染隐藏失败的状态（回调里不能重试/销毁）：保留凭据。</summary>
     private static readonly List<VisualState> PendingReleases = new List<VisualState>(4);
     /// <summary>BeforeReuse 里只能先摘下的自有根（回调里绝不 Destroy）：下一次 Sync 收尾销毁。</summary>
     private static readonly List<GameObject> PendingRetireRoots = new List<GameObject>(4);
     private const int MaxPendingReleases = 16;
+#if ANDROID
+    // Android 2.4 没有 Renderer 的 Internal_Get/SetPropertyBlock ICall，因此不创建每实例 block
+    // 用于复制；只在首次跳过时记录一次 info。
+    private static bool _loggedPropertyBlockSkip;
+#else
     private static readonly MaterialPropertyBlock PropertyBlock = new MaterialPropertyBlock();
+#endif
 
     private static AtlasState _atlasState = AtlasState.Unknown;
     private static Texture2D _atlas;
@@ -136,7 +144,7 @@ internal static class MusketeerVisuals
     /// 2) 隐藏自有 renderer（只写 enabled，不 Destroy）；
     /// 3) 让出 GameObject 槽位（`Detached`）——`HasVisual`/`Sync` 因此绝不再把它当成当前 life 的视觉，
     ///    也绝不让它替当前 life 隐藏原生；
-    /// 4) 归还原生 `forceRenderingOff`；失败保留凭据（PendingReleases）由下一次 Sync 重试，
+    /// 4) 归还原生渲染隐藏（PC forceRenderingOff / Android 共享 enabled）；失败保留凭据（PendingReleases）由下一次 Sync 重试，
     ///    自有根同样交给下一次 Sync 销毁（回调里绝不 Destroy）。
     /// O(1) 查表，不扫世界、不逐帧调用。
     /// </summary>
@@ -308,18 +316,16 @@ internal static class MusketeerVisuals
 
         SpriteRenderer native = FindNativeRenderer(archer);
         if (native == null) return;
-        bool nativeVisible;
-        bool nativeForceOff;
         try
         {
-            nativeVisible = native.enabled;
-            nativeForceOff = native.forceRenderingOff;
+            // PC 原式：native.enabled && !native.forceRenderingOff（原生已隐藏 → 不接管）。
+            // Android 2.4 没有 forceRenderingOff，WouldRender 只读共享 enabled 字段。
+            if (!AndroidUnityCompat.WouldRender(native)) return;
         }
         catch (Exception)
         {
             return;
         }
-        if (!nativeVisible || nativeForceOff) return;   // 原生已隐藏：不接管
         if (!EnsureAtlas()) return;
         EnsureLeisureAtlas();
 
@@ -370,7 +376,7 @@ internal static class MusketeerVisuals
         }
     }
 
-    /// <summary>移除自有视觉：CAS 归还原生 forceRenderingOff + 销毁自有子物体。</summary>
+    /// <summary>移除自有视觉：CAS 归还原生渲染隐藏 + 销毁自有子物体。</summary>
     internal static void Remove(Archer archer)
     {
         try
@@ -467,7 +473,8 @@ internal static class MusketeerVisuals
         try
         {
             nativeEnabled = native.enabled;
-            nativeForceOff = native.forceRenderingOff;
+            // PC 原式：native.forceRenderingOff。Android 2.4 无该成员，IsHidden 读共享 enabled。
+            nativeForceOff = AndroidUnityCompat.IsHidden(native);
         }
         catch (Exception)
         {
@@ -515,8 +522,8 @@ internal static class MusketeerVisuals
             reason = hasAnimator ? MusketeerVisualFallback.UnknownState : MusketeerVisualFallback.NoAnimator;
         if (frame < 0 && reason == MusketeerVisualFallback.None) reason = MusketeerVisualFallback.UnknownState;
 
-        // 「原生不可见」= renderer 被关，或被**第三方** forceRenderingOff；我们自己写下的隐藏不算。
-        bool nativeHidden = !nativeEnabled || (nativeForceOff && !state.HidNative);
+        // 「原生不可见」= renderer 被关，或被**第三方**隐藏；我们自己写下的隐藏不算。
+        bool nativeHidden = NativeHidden(state, nativeEnabled, nativeForceOff);
         if (nativeHidden && reason == MusketeerVisualFallback.None) reason = MusketeerVisualFallback.NativeHidden;
         if (!NormalCharacter(state) && reason == MusketeerVisualFallback.None)
             reason = MusketeerVisualFallback.InertOrGrabbed;
@@ -528,6 +535,21 @@ internal static class MusketeerVisuals
                 && !aiming && LeisureEligible(state.Ref)) : -1;
 
         ApplyFrame(state, show ? frame : -1, reason);
+    }
+
+    /// <summary>
+    /// PC original: <c>!nativeEnabled || (nativeForceOff &amp;&amp; !state.HidNative)</c>。
+    /// Android 2.4：我们自己的隐藏写在共享 <c>Renderer.enabled</c> 上，因此只有未被我们记录
+    /// （<c>HidNative == false</c>）的隐藏才算原生/第三方隐藏；游戏自己写 enabled=false 与我们的
+    /// 隐藏在该 player 上不可区分（HidNative 时视为可见）。
+    /// </summary>
+    private static bool NativeHidden(VisualState state, bool nativeEnabled, bool nativeForceOff)
+    {
+#if ANDROID
+        return !nativeEnabled && !state.HidNative;
+#else
+        return !nativeEnabled || (nativeForceOff && !state.HidNative);
+#endif
     }
 
     /// <summary>原生 Character 处于可接管状态（非 inert/grabbed）时为 true；读不到 = false（fail-closed）。</summary>
@@ -584,7 +606,9 @@ internal static class MusketeerVisuals
             try
             {
                 state.HidNative = true;   // 先记责任再写 setter（写一半抛异常也能归还）
-                native.forceRenderingOff = true;
+                // PC 原式：native.forceRenderingOff = true。
+                // Android 2.4：写共享 enabled 字段并读回确认，未生效抛异常走上面的回滚。
+                AndroidUnityCompat.Hide(native);
             }
             catch (Exception)
             {
@@ -650,7 +674,11 @@ internal static class MusketeerVisuals
         if (native == null || own == null) return;
         try
         {
-            own.enabled = native.enabled;      // 原生隐藏（SetHideStatus/石化）时跟随；恢复时跟着恢复
+            // PC 原式：own.enabled = native.enabled（原生隐藏时跟随，恢复时跟着恢复）。
+            // Android 2.4：我们的隐藏写在共享 enabled 上，原生 enabled=false 可能正是我们刚写下的
+            // 隐藏，不能因此关掉自有 renderer；HidNative 表示隐藏是我们写的。PC 下 HidNative 时
+            // 同一帧随后的 ApplyNativePose 会按原生可见性重新设置 own.enabled，最终观感不变。
+            own.enabled = state.HidNative || native.enabled;
             own.sortingLayerID = native.sortingLayerID;
             own.sortingOrder = native.sortingOrder;
             own.flipX = native.flipX;
@@ -678,6 +706,23 @@ internal static class MusketeerVisuals
         catch (Exception)
         {
         }
+#if ANDROID
+        // Android 2.4 没有 UnityEngine.Renderer 的 Internal_GetPropertyBlock / Internal_SetPropertyBlock
+        // ICall（metadata 无方法定义，libil2cpp.so 无对应名称串），无法复制每实例 MaterialPropertyBlock
+        // 属性。这里显式跳过而不是假装复制成功；只在首次跳过时记一次 info，之后静默避免刷屏。
+        // 颜色/层/排序/材质仍按上面的原路径复制。
+        if (!_loggedPropertyBlockSkip)
+        {
+            _loggedPropertyBlockSkip = true;
+            try
+            {
+                KingdomEnhancedPlugin.Instance?.LogSource?.LogInfo(
+                    "[MusketeerVisual] android: per-instance MaterialPropertyBlock not copied"
+                    + " (Renderer Get/SetPropertyBlock ICall missing)");
+            }
+            catch { }
+        }
+#else
         try
         {
             native.GetPropertyBlock(PropertyBlock);
@@ -686,6 +731,7 @@ internal static class MusketeerVisuals
         catch (Exception)
         {
         }
+#endif
     }
 
     private static bool Valid(VisualState state)
@@ -734,7 +780,7 @@ internal static class MusketeerVisuals
         state.Ref = null;
     }
 
-    /// <summary>只归还「我们写过的」原生 forceRenderingOff（CAS：凭据 HidNative，只写 false）。</summary>
+    /// <summary>只归还「我们写过的」原生渲染隐藏（CAS：凭据 HidNative，PC 只写回 false）。</summary>
     private static bool ReleaseNativeHide(VisualState state)
     {
         if (!state.HidNative || state.Native == null)
@@ -757,7 +803,9 @@ internal static class MusketeerVisuals
         {
             try
             {
-                if (state.Native.forceRenderingOff) state.Native.forceRenderingOff = false;
+                // PC 原式：if (native.forceRenderingOff) native.forceRenderingOff = false。
+                // Android 2.4：IsHidden 读共享 enabled；只归还我们写下的隐藏，Show 写后读回确认。
+                if (AndroidUnityCompat.IsHidden(state.Native)) AndroidUnityCompat.Show(state.Native);
             }
             catch (Exception)
             {
