@@ -128,6 +128,10 @@
     <Compile Include="../il2cpp/DeadlandsFollowerCapture.cs" Link="Shared/DeadlandsFollowerCapture.cs" />
     <Compile Include="../il2cpp/FleetGreekSquads.cs" Link="Shared/FleetGreekSquads.cs" />
     <Compile Include="../il2cpp/GuardRankDistribution.cs" Link="Shared/GuardRankDistribution.cs" />
+    <!-- HeavyShield attach/visual Android boundary: the 2.4 player has no Renderer.forceRenderingOff,
+         Renderer.Get/SetPropertyBlock or Time.unscaledTimeAsDouble ICalls. The PC expressions stay
+         verbatim in the #else branch of AndroidUnityCompat. -->
+    <Compile Include="../il2cpp/AndroidUnityCompat.cs" Link="Shared/AndroidUnityCompat.cs" />
     <Compile Include="../il2cpp/HeavyShieldActorVisuals.cs" Link="Shared/HeavyShieldActorVisuals.cs" />
     <Compile Include="../il2cpp/HeavyShieldBlockPolicy.cs" Link="Shared/HeavyShieldBlockPolicy.cs" />
     <Compile Include="../il2cpp/HeavyShieldCombat.cs" Link="Shared/HeavyShieldCombat.cs" />

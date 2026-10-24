@@ -27,14 +27,17 @@ Arrow ArrowFrom(float vx)
 Character PeasantResult() {var go=new GameObject("native peasant");go.transform.SetParent(Managers.Inst.world.gameLayer,false);go.AddComponent<Peasant>();return go.AddComponent<Character>();}
 void NativePool(GameObject root) {HeavyShieldIntegration.BeforePoolDespawn(root,0);root.SetActive(false);HeavyShieldIntegration.AfterPoolDespawn(root,0);}
 
-// Android 2.4 has no SpriteRenderer.flipY getter/setter. The platform boundary must skip only
-// that pair and keep the rest of CopyLook (facing/color/layer/material/property block) intact.
+// Android 2.4 has no SpriteRenderer.flipY getter/setter and no Renderer forceRenderingOff /
+// Get/SetPropertyBlock ICalls. The platform boundary must skip only those members and keep the
+// rest of CopyLook (facing/color/layer/material) intact.
 // Runs before legacy banner fixtures because this suite has no Android banner owner.
 {
     using var flipFixture = new Fixture();
     bool flipAttached=flipFixture.Attach(new(3,false,false));
 #if ANDROID
     Check(flipAttached,$"flipY platform contract attach (reads={SpriteRenderer.FlipYReads} writes={SpriteRenderer.FlipYWrites})");
+    Check(Renderer.ForceOffReads==0&&Renderer.ForceOffWrites==0,
+        $"Android never accesses forceRenderingOff: reads={Renderer.ForceOffReads} writes={Renderer.ForceOffWrites}");
 #else
     Check(flipAttached,"flipY platform contract attach");
 #endif
@@ -55,7 +58,12 @@ void NativePool(GameObject root) {HeavyShieldIntegration.BeforePoolDespawn(root,
     HeavyShieldActorVisuals.Tick(flipFixture.Handle.GoId);
     Check(flipOwn.color.Value==flipNative.color.Value&&flipOwn.sortingLayerID==flipNative.sortingLayerID&&flipOwn.sortingOrder==flipNative.sortingOrder
         &&flipOwn.gameObject.layer==flipNative.gameObject.layer&&ReferenceEquals(flipOwn.sharedMaterial,flipNative.sharedMaterial)
-        &&NativeBoundaryWrites.Count>flipWrites,"flipY boundary keeps color/layer/order/material/property block writes");
+        &&NativeBoundaryWrites.Count>flipWrites,"flipY boundary keeps color/layer/order/material and renderer writes");
+#if ANDROID
+    // The skipped property-block copy must announce itself exactly once, not once per frame.
+    Check(KingdomEnhancedPlugin.Instance.LogSource.Infos==1,
+        $"Android property-block skip logs once: infos={KingdomEnhancedPlugin.Instance.LogSource.Infos}");
+#endif
 }
 #if ANDROID
 Console.WriteLine($"PASS Android flipY contract: {checks} assertions");

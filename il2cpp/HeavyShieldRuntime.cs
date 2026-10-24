@@ -262,7 +262,7 @@ internal static class HeavyShieldRuntime
             if (currentCount >= 4 || Entries.Count >= 64) return AttachResult.Failed;
             // Only native tower/knight/formation membership is relaxed. OnDisable, not field writes, exits these jobs.
             if (!carrier.enabled || !CleanCarrier(carrier, allowNativeJobs: true)
-                || !carrier._spriteRenderer.enabled || carrier._spriteRenderer.forceRenderingOff) return AttachResult.Deferred;
+                || !AndroidUnityCompat.WouldRender(carrier._spriteRenderer)) return AttachResult.Deferred;
             if (!HeavyShieldNativeHooks.Installed || Managers.Inst.targetCache == null) return AttachResult.Deferred;
             foreach (var row in Entries.Values)
                 if (row.Career.World == handle.World && (!row.Attached || !SameRoot(row)
