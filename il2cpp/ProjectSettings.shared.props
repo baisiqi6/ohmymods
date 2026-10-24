@@ -1,6 +1,10 @@
 <Project>
     <!-- 跨架构配置：Debug/BIE6_IL2CPP → net6.0 + IL2CPP 宏；BIE6_Mono → netstandard2.1 + MONO 宏
          （抄自 KingdomMod/ProjectSettings.shared.props，去掉了 MinVer 版本号机制） -->
+    <PropertyGroup>
+        <!-- Explicit game interop version; never auto-detected. Supported: 2.4.0 (default), 2.4.3. -->
+        <GameInteropVersion Condition="'$(GameInteropVersion)' == ''">2.4.0</GameInteropVersion>
+    </PropertyGroup>
     <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
         <TargetFramework>net6.0</TargetFramework>
         <DefineConstants>IL2CPP,BIE,BIE6</DefineConstants>
@@ -13,4 +17,13 @@
         <TargetFramework>netstandard2.1</TargetFramework>
         <DefineConstants>MONO,BIE,BIE6</DefineConstants>
     </PropertyGroup>
+
+    <PropertyGroup Condition="'$(GameInteropVersion)' == '2.4.3'">
+        <DefineConstants>$(DefineConstants);KTC_GAME_243</DefineConstants>
+    </PropertyGroup>
+
+    <Target Name="KTCValidateGameInteropVersion" BeforeTargets="CoreCompile"
+            Condition="'$(GameInteropVersion)' != '2.4.0' and '$(GameInteropVersion)' != '2.4.3'">
+        <Error Text="Unsupported GameInteropVersion '$(GameInteropVersion)'. Supported values: 2.4.0, 2.4.3." />
+    </Target>
 </Project>

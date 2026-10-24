@@ -10,6 +10,17 @@ using Coatsink.Common;
 #endif
 using HarmonyLib;
 
+// Bind the typed MoveNext hooks to the explicitly selected interop version.
+#if KTC_GAME_243
+using SaveRoutine = GlobalSaveData._Save_d__92;
+using DeleteCampaignRoutine = GlobalSaveData.__TryDeleteCampaign_d__94;
+using DeleteChallengeRoutine = GlobalSaveData.__TryDeleteChallenge_d__97;
+#else
+using SaveRoutine = GlobalSaveData._Save_d__89;
+using DeleteCampaignRoutine = GlobalSaveData.__TryDeleteCampaign_d__91;
+using DeleteChallengeRoutine = GlobalSaveData.__TryDeleteChallenge_d__94;
+#endif
+
 namespace KingdomEnhancedMod;
 
 // New hero receipts travel with the native wallet in GlobalSaveData.prefs. The sidecar remains
@@ -612,10 +623,10 @@ internal static class HeroNativeRights
         }
     }
 
-    [HarmonyPatch(typeof(GlobalSaveData._Save_d__89), nameof(GlobalSaveData._Save_d__89.MoveNext))]
+    [HarmonyPatch(typeof(SaveRoutine), nameof(SaveRoutine.MoveNext))]
     private static class SyncGate
     {
-        [HarmonyPrefix] private static bool Prefix(GlobalSaveData._Save_d__89 __instance, ref bool __result)
+        [HarmonyPrefix] private static bool Prefix(SaveRoutine __instance, ref bool __result)
         {
             if (__instance == null || __instance.__1__state != 0 || Prepare(__instance.__4__this)) return true;
             try
@@ -639,11 +650,11 @@ internal static class HeroNativeRights
     private static class DeleteCampaignPatch
     { [HarmonyPrefix] private static void Prefix(GlobalSaveData __instance) => BeforeCatalogMutation(__instance); }
 
-    [HarmonyPatch(typeof(GlobalSaveData.__TryDeleteCampaign_d__91),
-        nameof(GlobalSaveData.__TryDeleteCampaign_d__91.MoveNext))]
+    [HarmonyPatch(typeof(DeleteCampaignRoutine),
+        nameof(DeleteCampaignRoutine.MoveNext))]
     private static class DeleteCampaignRoutinePatch
     {
-        [HarmonyPrefix] private static void Prefix(GlobalSaveData.__TryDeleteCampaign_d__91 __instance)
+        [HarmonyPrefix] private static void Prefix(DeleteCampaignRoutine __instance)
         { if (__instance != null && __instance.__1__state == 0) BeforeCatalogMutation(GlobalSaveData._loaded); }
     }
 
@@ -651,11 +662,11 @@ internal static class HeroNativeRights
     private static class DeleteChallengePatch
     { [HarmonyPrefix] private static void Prefix(GlobalSaveData __instance) => BeforeCatalogMutation(__instance); }
 
-    [HarmonyPatch(typeof(GlobalSaveData.__TryDeleteChallenge_d__94),
-        nameof(GlobalSaveData.__TryDeleteChallenge_d__94.MoveNext))]
+    [HarmonyPatch(typeof(DeleteChallengeRoutine),
+        nameof(DeleteChallengeRoutine.MoveNext))]
     private static class DeleteChallengeRoutinePatch
     {
-        [HarmonyPrefix] private static void Prefix(GlobalSaveData.__TryDeleteChallenge_d__94 __instance)
+        [HarmonyPrefix] private static void Prefix(DeleteChallengeRoutine __instance)
         { if (__instance != null && __instance.__1__state == 0) BeforeCatalogMutation(GlobalSaveData._loaded); }
     }
 }
