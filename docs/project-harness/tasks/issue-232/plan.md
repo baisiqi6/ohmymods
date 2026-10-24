@@ -1,6 +1,6 @@
 {
-  "case": "controlled-candidate133-zero-extra-hook-control-isolated-20261023-single1",
-  "objective": "zero-extra-hook-load-control",
+  "case": "controlled-candidate133-icall-signature-isolated-20261024-single1",
+  "objective": "icall-signature-probe",
   "serial": "emulator-5582",
   "avd": "ohmymods_android35_inprocess",
   "emulator": "/opt/homebrew/share/android-commandlinetools/emulator/emulator",
@@ -23,8 +23,8 @@
     "never"
   ],
   "candidateMain": {
-    "path": "/Users/Admin/projects/ohmymods/.local/tasks/android-profession-archery-20261014/boat-upstream-20261021/implementation-native-definitions-20261021/root-build-identity/release/OhMyMods.AndroidProbe.dll",
-    "sha256": "c1e43d48960a99977c870f88f331e106ded3a8ea2201c4f81e9f01925d9445c6",
+    "path": "/Users/Admin/projects/ohmymods/.local/tasks/android-profession-archery-20261014/icall-signature-20261024/root-build/release/OhMyMods.AndroidProbe.dll",
+    "sha256": "aac037c0c06f81b5609be686f968196dd619903b94fc22bf6e52be11e140c54b",
     "dest": "/sdcard/Android/data/com.rawfury.kingdom2crowns/files/MelonLoader/Mods/OhMyMods.AndroidProbe.dll",
     "originalSHA256": "5460efd9652731ce50b3d69d10570f3f599cce1935c007e0afe71a0669da156b"
   },
@@ -135,9 +135,9 @@
     "launchActivity": "eagle.simple.sdks.manage.FakeActivity",
     "probe": "/sdcard/Android/data/com.rawfury.kingdom2crowns/files/MelonLoader/Mods/OhMyMods.NativeSceneControlProbe.dll"
   },
-  "gateSHA256": "84f773707e8b5d6a27e05c553a86bcaec7f3dfd59ea61e81d11aa8af449a53d9",
-  "sourceReviewSHA256": "ec2fa93014d15f4f4ca7dab8c92404b60c1f1f8be22e5fceb20b8450f8162d01",
-  "resourceWindowSHA256": "80f5da3fa4b558c9fd0a363439aeba811ea74c1dd1f0b1f257cc7d6fda11552b",
+  "gateSHA256": "ff4ce1e1af78ea88387e5a9b1c645ddb7643b1f83439a8e2a47781d7e8f74f99",
+  "sourceReviewSHA256": "b3e24f912666e7d92f5e3b1870fd694827de98aa6c315359d4549bbe46020e88",
+  "resourceWindowSHA256": "dfa658c98e65160e5c583f4f18fe952b8963842921e395a7f1712404ad6327a6",
   "taskIdentity": {
     "issue": 232,
     "owner": "mac-dsh-ohmymods-android-operator",
