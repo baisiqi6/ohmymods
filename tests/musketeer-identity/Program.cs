@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Text;
 using KingdomEnhancedMod;
 using UnityEngine;
 
@@ -41,6 +42,9 @@ internal static class Program
                     case "r4-pins": DeferredBoundaryPinTests(); break;
                     case "r4d-witness-world": WitnessWorldFreezeTests(); break;
                     case "r4d-virgin-exact": VirginExactOnlyTests(); break;
+#if VOYAGE_SAVE_DIAGNOSTICS
+                    case "voyage-diag": VoyageSaveDiagnosticsTests(); break;
+#endif
                     default: throw new Exception("unknown case " + only);
                 }
                 Console.WriteLine("CASE PASS " + only + " assertions=" + passed);
@@ -76,6 +80,11 @@ internal static class Program
             StockRestoreNotInWorldAbandonTests();
             PoolLifeTests();
             CapacityTests();
+#if VOYAGE_SAVE_DIAGNOSTICS
+            VoyageSaveDiagnosticsTests();
+#else
+            NoVoyageSaveDiagnosticsTests();
+#endif
             Console.WriteLine("PASS " + passed + " assertions (real musketeer archive/identity/persistence)");
         }
         finally { try { Directory.Delete(Root, true); } catch { } }
@@ -140,6 +149,8 @@ internal static class Program
     static void Reset(bool keepFile = false)
     {
         ClearStatics();
+        IslandSaveData.registeredPersistents = new Il2CppSystem.Collections.Generic.HashSet<Persistent>();
+        ResetVoyageDiagForTests();
         BepInEx.Paths.ConfigPath = Path.Combine(Root, "config");
         if (!keepFile && Directory.Exists(BepInEx.Paths.ConfigPath)) Directory.Delete(BepInEx.Paths.ConfigPath, true);
         Managers.Inst = new Managers { world = new World { gameLayer = new GameObject().Add(new Transform()) } };
@@ -236,6 +247,89 @@ internal static class Program
         capture.Capture(Persist(foreign), "foreign-row");
         capture.Apply();
         IslandSaveData.CurrentlySavingIsland = null; IslandSaveData.isSavingGame = false;
+    }
+
+    // ---- issue 281 / Slice A: bounded voyage save diagnostics (symbol-gated) ----
+
+    static void ResetVoyageDiagForTests()
+    {
+        // Reflection keeps the red replay compilable while the diagnostic type does not exist
+        // yet: the behaviour assertion, not a missing symbol, must be the red failure. The
+        // production type intentionally exposes no test-only reset entry point.
+        var type = typeof(MusketeerPersistence).Assembly.GetType("KingdomEnhancedMod.MusketeerVoyageSaveDiagnostics");
+        if (type == null) return;
+        foreach (string name in new[] { "_captures", "_lines", "_bytes", "_dropped" })
+            type.GetField(name, BindingFlags.Static | BindingFlags.NonPublic)?.SetValue(null, 0);
+        type.GetField("_capReported", BindingFlags.Static | BindingFlags.NonPublic)?.SetValue(null, false);
+    }
+
+    static void PrepareSaveIsland(IslandSaveData island, string json, params string[] ids)
+    {
+        island.Json = Raw(json); island.isNew = false; island.playTimeDays = 1;
+        island.objects = ids.Select(id => new IslandSaveData.ObjectData { uniqueID = id }).ToList();
+        IslandSaveData.CurrentlySavingIsland = island; IslandSaveData.isSavingGame = true;
+    }
+
+    // Drives the exact product Save prefix (which opens the capture), the real GetID postfix
+    // boundary and the postfix/finalizer pair. The fixture never stands in for fault accounting.
+    static MusketeerPersistence.SaveCapture BeginSaveThroughPatch(IslandSaveData island)
+    {
+        var args = new object[] { GlobalSaveData.loaded.currentCampaign, island.land, GlobalSaveData.loaded.currentChallenge, null };
+        InvokePatch(typeof(MusketeerPersistence.SavePatch), "Before", args);
+        return (MusketeerPersistence.SaveCapture)args[3];
+    }
+
+    static void CaptureIdThroughPatch(MusketeerPersistence.SaveCapture capture, GameObject root, string id)
+        => InvokePatch(typeof(MusketeerPersistence.GetIdPatch), "After", new object[] { Persist(root), id });
+
+    static void FinishSaveThroughPatch(MusketeerPersistence.SaveCapture capture)
+    {
+        InvokePatch(typeof(MusketeerPersistence.SavePatch), "After", new object[] { capture });
+        InvokePatch(typeof(MusketeerPersistence.SavePatch), "Finally", new object[] { null, capture });
+        IslandSaveData.CurrentlySavingIsland = null; IslandSaveData.isSavingGame = false;
+    }
+
+    static string CareerIdFor(DroppableTool tool)
+        => MusketeerIdentity.Current.Careers.Single(x => ReferenceEquals(x.Tool, tool)).Id.ToString("N");
+
+    static List<string> VoyageDiagLines()
+        => Logger.Lines.Where(x => x.Contains("[VoyageSaveDiag]")).ToList();
+
+    static string VoyageDiagLine(string fragment)
+    {
+        var line = VoyageDiagLines().FirstOrDefault(x => x.Contains(fragment));
+        if (line == null) throw new Exception("missing diagnostic line: " + fragment + " | " + Dump());
+        return line;
+    }
+
+    static void SetSailingAway()
+        => Managers.Inst.game = new Game { state = Game.State.SailingAway };
+
+    static void ResetVoyageDiagCounters()
+    {
+        ResetVoyageDiagForTests();
+        Persistent.PersistObjectReads = 0;
+        Persistent.PersistInactiveReads = 0;
+        Persistent.PersistInstanceReads = 0;
+        Persistent.ShouldPersistCalls = 0;
+        IslandSaveData.RegisteredPersistentsReads = 0;
+        IslandSaveData.GetIdCalls = 0;
+        MusketeerNativeSave.StageCalls = 0;
+        MusketeerNativeSave.CaptureFailures = 0;
+        MusketeerNativeSave.LegacyCaptureNotes = 0;
+        Logger.ThrowOnFragment = null;
+    }
+
+    static (GameObject go, DroppableTool tool, Persistent persist) DiagGun(bool registered, bool persistInstance)
+    {
+        var gun = Gun();
+        var persist = Persist(gun.go);
+        persist.persistObject = true;
+        persist.persistInactive = false;
+        persist._persistInstance = persistInstance;
+        Check(TryRegister(gun.tool), "diagnostic gun registered");
+        if (registered) IslandSaveData.registeredPersistents.Add(persist);
+        return (gun.go, gun.tool, persist);
     }
 
     static MusketeerPersistence.LoadCapture LoadBegin(string json, params string[] ids)
@@ -2223,6 +2317,456 @@ internal static class Program
         Check(!TryRegister(blocked.tool), "future sidecar refuses registration");
         Check(MusketeerIdentity.DescribeForTests().Contains("readonly=True"), "future sidecar marks the island read-only");
         Check(File.ReadAllText(ArchivePath).Contains("99"), "unsupported sidecar left untouched");
+    }
+
+#if VOYAGE_SAVE_DIAGNOSTICS
+    // ---- issue 281 / Slice A: bounded voyage save diagnostics ----
+
+    static void VoyageSaveDiagnosticsTests()
+    {
+        VoyageMissingEligibilityTests();
+        VoyageGetIdObservationTests();
+        VoyageBeginApplyChangeTests();
+        VoyageDiagnosticFaultTests();
+        VoyageRootReadFaultTests();
+        VoyageNestedCaptureTests();
+        VoyageBudgetTests();
+    }
+
+    static void VoyageMissingEligibilityTests()
+    {
+        RestartSailingWithDiagnostics();
+        var low = DiagGun(false, false);
+        string lowId = CareerIdFor(low.tool);
+        byte[] before = DiskBytes();
+        int getIds = IslandSaveData.GetIdCalls;
+        int shouldCalls = Persistent.ShouldPersistCalls;
+        int registrationReads = IslandSaveData.RegisteredPersistentsReads;
+        var foreign = new GameObject(); Persist(foreign);
+        PrepareSaveIsland(Island(), IslandJson("foreign-row"), "foreign-row");
+        var capture = BeginSaveThroughPatch(Island());
+        CaptureIdThroughPatch(capture, foreign, "foreign-row");
+        FinishSaveThroughPatch(capture);
+
+        Check(!capture.Applied, "diagnostic missing case keeps Applied false");
+        Check(Logger.Lines.Exists(x => x.Contains("save-missed-row")), "diagnostic missing case keeps save-missed-row");
+        Check(MusketeerNativeSave.CaptureFailures == 1, "real finalizer accounts the capture failure once");
+        Check(MusketeerNativeSave.StageCalls == 0, "the missing row never reaches the native stage writer");
+        Check(DiskBytes().SequenceEqual(before), "diagnostic missing case writes no archive bytes");
+        Check(IslandSaveData.GetIdCalls == getIds, "diagnostics never calls GetID itself");
+        Check(Persistent.ShouldPersistCalls == shouldCalls, "diagnostics never calls ShouldPersist");
+        Check(IslandSaveData.RegisteredPersistentsReads - registrationReads <= 2,
+            "registration membership is read once per end, not once per career");
+        var begin = VoyageDiagLine("career=" + lowId + " phase=begin");
+        var apply = VoyageDiagLine("career=" + lowId + " phase=apply");
+        Check(begin.Contains("kind=gun") && begin.Contains("root=0x") && begin.Contains("life=") && begin.Contains("world="),
+            "begin snapshot carries career root/life/world | " + begin);
+        Check(begin.Contains("persist=0x") && begin.Contains("persistRootMatch=1"),
+            "begin snapshot carries the exact persistent pointer | " + begin);
+        Check(begin.Contains("reg=0") && begin.Contains("pobj=1") && begin.Contains("pinactive=0")
+            && begin.Contains("pinstance=0") && begin.Contains("active=1"),
+            "begin snapshot carries registration and the three native flags | " + begin);
+        Check(begin.Contains("should=0") && begin.Contains("sourceEligible=0"),
+            "a valid active but unregistered/non-instance root is not source eligible | " + begin);
+        Check(apply.Contains("baselineKnown=1") && apply.Contains("baselinePhase=begin"),
+            "the missing career keeps its Begin baseline | " + apply);
+        Check(apply.Contains("getid=not-observed"),
+            "the missing root never reached the observed GetID boundary | " + apply);
+        Check(apply.Contains("should=0") && apply.Contains("sourceEligible=0"),
+            "apply re-samples the same eligibility | " + apply);
+
+        RestartSailingWithDiagnostics();
+        var high = DiagGun(true, true);
+        string highId = CareerIdFor(high.tool);
+        foreign = new GameObject(); Persist(foreign);
+        PrepareSaveIsland(Island(), IslandJson("foreign-row"), "foreign-row");
+        capture = BeginSaveThroughPatch(Island());
+        CaptureIdThroughPatch(capture, foreign, "foreign-row");
+        FinishSaveThroughPatch(capture);
+        apply = VoyageDiagLine("career=" + highId + " phase=apply");
+        Check(apply.Contains("reg=1") && apply.Contains("pobj=1") && apply.Contains("pinstance=1")
+            && apply.Contains("active=1") && apply.Contains("should=1") && apply.Contains("sourceEligible=1"),
+            "a registered eligible career reports a different reason than the unregistered case | " + apply);
+        Check(apply.Contains("getid=not-observed"),
+            "eligible is not proof that the native GetID call happened | " + apply);
+    }
+
+    static void VoyageGetIdObservationTests()
+    {
+        RestartSailingWithDiagnostics();
+        var gun = DiagGun(false, false);
+        string gunId = CareerIdFor(gun.tool);
+        var foreign = new GameObject(); Persist(foreign);
+        PrepareSaveIsland(Island(), IslandJson("foreign-row"), "foreign-row");
+        var capture = BeginSaveThroughPatch(Island());
+        CaptureIdThroughPatch(capture, foreign, "foreign-row");
+        CaptureIdThroughPatch(capture, gun.go, "");
+        FinishSaveThroughPatch(capture);
+        var apply = VoyageDiagLine("career=" + gunId + " phase=apply");
+        Check(apply.Contains("getid=observed") && apply.Contains("idCalls=1") && apply.Contains("idEmpty=1")
+            && apply.Contains("bindAttempted=0"),
+            "an empty native id is observed without becoming a binding | " + apply);
+
+        RestartSailingWithDiagnostics();
+        gun = DiagGun(false, false);
+        gunId = CareerIdFor(gun.tool);
+        foreign = new GameObject(); Persist(foreign);
+        PrepareSaveIsland(Island(), IslandJson("foreign-row"), "foreign-row");
+        capture = BeginSaveThroughPatch(Island());
+        CaptureIdThroughPatch(capture, foreign, "foreign-row");
+        CaptureIdThroughPatch(capture, gun.go, new string('x', MusketeerArchive.MaxNativeIdLength + 8));
+        FinishSaveThroughPatch(capture);
+        apply = VoyageDiagLine("career=" + gunId + " phase=apply");
+        Check(apply.Contains("getid=observed") && apply.Contains("idLong=1") && apply.Contains("bindAttempted=0"),
+            "an over-long native id is distinguishable from empty | " + apply);
+
+        RestartSailingWithDiagnostics();
+        gun = DiagGun(true, true);
+        gunId = CareerIdFor(gun.tool);
+        PrepareSaveIsland(Island(), IslandJson("row-gun"), "row-gun");
+        capture = BeginSaveThroughPatch(Island());
+        CaptureIdThroughPatch(capture, gun.go, "row-gun");
+        FinishSaveThroughPatch(capture);
+        Check(capture.Applied, "a normally mapped GetID still stages the snapshot");
+        Check(MusketeerNativeSave.StageCalls == 1, "the mapped save still reaches the native stage writer once");
+        var end = VoyageDiagLine("save-end capture=1");
+        Check(end.Contains("applied=1") && end.Contains("mapped=1"),
+            "the end summary records the successful binding | " + end);
+        Check(!VoyageDiagLines().Exists(x => x.Contains("phase=apply")),
+            "a mapped career produces no missing-career row");
+
+        RestartSailingWithDiagnostics();
+        gun = DiagGun(true, true);
+        gunId = CareerIdFor(gun.tool);
+        foreign = new GameObject(); Persist(foreign);
+        PrepareSaveIsland(Island(), IslandJson("foreign-row"), "foreign-row");
+        capture = BeginSaveThroughPatch(Island());
+        CaptureIdThroughPatch(capture, foreign, "foreign-row");
+        FinishSaveThroughPatch(capture);
+        end = VoyageDiagLine("save-end capture=1");
+        Check(end.Contains("bindRejected=1") && end.Contains("mapped=0"),
+            "an observed root whose BoundAt lookup refuses is reported | " + end);
+        apply = VoyageDiagLine("career=" + gunId + " phase=apply");
+        Check(apply.Contains("getid=not-observed"), "the unobserved career is not confused with the foreign root | " + apply);
+        Check(!capture.Applied && Logger.Lines.Exists(x => x.Contains("save-missed-row")),
+            "BoundAt rejection leaves the original missed-row refusal intact");
+    }
+
+    static void VoyageBeginApplyChangeTests()
+    {
+        RestartSailingWithDiagnostics();
+        var gun = DiagGun(false, false);
+        string gunId = CareerIdFor(gun.tool);
+        PrepareSaveIsland(Island(), IslandJson("foreign-row"), "foreign-row");
+        var capture = BeginSaveThroughPatch(Island());
+        gun.persist._persistInstance = true;
+        IslandSaveData.registeredPersistents.Add(gun.persist);
+        var foreign = new GameObject(); Persist(foreign);
+        CaptureIdThroughPatch(capture, foreign, "foreign-row");
+        FinishSaveThroughPatch(capture);
+
+        var begin = VoyageDiagLine("career=" + gunId + " phase=begin");
+        var apply = VoyageDiagLine("career=" + gunId + " phase=apply");
+        Check(begin.Contains("reg=0") && begin.Contains("pinstance=0") && begin.Contains("sourceEligible=0"),
+            "Begin keeps the pre-change membership/instance facts | " + begin);
+        Check(apply.Contains("reg=1") && apply.Contains("pinstance=1") && apply.Contains("sourceEligible=1"),
+            "Apply re-samples the changed membership/instance facts | " + apply);
+        Check(apply.Contains("baselineKnown=1"), "the same capture has both ends | " + apply);
+
+        // land=-1 can only resolve its source at the first GetID. The baseline is labelled
+        // first-getid and never presented as an earlier Begin sample.
+        RestartSailingWithDiagnostics();
+        var deferred = DiagGun(true, true);
+        string deferredId = CareerIdFor(deferred.tool);
+        PrepareSaveIsland(Island(), IslandJson("foreign-row"), "foreign-row");
+        var deferredForeign = new GameObject(); Persist(deferredForeign);
+        var args = new object[] { GlobalSaveData.loaded.currentCampaign, -1, GlobalSaveData.loaded.currentChallenge, null };
+        InvokePatch(typeof(MusketeerPersistence.SavePatch), "Before", args);
+        var deferredCapture = (MusketeerPersistence.SaveCapture)args[3];
+        CaptureIdThroughPatch(deferredCapture, deferredForeign, "foreign-row");
+        FinishSaveThroughPatch(deferredCapture);
+        Check(!deferredCapture.Applied, "the deferred source still refuses the missed career row");
+        var deferredApply = VoyageDiagLine("career=" + deferredId + " phase=apply");
+        Check(deferredApply.Contains("baselinePhase=first-getid"),
+            "a deferred source baseline is labelled first-getid | " + deferredApply);
+        Check(VoyageDiagLine("save capture=1").Contains("phase=first-getid"),
+            "the header does not claim a pre-GetID baseline");
+    }
+
+    static void VoyageDiagnosticFaultTests()
+    {
+        RestartSailingWithDiagnostics();
+        var gun = DiagGun(true, true);
+        string gunId = CareerIdFor(gun.tool);
+        gun.persist.ThrowOnRead = true;
+        PrepareSaveIsland(Island(), IslandJson("foreign-row"), "foreign-row");
+        var capture = BeginSaveThroughPatch(Island());
+        var foreign = new GameObject(); Persist(foreign);
+        CaptureIdThroughPatch(capture, foreign, "foreign-row");
+        FinishSaveThroughPatch(capture);
+        Check(!capture.Conflict, "a diagnostic read failure does not enter the capture conflict state");
+        var apply = VoyageDiagLine("career=" + gunId + " phase=apply");
+        Check(apply.Contains("pobj=unknown") && apply.Contains("pinactive=unknown")
+            && apply.Contains("pinstance=unknown") && apply.Contains("should=unknown")
+            && apply.Contains("sourceEligible=unknown"),
+            "unreadable native flags are reported as unknown, never as false | " + apply);
+        Check(Logger.Lines.Exists(x => x.Contains("save-missed-row")),
+            "the original refusal remains after a diagnostic read failure");
+        Check(MusketeerNativeSave.CaptureFailures == 1, "read failure does not change fault accounting");
+
+        RestartSailingWithDiagnostics();
+        gun = DiagGun(true, true);
+        Logger.ThrowOnFragment = "[VoyageSaveDiag]";
+        PrepareSaveIsland(Island(), IslandJson("foreign-row"), "foreign-row");
+        capture = BeginSaveThroughPatch(Island());
+        foreign = new GameObject(); Persist(foreign);
+        CaptureIdThroughPatch(capture, foreign, "foreign-row");
+        FinishSaveThroughPatch(capture);
+        Check(!capture.Conflict, "a logger failure is isolated inside diagnostics");
+        Check(Logger.Lines.Exists(x => x.Contains("save-missed-row")),
+            "the original save-missed-row log still reaches the logger");
+        Check(VoyageDiagLines().Count == 0, "failed diagnostic logging never replays outside its own sink");
+
+        RestartSailingWithDiagnostics();
+        gun = DiagGun(true, true);
+        PrepareSaveIsland(Island(), IslandJson("foreign-row"), "foreign-row");
+        capture = BeginSaveThroughPatch(Island());
+        InvokePatch(typeof(MusketeerPersistence.SavePatch), "Finally",
+            new object[] { new InvalidOperationException("diag-save"), capture });
+        IslandSaveData.CurrentlySavingIsland = null; IslandSaveData.isSavingGame = false;
+        var end = VoyageDiagLine("save-end capture=1");
+        Check(end.Contains("exc=InvalidOperationException") && end.Contains("applied=0") && end.Contains("missing=0"),
+            "the Save finalizer reports the original exception type | " + end);
+    }
+
+    static void VoyageRootReadFaultTests()
+    {
+        // Reviewer reproduction: a real GetID postfix callback whose diagnostic root read fails.
+        // The callback is not "not observed"; its attribution is explicitly incomplete.
+        RestartSailingWithDiagnostics();
+        var gun = DiagGun(true, true);
+        string gunId = CareerIdFor(gun.tool);
+        var foreign = new GameObject();
+        var foreignPersist = Persist(foreign);
+        byte[] before = DiskBytes();
+        PrepareSaveIsland(Island(), IslandJson("foreign-row"), "foreign-row");
+        var capture = BeginSaveThroughPatch(Island());
+        foreignPersist.ThrowOnGameObjectReadAtCall = foreignPersist.GameObjectReads + 1;
+        CaptureIdThroughPatch(capture, foreign, "foreign-row");
+        foreignPersist.ThrowOnGameObjectReadAtCall = 0;
+        FinishSaveThroughPatch(capture);
+        var apply = VoyageDiagLine("career=" + gunId + " phase=apply");
+        Check(apply.Contains("getid=unknown") && apply.Contains("read-fault"),
+            "a failed diagnostic root read is unknown, not not-observed | " + apply);
+        Check(!apply.Contains("getid=not-observed"),
+            "a real GetID callback is never written as absent after a root read fault");
+        var end = VoyageDiagLine("save-end capture=1");
+        Check(end.Contains("incomplete=1") && end.Contains("readFaults=1"),
+            "the end summary makes the root-read incompleteness visible | " + end);
+        Check(end.Contains("bindIncomplete=1"),
+            "the real BoundAt stage is recorded as incomplete, not as no callback | " + end);
+        Check(end.Contains("truncated=incomplete") && !end.Contains("truncated=none"),
+            "read incompleteness is not reported as a complete observation set | " + end);
+        Check(!capture.Conflict, "the injected diagnostic read fault never becomes a capture conflict");
+        Check(!capture.Applied, "the original missed-row refusal remains");
+        Check(MusketeerNativeSave.CaptureFailures == 1 && MusketeerNativeSave.StageCalls == 0,
+            "root read fault keeps the original fault accounting and writer block");
+        Check(DiskBytes().SequenceEqual(before), "root read fault writes no archive bytes");
+
+        // The Apply snapshot's root read can also fail. That makes PersistRootMatch unknown;
+        // it must not turn into a definite mismatch, and source eligibility stays unknown.
+        RestartSailingWithDiagnostics();
+        gun = DiagGun(true, true);
+        gunId = CareerIdFor(gun.tool);
+        foreign = new GameObject(); Persist(foreign);
+        before = DiskBytes();
+        PrepareSaveIsland(Island(), IslandJson("foreign-row"), "foreign-row");
+        capture = BeginSaveThroughPatch(Island());
+        gun.persist.ThrowOnGameObjectRead = true;
+        CaptureIdThroughPatch(capture, foreign, "foreign-row");
+        FinishSaveThroughPatch(capture);
+        gun.persist.ThrowOnGameObjectRead = false;
+        var begin = VoyageDiagLine("career=" + gunId + " phase=begin");
+        apply = VoyageDiagLine("career=" + gunId + " phase=apply");
+        Check(begin.Contains("persistRootMatch=1") && begin.Contains("sourceEligible=1"),
+            "the Begin snapshot keeps its normally proven match | " + begin);
+        Check(apply.Contains("persistRootMatch=unknown"),
+            "an unreadable PersistRoot is unknown, not a mismatch | " + apply);
+        Check(apply.Contains("sourceEligible=unknown"),
+            "source eligibility stays unknown when PersistRoot cannot be read | " + apply);
+        Check(!apply.Contains("persistRootMatch=0"), "the read fault is never rendered as false");
+        Check(!capture.Conflict && !capture.Applied && DiskBytes().SequenceEqual(before),
+            "PersistRoot read fault keeps the refusal, conflict state and archive bytes");
+
+        // A successfully read but different root is still a definite mismatch.
+        RestartSailingWithDiagnostics();
+        gun = DiagGun(true, true);
+        gunId = CareerIdFor(gun.tool);
+        foreign = new GameObject(); Persist(foreign);
+        PrepareSaveIsland(Island(), IslandJson("foreign-row"), "foreign-row");
+        capture = BeginSaveThroughPatch(Island());
+        gun.persist.gameObject = new GameObject();
+        CaptureIdThroughPatch(capture, foreign, "foreign-row");
+        FinishSaveThroughPatch(capture);
+        begin = VoyageDiagLine("career=" + gunId + " phase=begin");
+        apply = VoyageDiagLine("career=" + gunId + " phase=apply");
+        Check(begin.Contains("persistRootMatch=1"), "the Begin snapshot still matches its exact root");
+        Check(apply.Contains("persistRootMatch=0") && apply.Contains("sourceEligible=unknown"),
+            "a definite different root remains a mismatch with unknown eligibility | " + apply);
+        Check(!apply.Contains("persistRootMatch=unknown"), "a definite mismatch is not reported as unknown");
+
+        // The observation token removes the root rereads from bind/mapped. A successful paid
+        // GetID reads the root once for diagnostics and once for the original BoundAt call.
+        RestartSailingWithDiagnostics();
+        gun = DiagGun(true, true);
+        PrepareSaveIsland(Island(), IslandJson("row-gun"), "row-gun");
+        capture = BeginSaveThroughPatch(Island());
+        int reads = gun.persist.GameObjectReads;
+        CaptureIdThroughPatch(capture, gun.go, "row-gun");
+        Check(gun.persist.GameObjectReads - reads == 2,
+            "diagnostics does not reread the root in bind/mapped (reads=" + (gun.persist.GameObjectReads - reads) + ")");
+        FinishSaveThroughPatch(capture);
+        Check(capture.Applied, "the mapped save still stages after the token-only observation path");
+    }
+
+    static void VoyageNestedCaptureTests()
+    {
+        RestartSailingWithDiagnostics();
+        var gun = DiagGun(true, true);
+        string gunId = CareerIdFor(gun.tool);
+        var outerSeed = new GameObject(); Persist(outerSeed);
+        PrepareSaveIsland(Island(), IslandJson("outer-seed"), "outer-seed");
+        var outer = BeginSaveThroughPatch(Island());
+        CaptureIdThroughPatch(outer, outerSeed, "outer-seed");
+
+        PrepareSaveIsland(Island(), IslandJson("inner-row"), "inner-row");
+        var inner = BeginSaveThroughPatch(Island());
+        CaptureIdThroughPatch(inner, gun.go, "inner-row");
+        FinishSaveThroughPatch(inner);
+
+        FinishSaveThroughPatch(outer);
+        Check(inner.Applied, "the nested inner capture maps its exact row");
+        Check(VoyageDiagLine("save capture=2").Contains("parent=1"),
+            "the nested capture reports its parent sequence");
+        Check(VoyageDiagLine("save capture=1").Contains("parent=none"),
+            "the outer capture has no parent sequence");
+        var innerEnd = VoyageDiagLine("save-end capture=2");
+        Check(innerEnd.Contains("mapped=1"), "the inner capture owns its mapped observation | " + innerEnd);
+        var outerApply = VoyageDiagLine("career=" + gunId + " phase=apply");
+        Check(outerApply.Contains("capture=1"),
+            "the outer capture owns the missing career row | " + outerApply);
+        Check(outerApply.Contains("getid=not-observed"),
+            "the outer capture never inherits the nested capture's observation | " + outerApply);
+        Check(!outer.Applied, "the outer capture still refuses its missed row");
+    }
+
+    static void VoyageBudgetTests()
+    {
+        // Process-level capture cap: four SailingAway captures, then one bounded refusal notice.
+        RestartSailingWithDiagnostics();
+        var gun = DiagGun(true, true);
+        for (int i = 0; i < MusketeerVoyageDiagTestLimits.MaxCaptures + 1; i++)
+        {
+            PrepareSaveIsland(Island(), IslandJson("row-budget"), "row-budget");
+            var capture = BeginSaveThroughPatch(Island());
+            CaptureIdThroughPatch(capture, gun.go, "row-budget");
+            FinishSaveThroughPatch(capture);
+        }
+        var lines = VoyageDiagLines();
+        Check(lines.Exists(x => x.Contains("reason=process-captures")),
+            "the fifth SailingAway capture is reported as capped | " + Dump());
+        Check(lines.Count <= MusketeerVoyageDiagTestLimits.MaxProcessLines, "process log lines stay bounded | " + lines.Count);
+        Check(lines.All(x => x.Length <= MusketeerVoyageDiagTestLimits.MaxLineChars), "every diagnostic line stays bounded");
+        Check(lines.Sum(x => Encoding.UTF8.GetByteCount(x)) <= MusketeerVoyageDiagTestLimits.MaxProcessBytes,
+            "process UTF-8 bytes stay bounded");
+
+        // Begin career cap: the 33rd career has no baseline, and the missing row says so.
+        RestartSailingWithDiagnostics();
+        var guns = new List<(GameObject go, DroppableTool tool, Persistent persist)>();
+        for (int i = 0; i < MusketeerVoyageDiagTestLimits.MaxBeginCareers + 1; i++)
+            guns.Add(DiagGun(true, true));
+        string[] ids = Enumerable.Range(0, MusketeerVoyageDiagTestLimits.MaxBeginCareers)
+            .Select(i => "cap-row-" + i).ToArray();
+        PrepareSaveIsland(Island(), IslandJson(ids), ids);
+        int registrationReads = IslandSaveData.RegisteredPersistentsReads;
+        var capped = BeginSaveThroughPatch(Island());
+        for (int i = 0; i < ids.Length; i++) CaptureIdThroughPatch(capped, guns[i].go, ids[i]);
+        FinishSaveThroughPatch(capped);
+        Check(IslandSaveData.RegisteredPersistentsReads - registrationReads == 2,
+            "the 32-career snapshot reads the registration set once per end, not once per career");
+        string lastId = CareerIdFor(guns[guns.Count - 1].tool);
+        var apply = VoyageDiagLine("career=" + lastId + " phase=apply");
+        Check(apply.Contains("baselineKnown=0") && apply.Contains("baselinePhase=career-cap"),
+            "a career outside the 32-entry Begin sample is explicitly baseline-unknown | " + apply);
+        Check(VoyageDiagLine("save capture=1").Contains("careers=" + (MusketeerVoyageDiagTestLimits.MaxBeginCareers + 1)),
+            "the header still reports the real career count");
+
+        // Observation cap: the missing career is unknown, never "not observed".
+        RestartSailingWithDiagnostics();
+        gun = DiagGun(true, true);
+        string gunId = CareerIdFor(gun.tool);
+        PrepareSaveIsland(Island(), IslandJson("seed"), "seed");
+        capped = BeginSaveThroughPatch(Island());
+        var seed = new GameObject(); Persist(seed);
+        CaptureIdThroughPatch(capped, seed, "seed");
+        for (int i = 0; i < MusketeerVoyageDiagTestLimits.MaxObservedRoots; i++)
+        {
+            var other = new GameObject(); Persist(other);
+            CaptureIdThroughPatch(capped, other, "f" + i);
+        }
+        FinishSaveThroughPatch(capped);
+        apply = VoyageDiagLine("career=" + gunId + " phase=apply");
+        Check(apply.Contains("getid=unknown") && apply.Contains("observation-budget"),
+            "an absent root past the observation cap is unknown, not not-observed | " + apply);
+        Check(!apply.Contains("getid=not-observed"), "budget truncation is never reported as a definite absence");
+        var all = VoyageDiagLines();
+        int applyIndex = all.IndexOf(apply);
+        int endIndex = all.FindIndex(x => x.Contains("save-end capture=1"));
+        Check(applyIndex >= 0 && endIndex > applyIndex, "the first missing career row is emitted before the end summary");
+    }
+#else
+    static void NoVoyageSaveDiagnosticsTests()
+    {
+        Reset();
+        var gun = Gun();
+        Persist(gun.go);
+        Check(TryRegister(gun.tool), "default-build diagnostic guard gun registered");
+        int persistReads = Persistent.PersistObjectReads + Persistent.PersistInactiveReads + Persistent.PersistInstanceReads;
+        int registeredReads = IslandSaveData.RegisteredPersistentsReads;
+        int shouldPersistCalls = Persistent.ShouldPersistCalls;
+        var foreign = new GameObject(); Persist(foreign);
+        PrepareSaveIsland(Island(), IslandJson("foreign-row"), "foreign-row");
+        var capture = BeginSaveThroughPatch(Island());
+        CaptureIdThroughPatch(capture, foreign, "foreign-row");
+        FinishSaveThroughPatch(capture);
+        Check(!capture.Applied, "default build keeps the missed-row refusal");
+        Check(!VoyageDiagLines().Any(), "default build emits no diagnostic lines");
+        Check(Persistent.PersistObjectReads + Persistent.PersistInactiveReads + Persistent.PersistInstanceReads == persistReads,
+            "default build adds no persistent flag reads");
+        Check(IslandSaveData.RegisteredPersistentsReads == registeredReads, "default build adds no registration reads");
+        Check(Persistent.ShouldPersistCalls == shouldPersistCalls, "default build does not call ShouldPersist");
+        Check(typeof(MusketeerPersistence).Assembly.GetType("KingdomEnhancedMod.MusketeerVoyageSaveDiagnostics") == null,
+            "default build contains no diagnostic type");
+    }
+#endif
+
+    static void RestartSailingWithDiagnostics()
+    {
+        Reset();
+        SetSailingAway();
+        ResetVoyageDiagCounters();
+    }
+
+    // The limits are pinned in tests independently of the production constants so a silent cap
+    // change cannot make the budget assertions pass by construction.
+    static class MusketeerVoyageDiagTestLimits
+    {
+        internal const int MaxCaptures = 4;
+        internal const int MaxBeginCareers = 32;
+        internal const int MaxObservedRoots = 4096;
+        internal const int MaxProcessLines = 40;
+        internal const int MaxLineChars = 1536;
+        internal const int MaxProcessBytes = 64 * 1024;
     }
 
     // ---- paid rack metadata: 3 slots, transfer/drop clearing, exact physics restore ----

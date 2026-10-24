@@ -47,6 +47,30 @@ namespace UnityEngine
         public static bool Approximately(float a, float b)
             => Math.Abs(a - b) <= Math.Max(1e-06f * Math.Max(Math.Abs(a), Math.Abs(b)), 1e-06f * 8f);
     }
+
+    /// <summary>CanvasGroup double: 243 root group exposed through Menu.get__canvasGroup.
+    /// The public interactable setter is the only API the production patch may use.</summary>
+    public class CanvasGroup
+    {
+        private static long _nextPointer = 0x5000;
+
+        public IntPtr Pointer { get; }
+        public bool ThrowOnSet;
+        private bool _interactable = true;
+
+        public CanvasGroup() : this(new IntPtr(System.Threading.Interlocked.Increment(ref _nextPointer))) { }
+        public CanvasGroup(IntPtr pointer) { Pointer = pointer; }
+
+        public bool interactable
+        {
+            get => _interactable;
+            set
+            {
+                if (ThrowOnSet) throw new InvalidOperationException("CanvasGroup.interactable set failed");
+                _interactable = value;
+            }
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -69,13 +93,25 @@ public class MapTimelineMenu
     public State CurrentState { get; set; } = State.Closed;
 }
 
-/// <summary>Menu double: IsMenuShown / Hide / HideOne / interactable follow Menu.cs:207-213 /
-/// 218-236 / 664-675. The ~0.6s close tail (started staying true after Hide) is modeled by
-/// Env.FinishMenuTail; Menu.cs:986's bare _interactable=false by ExitBareInteractableFalse.</summary>
+/// <summary>Menu double: IsMenuShown / Hide / HideOne / interactable follow the actual
+/// Windows 2.4.3 PE (native-menu-review/native-facts.json): the setter at RVA 0x60AB60
+/// writes BOTH the internal field (+0x4B0) and the root CanvasGroup (+0x498), with the
+/// idempotent guard on the internal field only; Hide at RVA 0x5FF8A0 synchronously sets the
+/// active map targetDepth to 0 and bare-writes the internal field false, leaving the root
+/// CanvasGroup untouched (0x5FFE1A). The ~0.6s close tail is modeled by Env.FinishMenuTail;
+/// the tail's bare _interactable=false by ExitBareInteractableFalse.</summary>
 public class Menu
 {
+    public enum HideFailure { None, BeforeDepth, AfterDepthBeforeInternal, AfterDepth }
+
+    private static long _nextPointer = 0x1000;
+
     public static Menu Inst;
     public static bool InstExists;
+
+    /// <summary>Stable native identity; production binds responsibility to this, never to the
+    /// managed wrapper (IL2CPP can hand out replacement wrappers for the same native object).</summary>
+    public IntPtr Pointer { get; }
 
     public bool ShowMainPanelStarted;
     public int targetDepth;
@@ -84,15 +120,34 @@ public class Menu
     public bool CanOpen = true; // Menu.cs:33-43 refcount, flat bool here
     public int HideCalls, HideOneCalls, OnButtonCloseCalls;
     public int InteractableTrueWrites, InteractableFalseWrites; // effective setter writes only
+    public UnityEngine.CanvasGroup _canvasGroup { get; set; } // native get__canvasGroup/set__canvasGroup
+    public HideFailure HideFailureMode; // fault injection for the close retry contract
     private bool _interactable;
+
+    public Menu() : this(new IntPtr(System.Threading.Interlocked.Increment(ref _nextPointer)),
+        new UnityEngine.CanvasGroup()) { }
+    public Menu(IntPtr pointer) : this(pointer, new UnityEngine.CanvasGroup()) { }
+    public Menu(IntPtr pointer, UnityEngine.CanvasGroup canvasGroup)
+    {
+        Pointer = pointer;
+        _canvasGroup = canvasGroup;
+    }
+
+    /// <summary>Convenience view for fixtures: the current native root group's interactable.</summary>
+    public bool RootCanvasInteractable
+    {
+        get => _canvasGroup != null && _canvasGroup.interactable;
+        set { if (_canvasGroup != null) _canvasGroup.interactable = value; }
+    }
 
     public bool interactable
     {
         get => _interactable;
         set
         {
-            if (_interactable == value) return; // Menu.cs:226 idempotent guard
+            if (_interactable == value) return; // Menu.cs:226 idempotent guard (internal field only)
             _interactable = value;
+            if (_canvasGroup != null) _canvasGroup.interactable = value; // setter writes root group too
             if (value) InteractableTrueWrites++;
             else InteractableFalseWrites++;
         }
@@ -111,7 +166,16 @@ public class Menu
     public void Hide()
     {
         HideCalls++;
+        if (HideFailureMode == HideFailure.BeforeDepth)
+            throw new InvalidOperationException("native Hide failed before targetDepth write");
+        // Menu.Hide 0x5FF90D loads ActiveMap (+0x4B8), 0x5FF92E calls its targetDepth
+        // setter (vtable+0x348) with 0.
         targetDepth = 0;
+        if (HideFailureMode == HideFailure.AfterDepthBeforeInternal)
+            throw new InvalidOperationException("native Hide failed after depth but before final internal write");
+        _interactable = false; // Menu.Hide 0x5FFE1A: bare internal false, root CanvasGroup untouched
+        if (HideFailureMode == HideFailure.AfterDepth)
+            throw new InvalidOperationException("native Hide failed after targetDepth write");
     }
 
     public void HideOne()
@@ -126,8 +190,13 @@ public class Menu
         HideOne();
     }
 
-    /// <summary>Fixture seed outside the setter (serializer-like); never counted.</summary>
-    public void SetRaw(bool interactable) => _interactable = interactable;
+    /// <summary>Fixture seed outside the setter (serializer-like); never counted. Both layers
+    /// are explicit so a test can model a native bare flag write that left the root group raw.</summary>
+    public void SetRaw(bool interactable, bool rootCanvasInteractable)
+    {
+        _interactable = interactable;
+        RootCanvasInteractable = rootCanvasInteractable;
+    }
 
     /// <summary>Menu.cs:986 exit path: bare field write, bypasses the counted setter.</summary>
     public void ExitBareInteractableFalse() => _interactable = false;
