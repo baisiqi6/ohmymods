@@ -582,6 +582,9 @@ public static class PatchRoles_Crossbowman
             var managers = Managers.Inst;
             var pm = managers != null ? managers.pools : null;
             if (pm == null) return;
+#if ANDROID
+            if (!AndroidProfessionPoolLifecycle.CanRegisterCustomPools(pm)) return;
+#endif
 
             Pool existing = Pool.GetPoolFromPrefabAsset(_crossbowBoltPrefab);
             // 幂等：池已存在且已入 syncID 映射（含 Init 重建前的注册）

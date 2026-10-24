@@ -384,10 +384,22 @@ namespace MusketeerRuntimeTests
         private static void ArraySaturationEscalates()
         {
             Archer archer = ArmedMusketeer(out GameObject target);
-            Physics2D.Saturate = true;                    // 数组每档都满 → 强制走完整 List（不再吞弹）
+            Physics2D.Saturate = true;                    // 每档数组都满 → PC 走完整 List；Android 扩到硬上限后 fail-closed
             Fixture.QueueHit(target, 0.5f);
             Check.True(MusketeerCombat.TryHandleShot(archer.ActiveArrowAttack, archer.gameObject), "suppressed");
             MusketeerCombat.Tick(0.05f, true);
+#if ANDROID
+            // Android 2.4 无完整 List ICall（PhysicsScene2D::LinecastList_Internal 占位）：饱和到硬上限
+            // 仍满 = 证据不完整 → 保守消费、不伪造命中；全程不得触碰缺失的 List overload。
+            Check.Equal(0, target.GetComponent<Damageable>().DamageLog.Count,
+                "android hard-cap saturation consumes conservatively without a fabricated hit");
+            Check.Equal(0, MusketeerCombat.LiveCount, "bullet consumed on incomplete evidence");
+            Check.Equal(1024, MusketeerCombat.HitCapacity, "the reusable array grew to the Android hard cap");
+            Check.True(Physics2D.CastCount >= 6, "array growth re-casts up to the Android hard cap");
+            Check.Equal(0, Physics2D.ListCastCount, "the missing complete-list overload is never called");
+            Check.Equal(0, Il2CppSystem.Collections.Generic.List<RaycastHit2D>.CreatedForTests,
+                "no result list is allocated on the Android path");
+#else
             Check.Equal(1, target.GetComponent<Damageable>().DamageLog.Count,
                 "array saturation escalates to the complete list: the near foe is still hit");
             Check.Equal(0, MusketeerCombat.LiveCount, "bullet consumed on complete evidence");
@@ -396,17 +408,27 @@ namespace MusketeerRuntimeTests
             Check.Equal(1, Physics2D.ListCastCount, "the complete-list overload produced the authoritative results");
             Check.Equal(1, Il2CppSystem.Collections.Generic.List<RaycastHit2D>.CreatedForTests,
                 "the result list is allocated once");
+#endif
 
-            // 第二次饱和：复用同一个 List（不逐次分配），仍然命中。
+            // 第二次饱和：PC 复用同一个 List（不逐次分配）仍然命中；
+            // Android 走同一数组硬上限 fail-closed，绝不触碰 List。
             Time.time = 5f;
             Physics2D.QueuedHits.Clear();
             Fixture.QueueHit(target, 0.5f);
             Check.True(MusketeerCombat.TryHandleShot(archer.ActiveArrowAttack, archer.gameObject), "suppressed again");
             MusketeerCombat.Tick(0.05f, true);
+#if ANDROID
+            Check.Equal(0, Physics2D.ListCastCount, "the missing complete-list overload is never called");
+            Check.Equal(0, Il2CppSystem.Collections.Generic.List<RaycastHit2D>.CreatedForTests,
+                "no result list is allocated on the Android path");
+            Check.Equal(0, target.GetComponent<Damageable>().DamageLog.Count,
+                "second saturated segment also consumes conservatively");
+#else
             Check.Equal(2, Physics2D.ListCastCount, "the second saturated segment used the list overload again");
             Check.Equal(1, Il2CppSystem.Collections.Generic.List<RaycastHit2D>.CreatedForTests,
                 "the same result list is reused (never re-allocated per cast)");
             Check.Equal(2, target.GetComponent<Damageable>().DamageLog.Count, "second bullet also lands");
+#endif
 
             // 低密度常态：只走数组、不再碰 List，容量保留。
             Physics2D.Saturate = false;
@@ -417,9 +439,15 @@ namespace MusketeerRuntimeTests
             Check.True(MusketeerCombat.TryHandleShot(archer.ActiveArrowAttack, archer.gameObject), "suppressed");
             MusketeerCombat.Tick(0.05f, true);
             Check.Equal(1, Physics2D.CastCount, "one array cast per segment in the common case");
+#if ANDROID
+            Check.Equal(0, Physics2D.ListCastCount, "the missing complete-list overload is never called");
+            Check.Equal(1024, MusketeerCombat.HitCapacity, "the enlarged Android array is retained (never shrunk)");
+            Check.Equal(1, target.GetComponent<Damageable>().DamageLog.Count, "normal casts still damage");
+#else
             Check.Equal(2, Physics2D.ListCastCount, "no list call for a normal-density segment");
             Check.Equal(256, MusketeerCombat.HitCapacity, "the enlarged array is retained (never re-grown)");
             Check.Equal(3, target.GetComponent<Damageable>().DamageLog.Count, "normal casts still damage");
+#endif
         }
 
         private static void HugeHitListSelectsNearestAtTail()
@@ -439,7 +467,13 @@ namespace MusketeerRuntimeTests
             MusketeerCombat.Tick(0.05f, true);
             Check.Equal(1, near.GetComponent<Damageable>().DamageLog.Count,
                 "the nearest valid foe wins even at the tail of an unordered 300-hit result");
+#if ANDROID
+            Check.Equal(0, Physics2D.ListCastCount, "the missing complete-list overload is never called");
+            Check.Equal(512, MusketeerCombat.HitCapacity,
+                "the Android buffer grew past the PC soft cap to hold the full 300-hit result");
+#else
             Check.Equal(1, Physics2D.ListCastCount, "300 hits exceed the array soft cap → the complete list is authoritative");
+#endif
             Check.Equal(0, MusketeerCombat.LiveCount, "bullet consumed");
             Check.Equal(1, near.GetComponent<Damageable>().DamageLog.Count, "exactly one damage application for the whole result list");
         }
@@ -459,8 +493,29 @@ namespace MusketeerRuntimeTests
             Check.True(MusketeerCombat.TryHandleShot(archer.ActiveArrowAttack, archer.gameObject), "suppressed");
             MusketeerCombat.Tick(0.05f, true);
             Check.Equal(1, stale.GetComponent<Damageable>().DamageLog.Count, "the first complete-list result hits the stale foe");
+#if ANDROID
+            Check.Equal(0, Physics2D.ListCastCount, "the missing complete-list overload is never called");
+#else
             Check.Equal(1, Il2CppSystem.Collections.Generic.List<RaycastHit2D>.CreatedForTests, "one result list for the whole component");
+#endif
 
+#if ANDROID
+            // Android 第二次硬饱和：数组扩到硬上限仍满 = 存疑；fail-closed 绝不复用陈旧结果、绝不伪造命中。
+            Time.time = 5f;
+            Physics2D.QueuedHits.Clear();
+            Physics2D.Saturate = true;
+            GameObject fresh = Fixture.NewEnemy();
+            Fixture.QueueHit(fresh, 0.9f);
+            Check.True(MusketeerCombat.TryHandleShot(archer.ActiveArrowAttack, archer.gameObject), "suppressed");
+            MusketeerCombat.Tick(0.05f, true);
+            Check.Equal(0, fresh.GetComponent<Damageable>().DamageLog.Count,
+                "android hard-cap saturation never fabricates a fresh hit");
+            Check.Equal(1, stale.GetComponent<Damageable>().DamageLog.Count, "the stale tail is never re-consumed");
+            Check.Equal(0, Physics2D.ListCastCount, "the missing complete-list overload is never called");
+            Check.Equal(0, Il2CppSystem.Collections.Generic.List<RaycastHit2D>.CreatedForTests,
+                "no result list is allocated on the Android path");
+            Check.Equal(0, MusketeerCombat.LiveCount, "bullet consumed");
+#else
             // 第二次只有 1 条结果（数组饱和 → 仍走 List）：List 未裁剪（Count 仍是 301），
             // 生产必须只读返回的 count，绝不能再消费陈旧尾巴里的近敌。
             Time.time = 5f;
@@ -475,11 +530,23 @@ namespace MusketeerRuntimeTests
             Check.Equal(2, Physics2D.ListCastCount, "the second saturated segment also used the list overload");
             Check.Equal(1, Il2CppSystem.Collections.Generic.List<RaycastHit2D>.CreatedForTests, "the same result list is reused");
             Check.Equal(0, MusketeerCombat.LiveCount, "bullet consumed");
+#endif
         }
 
         private static void CompleteListFailureConsumesWithoutFakeHit()
         {
             Archer archer = ArmedMusketeer(out GameObject target);
+#if ANDROID
+            // Android 2.4 没有完整 List ICall：硬上限饱和按 fail-closed 保守消费（不再有 List 失败路径）。
+            Physics2D.Saturate = true;
+            Fixture.QueueHit(target, 0.5f);
+            Check.True(MusketeerCombat.TryHandleShot(archer.ActiveArrowAttack, archer.gameObject), "suppressed");
+            MusketeerCombat.Tick(0.05f, true);
+            Check.Equal(0, target.GetComponent<Damageable>().DamageLog.Count,
+                "a hard-cap saturated Android cast never fabricates a hit");
+            Check.Equal(0, Physics2D.ListCastCount, "the missing complete-list overload is never called");
+            Check.Equal(0, MusketeerCombat.LiveCount, "the bullet terminates conservatively");
+#else
             Physics2D.Saturate = true;                // 数组饱和 → 必须走 List
             Physics2D.ThrowOnListCast = true;         // List overload 失败（真实 AOT/icall 故障）
             Fixture.QueueHit(target, 0.5f);
@@ -488,6 +555,7 @@ namespace MusketeerRuntimeTests
             Check.Equal(0, target.GetComponent<Damageable>().DamageLog.Count,
                 "a failed complete-list cast never fabricates a hit");
             Check.Equal(0, MusketeerCombat.LiveCount, "the bullet terminates conservatively");
+#endif
 
             Physics2D.Saturate = false;
             Physics2D.ThrowOnListCast = false;
@@ -507,6 +575,12 @@ namespace MusketeerRuntimeTests
             Fixture.QueueHit(target, 0.5f);
             Check.True(MusketeerCombat.TryHandleShot(archer.ActiveArrowAttack, archer.gameObject), "suppressed");
             MusketeerCombat.Tick(0.05f, true);
+#if ANDROID
+            // Android 无完整 List ICall：断言生产只走已验证的数组路径，且层掩码与 PC 数组路径一致。
+            Check.Equal(0, Physics2D.ListCastCount, "the missing complete-list overload is never called");
+            int combatMask = (1 << Fixture.EnemiesLayer) | (1 << Fixture.WildlifeLayer);   // 鹿在 Wildlife 层
+            Check.Equal(combatMask, Physics2D.LastLayerMask, "the verified array path queries enemies + wildlife");
+#else
             Check.False(Physics2D.LastListFilter.useTriggers,
                 "the complete-list filter keeps the legacy queriesHitTriggers semantics");
             Check.True(Physics2D.LastListFilter.useLayerMask, "the layer mask is an explicit filter");
@@ -514,6 +588,7 @@ namespace MusketeerRuntimeTests
             Check.Equal(combatMask, Physics2D.LastListLayerMask, "enemies + wildlife layers are queried");
             Check.Equal(combatMask, Physics2D.LastLayerMask, "same layer mask as the array path");
             Check.False(Physics2D.LastListFilter.useDepth, "no depth filtering (legacy infinity bounds)");
+#endif
         }
 
         private static void RecordsArePooledAndCleared()

@@ -392,7 +392,11 @@ internal static class ShopV2Art
     {
         int width = texture.width;
         int cellWidth = ShopV2Layout.CellWidth(kind), cellHeight = ShopV2Layout.CellHeight(kind), rows = ShopV2Layout.Rows(kind);
+#if ANDROID
+        Color32[] pixels = AndroidTexturePixels.ReadOwnedPng(texture, width, texture.height);
+#else
         Color32[] pixels = texture.GetPixels32();
+#endif
         if (pixels == null || pixels.Length != width * texture.height) throw new InvalidDataException("pixel read failed");
         foreach (var pixel in pixels)
         {

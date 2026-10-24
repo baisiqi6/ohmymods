@@ -1,5 +1,8 @@
 using System;
 using System.Collections.Generic;
+#if ANDROID
+using Il2CppInterop.Runtime.InteropTypes.Arrays;
+#endif
 using UnityEngine;
 
 namespace KingdomEnhancedMod;
@@ -184,7 +187,15 @@ internal static class CoinCourierTeleportBodyBox
             float offsetY = (pixelCenterY - pivot.y) / ppu * sy;
             if (!float.IsFinite(offsetX) || !float.IsFinite(offsetY)) return false;
             if (renderer.flipX) offsetX = -offsetX;
+#if ANDROID
+            // Android 2.4 的 UnityEngine.SpriteRenderer 没有 flipY getter（缺失 ICall）。
+            // 本分支仅服务 Android 当前在编唯一 sized caller：BankAssistant 自建的
+            // SpriteRenderer（构造不写 Y，动画也无 Y track），故按未翻转处理。
+            // 未来新增 Android caller 或游戏版本出现 Y 写入时，必须先重验本契约。
+            // 全 repo 另有 CoinCourierRuntime 的 PC caller，不随本边界删除。
+#else
             if (renderer.flipY) offsetY = -offsetY;
+#endif
             float width = (local.MaxX - local.MinX) / ppu * Math.Abs(sx);
             float height = (local.MaxY - local.MinY) / ppu * Math.Abs(sy);
             if (!(width > 0f) || !(height > 0f)) return false;
@@ -307,7 +318,19 @@ internal static class CoinCourierTeleportBodyBox
                 Cache[key] = InvalidEntry;   // 不可读：记录失败，避免每次重试抛异常（安全降级由调用方处理）
                 return false;
             }
+#if ANDROID
+            // Current Android GetPixels ICall is stripped. Only this module's four owned
+            // readable PNGs satisfy the existing no-mip pixel helper's contract.
+            if (!BankAssistantAtlasVisuals.OwnsTexture(texture))
+            {
+                Cache[key] = InvalidEntry;
+                return false;
+            }
+            int textureWidth = texture.width;
+            Color32[] pixels = AndroidTexturePixels.ReadOwnedPng(texture, textureWidth, texture.height);
+#else
             Color[] pixels = texture.GetPixels(x, y, w, h);
+#endif
             if (pixels == null || pixels.Length < w * h)
             {
                 Cache[key] = InvalidEntry;
@@ -316,10 +339,18 @@ internal static class CoinCourierTeleportBodyBox
             int minX = int.MaxValue, minY = int.MaxValue, maxX = -1, maxY = -1;
             for (int row = 0; row < h; row++)
             {
+#if ANDROID
+                int rowBase = (y + row) * textureWidth + x;
+#else
                 int rowBase = row * w;
+#endif
                 for (int col = 0; col < w; col++)
                 {
+#if ANDROID
+                    if (pixels[rowBase + col].a < 8) continue; // byte alpha == 8f / 255f
+#else
                     if (pixels[rowBase + col].a < AlphaThreshold) continue;
+#endif
                     if (col < minX) minX = col;
                     if (col + 1 > maxX) maxX = col + 1;
                     if (row < minY) minY = row;
@@ -358,6 +389,11 @@ internal static class CoinCourierTeleportBodyBox
 /// 样式自己拥有（Horizontal 清晰金色阶、Vertical 高不透明近黑阶 + 克制暖端），传入 Base RGB
 /// 不再参与混色，只有 alpha 仍生效（白色/任意底色不会把黑色洗灰）。
 ///
+/// Android 2.4 的 LineRenderer 仅剩 SetPosition/startColor/endColor 三个 ICall，useWorldSpace/
+/// positionCount/widthCurve/widthMultiplier 等渲染子集不可用；`#if ANDROID` 分支改用同一组
+/// 4 点断面、同一 widthCurve 与色阶的 8 顶点 mesh ribbon（见 <see cref="RibbonLine"/>），
+/// PC 仍逐字使用 LineRenderer。两者对外契约、几何、时程与池复用一致，只换"画"的实现。
+///
 /// 时程（<see cref="LifetimeSeconds"/> = .32s，约 60FPS 下 19~20 帧）：
 /// * Arrival 的 anchor = 调用方显形时刻；增长峰值（全部 16 根满长）恰好在 anchor，晚激活的线
 ///   也在 anchor 前完成可见增长；anchor 后按每条线自己的 TailAt 收成残线渐退。
@@ -378,7 +414,8 @@ internal static class CoinCourierTeleportBodyBox
 /// * 单表：几何、宽度、色阶索引与全部时程（ArrivalAt/DepartAt/TailAt/ArrivalFrom）都来自
 ///   <see cref="StripeSpecs"/> 一项只读表；线数 <see cref="DashesPerEffect"/> 直接由表长派生，
 ///   不存在可失配的平行数组。非法 style/direction/anchor 在占用池槽前拒收。
-/// * 热路径：Tick/Configure 只写既有 4 个顶点、start/endColor 与 widthMultiplier；
+/// * 热路径：PC 的 Tick/Configure 只写既有 4 个顶点、start/endColor 与 widthMultiplier；Android
+///   ribbon 只写每 dash 预分配的 8 顶点/8 色数组，均无逐帧分配；
 ///   AnimationCurve 只在类型初始化时为每条线建一次，池复用与逐帧更新零数组/零 curve 分配。
 /// </summary>
 internal static class CoinCourierTeleportFx
@@ -537,11 +574,218 @@ internal static class CoinCourierTeleportFx
     // 类型初始化时一次性建立；Configure/Tick 只读引用，池复用不重建。
     private static readonly AnimationCurve[] WidthCurves = BuildWidthCurves();
 
+    // ============================================================
+    // mesh ribbon 纯几何（Android 2.4 的 LineRenderer 渲染子集不可用；PC 仍走 LineRenderer）
+    // ============================================================
+
+    internal const int RibbonSectionCount = 4;                          // 四点等分：t = 0、1/3、2/3、1
+    internal const int RibbonVertexCount = RibbonSectionCount * 2;
+    internal const int RibbonIndexCount = (RibbonSectionCount - 1) * 6;
+
+    /// <summary>
+    /// 一个 dash 的 ribbon 断面结果（纯托管、无堆分配）：4 个断面（t = 0、1/3、2/3、1）各沿
+    /// 线段法线 ±width/2 的左右顶点，以及 4 个断面的顶点色。Android 分支把字段写进预分配的
+    /// Il2CppStructArray 再上传 Mesh；managed 数学测试直接断言字段。
+    /// 顶点顺序固定为 [L0, R0, L1, R1, L2, R2, L3, R3]，与 RibbonIndices 的 winding 对应。
+    /// </summary>
+    internal readonly struct RibbonGeometry
+    {
+        internal readonly Vector3 FirstLeft, FirstRight;
+        internal readonly Vector3 Mid1Left, Mid1Right;
+        internal readonly Vector3 Mid2Left, Mid2Right;
+        internal readonly Vector3 SecondLeft, SecondRight;
+        internal readonly Color FirstColor, Mid1Color, Mid2Color, SecondColor;
+
+        internal RibbonGeometry(Vector3 firstLeft, Vector3 firstRight,
+            Vector3 mid1Left, Vector3 mid1Right, Vector3 mid2Left, Vector3 mid2Right,
+            Vector3 secondLeft, Vector3 secondRight,
+            Color firstColor, Color mid1Color, Color mid2Color, Color secondColor)
+        {
+            FirstLeft = firstLeft;
+            FirstRight = firstRight;
+            Mid1Left = mid1Left;
+            Mid1Right = mid1Right;
+            Mid2Left = mid2Left;
+            Mid2Right = mid2Right;
+            SecondLeft = secondLeft;
+            SecondRight = secondRight;
+            FirstColor = firstColor;
+            Mid1Color = mid1Color;
+            Mid2Color = mid2Color;
+            SecondColor = secondColor;
+        }
+    }
+
+    /// <summary>
+    /// 用与 LineRenderer 相同的四点（first、first+step、first+step+step、second）生成 ribbon：
+    /// 断面中心严格共线等分，左右顶点沿 XY 法线 ±width/2；顶点色沿 start→end 按 t 线性插值。
+    /// width 已是世界总宽（curve 值 × widthMultiplier）；退化零长线段取固定法线、非法宽度归零，
+    /// 任何输入都不会产生 NaN。
+    /// </summary>
+    internal static RibbonGeometry BuildRibbon(Vector3 first, Vector3 second,
+        float firstWidth, float middleWidth1, float middleWidth2, float secondWidth,
+        Color startColor, Color endColor)
+    {
+        float dx = second.x - first.x;
+        float dy = second.y - first.y;
+        float length = MathF.Sqrt(dx * dx + dy * dy);
+        float normalX = 0f;
+        float normalY = 1f;
+        if (float.IsFinite(length) && length > 1e-6f)
+        {
+            normalX = -dy / length;
+            normalY = dx / length;
+        }
+        Vector3 step = (second - first) * Third;
+        Vector3 mid1 = first + step;
+        Vector3 mid2 = mid1 + step;
+        float halfFirst = RibbonHalfWidth(firstWidth);
+        float halfMid1 = RibbonHalfWidth(middleWidth1);
+        float halfMid2 = RibbonHalfWidth(middleWidth2);
+        float halfSecond = RibbonHalfWidth(secondWidth);
+        return new RibbonGeometry(
+            RibbonSide(first, normalX, normalY, halfFirst),
+            RibbonSide(first, normalX, normalY, -halfFirst),
+            RibbonSide(mid1, normalX, normalY, halfMid1),
+            RibbonSide(mid1, normalX, normalY, -halfMid1),
+            RibbonSide(mid2, normalX, normalY, halfMid2),
+            RibbonSide(mid2, normalX, normalY, -halfMid2),
+            RibbonSide(second, normalX, normalY, halfSecond),
+            RibbonSide(second, normalX, normalY, -halfSecond),
+            LerpRibbonColor(startColor, endColor, 0f),
+            LerpRibbonColor(startColor, endColor, Third),
+            LerpRibbonColor(startColor, endColor, 2f * Third),
+            LerpRibbonColor(startColor, endColor, 1f));
+    }
+
+    private static Vector3 RibbonSide(Vector3 center, float normalX, float normalY, float offset)
+        => center + new Vector3(normalX * offset, normalY * offset, 0f);
+
+    private static float RibbonHalfWidth(float width)
+        => float.IsFinite(width) && width > 0f ? width * 0.5f : 0f;
+
+    /// <summary>与 UnityEngine.Color.Lerp 等价的逐通道线性插值（t 已在 [0,1] 内取端点/三分点）。</summary>
+    private static Color LerpRibbonColor(Color start, Color end, float t)
+    {
+        if (t <= 0f) return start;
+        if (t >= 1f) return end;
+        return new Color(
+            start.r + (end.r - start.r) * t,
+            start.g + (end.g - start.g) * t,
+            start.b + (end.b - start.b) * t,
+            start.a + (end.a - start.a) * t);
+    }
+
+    /// <summary>共享的 18 索引模板（3 段 × 2 三角形，统一 winding）；Android 建槽时复制进原生数组。</summary>
+    internal static readonly int[] RibbonIndices = BuildRibbonIndices();
+
+    internal static void FillRibbonIndices(int[] indices)
+    {
+        if (indices == null || indices.Length < RibbonIndexCount)
+            throw new ArgumentException("ribbon index buffer is null or too small", nameof(indices));
+        for (int segment = 0; segment < RibbonSectionCount - 1; segment++)
+        {
+            int vertex = segment * 2;
+            int index = segment * 6;
+            indices[index] = vertex;
+            indices[index + 1] = vertex + 1;
+            indices[index + 2] = vertex + 2;
+            indices[index + 3] = vertex + 2;
+            indices[index + 4] = vertex + 1;
+            indices[index + 5] = vertex + 3;
+        }
+    }
+
+    private static int[] BuildRibbonIndices()
+    {
+        var indices = new int[RibbonIndexCount];
+        FillRibbonIndices(indices);
+        return indices;
+    }
+
     private sealed class Dash
     {
         internal GameObject Root;
+#if ANDROID
+        // mesh ribbon 适配层：Configure 只使用与 LineRenderer 同形的成员（SetPosition/
+        // startColor/endColor/widthMultiplier/enabled/sortingLayerID/sortingOrder）。
+        internal RibbonLine Line;
+#else
         internal LineRenderer Line;
+#endif
     }
+
+#if ANDROID
+    /// <summary>ribbon 顶点是世界坐标；这个半边长覆盖全部可玩世界坐标（包围盒一次设定，不逐帧重算）。</summary>
+    private const float RibbonBoundsExtent = 10000f;
+
+    /// <summary>
+    /// LineRenderer 同形适配器：当前 Android 2.4 的 LineRenderer 仅剩 SetPosition/startColor/endColor
+    /// 三个 ICall，useWorldSpace/loop/positionCount/widthCurve/widthMultiplier 均不可用，画不出渐细虚线。
+    /// 适配器保持 Configure 既有调用形状，内部把 4 点 + 双端色 + 宽度倍率写成每 dash 预分配的
+    /// Mesh（8 顶点 / 18 索引 / 顶点色），enabled = true 时一次上传，绝不逐帧分配。
+    /// </summary>
+    private sealed class RibbonLine
+    {
+        internal MeshRenderer Renderer;
+        internal Mesh MeshAsset;
+        internal Il2CppStructArray<Vector3> Vertices;
+        internal Il2CppStructArray<Color> Colors;
+        internal readonly float[] SectionWidths = new float[RibbonSectionCount];
+        private readonly Vector3[] _points = new Vector3[RibbonSectionCount];
+        private Color _startColor;
+        private Color _endColor;
+        private float _widthMultiplier = 1f;
+
+        internal void SetPosition(int index, Vector3 value) => _points[index] = value;
+
+        internal Color startColor { set => _startColor = value; }
+        internal Color endColor { set => _endColor = value; }
+        internal float widthMultiplier { set => _widthMultiplier = value; }
+        internal int sortingLayerID { set => Renderer.sortingLayerID = value; }
+        internal int sortingOrder { set => Renderer.sortingOrder = value; }
+
+        internal bool enabled
+        {
+            set
+            {
+                if (!value)
+                {
+                    Renderer.enabled = false;
+                    return;
+                }
+                WriteRibbon();
+                Renderer.enabled = true;
+            }
+        }
+
+        private void WriteRibbon()
+        {
+            RibbonGeometry geometry = BuildRibbon(_points[0], _points[3],
+                SectionWidths[0] * _widthMultiplier, SectionWidths[1] * _widthMultiplier,
+                SectionWidths[2] * _widthMultiplier, SectionWidths[3] * _widthMultiplier,
+                _startColor, _endColor);
+            Vertices[0] = geometry.FirstLeft;
+            Vertices[1] = geometry.FirstRight;
+            Vertices[2] = geometry.Mid1Left;
+            Vertices[3] = geometry.Mid1Right;
+            Vertices[4] = geometry.Mid2Left;
+            Vertices[5] = geometry.Mid2Right;
+            Vertices[6] = geometry.SecondLeft;
+            Vertices[7] = geometry.SecondRight;
+            Colors[0] = geometry.FirstColor;
+            Colors[1] = geometry.FirstColor;
+            Colors[2] = geometry.Mid1Color;
+            Colors[3] = geometry.Mid1Color;
+            Colors[4] = geometry.Mid2Color;
+            Colors[5] = geometry.Mid2Color;
+            Colors[6] = geometry.SecondColor;
+            Colors[7] = geometry.SecondColor;
+            MeshAsset.vertices = Vertices;
+            MeshAsset.colors = Colors;
+        }
+    }
+#endif
 
     private sealed class Slot
     {
@@ -570,6 +814,10 @@ internal static class CoinCourierTeleportFx
     private static GameObject _root;
     private static Material _material;
     private static bool _materialResolved;
+#if ANDROID
+    private static Texture2D _ribbonTexture;   // 唯一自有 1×1 白纹理，随 Clear 释放
+    private static bool _loggedRibbonReady;    // 同段证据：首个 mesh 组建成成功只记一次 info
+#endif
     private static int _lastTickFrame = int.MinValue;
     private static long _nextGeneration;   // 模块单调：Clear/Shutdown 均不重置
 
@@ -817,6 +1065,9 @@ internal static class CoinCourierTeleportFx
         {
             Slot slot = Slots[i];
             GameObject root = slot.Root;
+#if ANDROID
+            DestroyDashMeshes(slot.Dashes);   // 自有 Mesh 不随 GameObject 释放
+#endif
             slot.Root = null;
             slot.Dashes = null;
             slot.Active = false;
@@ -833,6 +1084,13 @@ internal static class CoinCourierTeleportFx
             DestroyQuietly(_material);
             _material = null;
         }
+#if ANDROID
+        if (_ribbonTexture != null)
+        {
+            DestroyQuietly(_ribbonTexture);
+            _ribbonTexture = null;
+        }
+#endif
         _materialResolved = false;
         CoinCourierTeleportBodyBox.Clear();   // 池清空时释放身体框缓存（含失败条目）
     }
@@ -1051,17 +1309,54 @@ internal static class CoinCourierTeleportFx
     private static Slot CreateSlot()
     {
         GameObject group = null;
+        Dash[] dashes = null;
         try
         {
             if (!EnsureRoot()) return null;
             group = new GameObject("KEM_CoinCourierTeleportFxEffect");
             group.transform.SetParent(_root.transform, false);
             group.transform.localPosition = Vector3.zero;
-            Dash[] dashes = new Dash[DashesPerEffect];
+            dashes = new Dash[DashesPerEffect];
             for (int i = 0; i < dashes.Length; i++)
             {
                 GameObject dashObject = new GameObject("KEM_CoinCourierTeleportDash" + i);
                 dashObject.transform.SetParent(group.transform, false);
+#if ANDROID
+                MeshFilter filter = dashObject.AddComponent<MeshFilter>();
+                MeshRenderer renderer = dashObject.AddComponent<MeshRenderer>();
+                if (filter == null || renderer == null)
+                {
+                    DestroyQuietly(dashObject);
+                    throw new InvalidOperationException("mesh renderer missing on a dash");
+                }
+                var line = new RibbonLine();
+                dashes[i] = new Dash { Root = dashObject, Line = line };   // 先登记：后续 mesh 初始化失败也能被 catch 释放
+                line.Renderer = renderer;
+                line.MeshAsset = new Mesh();
+                line.Vertices = new Il2CppStructArray<Vector3>(RibbonVertexCount);
+                line.Colors = new Il2CppStructArray<Color>(RibbonVertexCount);
+                AnimationCurve curve = WidthCurves[i];   // 一次建立、池复用不重建；断面宽取 curve 的 4 个 key 值
+                line.SectionWidths[0] = curve.Evaluate(0f);
+                line.SectionWidths[1] = curve.Evaluate(Third);
+                line.SectionWidths[2] = curve.Evaluate(2f * Third);
+                line.SectionWidths[3] = curve.Evaluate(1f);
+                Mesh mesh = line.MeshAsset;
+                mesh.vertices = line.Vertices;   // 空网格会拒绝 colors/triangles：先喂顶点
+                mesh.colors = line.Colors;
+                var indices = new Il2CppStructArray<int>(RibbonIndexCount);
+                for (int index = 0; index < RibbonIndexCount; index++) indices[index] = RibbonIndices[index];
+                mesh.triangles = indices;
+                // 顶点是世界坐标（等价 useWorldSpace）：包围盒一次覆盖全部可玩坐标，
+                // 不逐帧 RecalculateBounds，也不把正在飞行的 dash 剔除出视锥。
+                mesh.bounds = new Bounds(Vector3.zero,
+                    new Vector3(RibbonBoundsExtent * 2f, RibbonBoundsExtent * 2f, RibbonBoundsExtent * 2f));
+                mesh.MarkDynamic();
+                Material material = ResolveMaterial();
+                if (material != null) renderer.sharedMaterial = material;
+                filter.sharedMesh = mesh;   // sharedMesh：避免 mesh 实例克隆
+                renderer.enabled = false;
+                dashObject.SetActive(false);
+#else
                 LineRenderer line = dashObject.AddComponent<LineRenderer>();
                 if (line == null)
                 {
@@ -1079,17 +1374,59 @@ internal static class CoinCourierTeleportFx
                 line.enabled = false;
                 dashObject.SetActive(false);
                 dashes[i] = new Dash { Root = dashObject, Line = line };
+#endif
             }
             group.SetActive(false);
+#if ANDROID
+            // 同段诊断：证明第一次真正走到 mesh 组建成成功（旧 LineRenderer 路径在此前即抛
+            // MissingIl2CppInternalCallException，只有警告、无成功标志）。只记一次，PC 不编译。
+            if (!_loggedRibbonReady)
+            {
+                _loggedRibbonReady = true;
+                try
+                {
+                    KingdomEnhancedPlugin.Instance?.LogSource?.LogInfo(
+                        "[CoinCourierTeleportFx] android mesh dashes ready count=" + dashes.Length);
+                }
+                catch (Exception)
+                {
+                    // 表现层绝不因日志失败而中断。
+                }
+            }
+#endif
             return new Slot { Root = group, Dashes = dashes };
         }
         catch (Exception e)
         {
             if (group != null) DestroyQuietly(group);
+#if ANDROID
+            DestroyDashMeshes(dashes);
+            var icall = e as Il2CppInterop.Runtime.MissingIl2CppInternalCallException;
+            WarnOnce("effect group create failed: " + e.GetType().Name
+                     + (icall == null ? string.Empty
+                        : " sig=" + (icall.Signature ?? "<null>") + " msg=" + (icall.Message ?? "<null>")));
+#else
             WarnOnce("effect group create failed: " + e.GetType().Name);
+#endif
             return null;
         }
     }
+
+#if ANDROID
+    /// <summary>释放本次建槽已登记的每 dash 自有 Mesh（new Mesh 不随 GameObject 释放）。</summary>
+    private static void DestroyDashMeshes(Dash[] dashes)
+    {
+        if (dashes == null) return;
+        for (int i = 0; i < dashes.Length; i++)
+        {
+            Dash dash = dashes[i];
+            if (dash == null || dash.Line == null) continue;
+            Mesh mesh = dash.Line.MeshAsset;
+            dash.Line = null;
+            if (mesh != null) DestroyQuietly(mesh);
+        }
+    }
+#endif
 
     private static void Deactivate(Slot slot)
     {
@@ -1140,12 +1477,34 @@ internal static class CoinCourierTeleportFx
         {
             Shader shader = Shader.Find("Sprites/Default");
             if (shader != null) _material = new Material(shader);
+#if ANDROID
+            if (_material != null)
+            {
+                // 自建 1×1 白纹理（与 PatchArcher_Impact 同法）：顶点色 × 白 = 线色，
+                // 不采样角色图集；Point + 无 mip。清理由 Clear 统一释放。
+                _ribbonTexture = new Texture2D(1, 1);
+                _ribbonTexture.SetPixel(0, 0, Color.white);
+                _ribbonTexture.Apply();
+                _ribbonTexture.filterMode = FilterMode.Point;
+                _material.mainTexture = _ribbonTexture;
+            }
+#endif
         }
         catch (Exception)
         {
+#if ANDROID
+            Texture2D failedTexture = _ribbonTexture;
+            _ribbonTexture = null;
+            DestroyQuietly(failedTexture);
+            DestroyQuietly(_material);
+#endif
             _material = null;
         }
+#if ANDROID
+        if (_material == null) WarnOnce("Sprites/Default material or white texture unavailable; dashes keep the renderer default material");
+#else
         if (_material == null) WarnOnce("Sprites/Default shader unavailable; dashes keep the renderer default material");
+#endif
         return _material;
     }
 

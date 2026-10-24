@@ -258,6 +258,9 @@ public static class PatchRoles_NorseSquad
 
             if (Pool.GetPoolFromPrefabAsset(prefab.gameObject) != null) return; // 已注册（幂等）
 
+#if ANDROID
+            if (!AndroidProfessionPoolLifecycle.CanRegisterCustomPools(managers.pools)) return;
+#endif
             Character original;
             if (!holder.tagCharacterPairs.TryGetValue("Archer", out original) || original == null) return;
 
@@ -400,7 +403,17 @@ public static class PatchRoles_NorseSquad
                 }
 
                 NpcShieldUser shieldUser = archer.GetComponent<NpcShieldUser>();
+#if ANDROID
+                bool isNorse;
+                if (!TryGetNorseArcherIdentity(archer, out isNorse))
+                {
+                    // Unknown：保留 pending，由本 routine 既有 attempts 上限重试；不得 Promote。
+                    continue;
+                }
+                if (shieldUser == null || !isNorse)
+#else
                 if (shieldUser == null || !IsNorseArcherInstance(archer))
+#endif
                 {
                     if (!context.UncertainConversions.Add(id)) continue;
                     if (!IsLoadRestoreReady(context)) return;
@@ -443,6 +456,7 @@ public static class PatchRoles_NorseSquad
     // Authoritative identity check for a real Northlands archer.  A shield
     // component alone is not sufficient: other biome archers may carry the
     // same component for unrelated combat behavior.
+#if !ANDROID
     internal static bool IsNorseArcherInstance(Archer archer)
     {
         try
@@ -456,7 +470,47 @@ public static class PatchRoles_NorseSquad
         }
         catch { return false; }
     }
+#endif
 
+#if ANDROID
+    /// <summary>
+    /// Android 身份：比较 prefab 与实例的 Persistent.path；池归属不再作为身份。
+    /// 返回 false 表示 Unknown（prefab/路径缺失或读取异常），调用方必须保留 pending
+    /// 且不得 Promote；只有返回 true 且 isNorse=false 才是明确非北境。
+    /// </summary>
+    internal static bool TryGetNorseArcherIdentity(Archer archer, out bool isNorse)
+    {
+        isNorse = false;
+        try
+        {
+            Character prefab = ResolveNorseArcherPrefab(Managers.Inst?.holder);
+            if (prefab == null || prefab.gameObject == null
+                || archer == null || archer.gameObject == null)
+            {
+                LogErrorOnce("norse identity unresolved", "prefab or archer unavailable");
+                return false;
+            }
+
+            Persistent expected = prefab.GetComponent<Persistent>();
+            Persistent actual = archer.GetComponent<Persistent>();
+            if (expected == null || actual == null
+                || string.IsNullOrEmpty(expected.path) || string.IsNullOrEmpty(actual.path))
+            {
+                LogErrorOnce("norse identity path missing",
+                    "Persistent.path unavailable; keeping pending");
+                return false;
+            }
+
+            isNorse = string.Equals(actual.path, expected.path, StringComparison.Ordinal);
+            return true;
+        }
+        catch (Exception e)
+        {
+            LogErrorOnce("norse identity failed", e.ToString());
+            return false;
+        }
+    }
+#endif
     // ============================================================
     // C. 随从转化（Worker 交替转职同款窗口技巧）
     // ============================================================

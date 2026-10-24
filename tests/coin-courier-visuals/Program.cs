@@ -49,6 +49,8 @@ internal static class Program
         Test("teleport fx stripes stand over the foot anchor and cover the body", TeleportFxStripeGeometry);
         Test("teleport fx vertical stripes run down the body over the same foot anchor", TeleportFxVerticalStripeGeometry);
         Test("teleport fx stripes taper through one static four-key width curve", TeleportFxCurveContract);
+        Test("teleport fx ribbon sections keep the four-point width curve", TeleportFxRibbonGeometry);
+        Test("teleport fx ribbon colours and indices stay linear and single-winding", TeleportFxRibbonIndices);
         Test("teleport fx stripes enter staggered inside the reveal window", TeleportFxStaggeredEntrance);
         Test("teleport fx stripes keep one uniform tilt and stay mutually parallel", TeleportFxUniformTiltContract);
         Test("teleport fx pool reuse switches geometry between styles", TeleportFxPoolReuseSwitchesStyle);
@@ -93,6 +95,28 @@ internal static class Program
         if (MathF.Abs(expected - actual) > tolerance)
             throw new Exception(why + ": expected " + expected + ", got " + actual);
     }
+
+    private static void NearColor(Color expected, Color actual, float tolerance, string why)
+    {
+        Near(expected.r, actual.r, tolerance, why + " (r)");
+        Near(expected.g, actual.g, tolerance, why + " (g)");
+        Near(expected.b, actual.b, tolerance, why + " (b)");
+        Near(expected.a, actual.a, tolerance, why + " (a)");
+    }
+
+    private static bool Finite(Vector3 value)
+        => float.IsFinite(value.x) && float.IsFinite(value.y) && float.IsFinite(value.z);
+
+    private static bool Finite(Color value)
+        => float.IsFinite(value.r) && float.IsFinite(value.g)
+        && float.IsFinite(value.b) && float.IsFinite(value.a);
+
+    private static Color LerpColor(Color start, Color end, float t)
+        => new Color(
+            start.r + (end.r - start.r) * t,
+            start.g + (end.g - start.g) * t,
+            start.b + (end.b - start.b) * t,
+            start.a + (end.a - start.a) * t);
 
     private static void Test(string name, Action body)
     {
@@ -1127,6 +1151,126 @@ internal static class Program
                     > MathF.Abs(Dash(index).Positions[3].x - Dash(index).Positions[0].x),
                 "aux stripe " + index + " is fully re-laid as vertical after reuse");
         CoinCourierTeleportFx.Cancel(reuse);
+    }
+
+    private static void TeleportFxRibbonGeometry()
+    {
+        // Android mesh ribbon 的纯数学：4 个断面必须与 LineRenderer 的四点完全同址
+        // （0、1/3、2/3、1），每断面左右顶点沿法线 ±width/2，宽度取同一 widthCurve 的 key 值。
+        var curves = (AnimationCurve[])GetStatic(typeof(CoinCourierTeleportFx), "WidthCurves");
+        Equal(CoinCourierTeleportFx.DashesPerEffect, curves.Length, "one static width curve per stripe");
+        var first = new Vector3(-1.25f, 0.75f, 0.5f);
+        var second = new Vector3(2.5f, 3.25f, 0.5f);
+        var start = new Color(0.9f, 0.6f, 0.2f, 0.8f);
+        var end = new Color(0.1f, 0.2f, 0.35f, 0.25f);
+        Vector3 step = (second - first) * (1f / 3f);
+        var centers = new[] { first, first + step, first + step + step, second };
+        Vector3 direction = second - first;
+        float directionLength = MathF.Sqrt(direction.x * direction.x + direction.y * direction.y);
+
+        for (int stripe = 0; stripe < curves.Length; stripe++)
+        {
+            var keys = curves[stripe].keys;
+            Equal(4, keys.Length, "stripe " + stripe + " keeps four width keys");
+            var widths = new[]
+            {
+                curves[stripe].Evaluate(0f),
+                curves[stripe].Evaluate(1f / 3f),
+                curves[stripe].Evaluate(2f / 3f),
+                curves[stripe].Evaluate(1f)
+            };
+            for (int section = 0; section < 4; section++)
+                Near(keys[section].value, widths[section], 1e-6f,
+                    "stripe " + stripe + " section " + section + " width is its four-key curve value");
+
+            var ribbon = CoinCourierTeleportFx.BuildRibbon(first, second,
+                widths[0], widths[1], widths[2], widths[3], start, end);
+            var left = new[] { ribbon.FirstLeft, ribbon.Mid1Left, ribbon.Mid2Left, ribbon.SecondLeft };
+            var right = new[] { ribbon.FirstRight, ribbon.Mid1Right, ribbon.Mid2Right, ribbon.SecondRight };
+            for (int section = 0; section < 4; section++)
+            {
+                Check(Finite(left[section]) && Finite(right[section]),
+                    "stripe " + stripe + " section " + section + " vertices stay finite");
+                Vector3 center = (left[section] + right[section]) * 0.5f;
+                Near(centers[section].x, center.x, 1e-5f,
+                    "stripe " + stripe + " section " + section + " keeps the collinear centre x");
+                Near(centers[section].y, center.y, 1e-5f,
+                    "stripe " + stripe + " section " + section + " keeps the collinear centre y");
+                Near(centers[section].z, center.z, 1e-6f,
+                    "stripe " + stripe + " section " + section + " keeps the dash z");
+                Vector3 offset = left[section] - center;
+                float offsetLength = MathF.Sqrt(offset.x * offset.x + offset.y * offset.y);
+                Near(widths[section] * 0.5f, offsetLength, 1e-5f,
+                    "stripe " + stripe + " section " + section + " offsets by half its curve width");
+                float along = offset.x * direction.x + offset.y * direction.y;
+                Near(0f, along, 1e-4f * directionLength,
+                    "stripe " + stripe + " section " + section + " offsets perpendicular to the dash");
+                Near(0f, offset.x + (right[section].x - center.x), 1e-5f,
+                    "stripe " + stripe + " section " + section + " puts left/right on opposite sides (x)");
+                Near(0f, offset.y + (right[section].y - center.y), 1e-5f,
+                    "stripe " + stripe + " section " + section + " puts left/right on opposite sides (y)");
+            }
+        }
+
+        var sample = CoinCourierTeleportFx.BuildRibbon(first, second, 0.02f, 0.04f, 0.01f, 0.06f, start, end);
+        NearColor(start, sample.FirstColor, 1e-6f, "first section samples the start colour");
+        NearColor(end, sample.SecondColor, 1e-6f, "last section samples the end colour");
+        NearColor(LerpColor(start, end, 1f / 3f), sample.Mid1Color, 1e-6f,
+            "middle section interpolates colour at 1/3");
+        NearColor(LerpColor(start, end, 2f / 3f), sample.Mid2Color, 1e-6f,
+            "middle section interpolates colour at 2/3");
+    }
+
+    private static void TeleportFxRibbonIndices()
+    {
+        Equal(8, CoinCourierTeleportFx.RibbonVertexCount, "ribbon keeps eight vertices");
+        Equal(18, CoinCourierTeleportFx.RibbonIndexCount, "ribbon keeps eighteen indices");
+        Equal(18, CoinCourierTeleportFx.RibbonIndices.Length, "shared index template has eighteen entries");
+
+        var first = new Vector3(-2f, 0.5f, 0f);
+        var second = new Vector3(3.5f, 4.25f, 0f);
+        var ribbon = CoinCourierTeleportFx.BuildRibbon(first, second, 0.03f, 0.05f, 0.02f, 0.04f,
+            new Color(1f, 0.8f, 0.2f, 0.9f), new Color(0.2f, 0.3f, 0.4f, 0.1f));
+        var vertices = new[]
+        {
+            ribbon.FirstLeft, ribbon.FirstRight, ribbon.Mid1Left, ribbon.Mid1Right,
+            ribbon.Mid2Left, ribbon.Mid2Right, ribbon.SecondLeft, ribbon.SecondRight
+        };
+        var indices = new int[CoinCourierTeleportFx.RibbonIndexCount];
+        CoinCourierTeleportFx.FillRibbonIndices(indices);
+        for (int index = 0; index < indices.Length; index++)
+            Equal(CoinCourierTeleportFx.RibbonIndices[index], indices[index],
+                "index " + index + " matches the shared template");
+
+        int winding = 0;
+        for (int triangle = 0; triangle < 6; triangle++)
+        {
+            int a = indices[triangle * 3];
+            int b = indices[triangle * 3 + 1];
+            int c = indices[triangle * 3 + 2];
+            Check(a >= 0 && a < vertices.Length && b >= 0 && b < vertices.Length
+                && c >= 0 && c < vertices.Length, "triangle " + triangle + " stays inside eight vertices");
+            Check(a != b && b != c && a != c, "triangle " + triangle + " is not degenerate");
+            double cross = (double)(vertices[b].x - vertices[a].x) * (vertices[c].y - vertices[a].y)
+                         - (double)(vertices[b].y - vertices[a].y) * (vertices[c].x - vertices[a].x);
+            Check(Math.Abs(cross) > 1e-6, "triangle " + triangle + " keeps a non-zero area");
+            if (triangle == 0) winding = Math.Sign(cross);
+            else Check(Math.Sign(cross) == winding, "triangle " + triangle + " keeps one winding");
+        }
+
+        // 退化零长线段 + 非法宽度：法线回退与宽度守卫必须保证 8 顶点/4 色全部有限（无 NaN）。
+        var degenerate = CoinCourierTeleportFx.BuildRibbon(first, first, float.NaN, -1f, 0f, 0.02f,
+            new Color(1f, 1f, 1f, 1f), new Color(0f, 0f, 0f, 0f));
+        var degenerateVertices = new[]
+        {
+            degenerate.FirstLeft, degenerate.FirstRight, degenerate.Mid1Left, degenerate.Mid1Right,
+            degenerate.Mid2Left, degenerate.Mid2Right, degenerate.SecondLeft, degenerate.SecondRight
+        };
+        for (int index = 0; index < degenerateVertices.Length; index++)
+            Check(Finite(degenerateVertices[index]), "degenerate ribbon vertex " + index + " stays finite");
+        Check(Finite(degenerate.FirstColor) && Finite(degenerate.Mid1Color)
+            && Finite(degenerate.Mid2Color) && Finite(degenerate.SecondColor),
+            "degenerate ribbon colours stay finite");
     }
 
     private static void TeleportFxStaggeredEntrance()

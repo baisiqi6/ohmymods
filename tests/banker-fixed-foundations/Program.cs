@@ -29,6 +29,21 @@ static class Program
             Harness.Eq(9f, right, "right fixed foundation");
         });
 
+        Harness.Test("marked added foundations do not narrow the native banker domain", () =>
+        {
+            Fixture f = Fixture.BuildGreek(notify: false);
+            ClearCandidates(f.Layer);
+            UnbuiltFoundation(f.Layer, -9f);
+            UnbuiltFoundation(f.Layer, 9f);
+            UnbuiltFoundation(f.Layer, -2f).gameObject.name = PatchWorld_WallSpots.MarkerPrefix + "_left";
+            UnbuiltFoundation(f.Layer, 2f).gameObject.name = PatchWorld_WallSpots.MarkerPrefix + "_right";
+            Notify(false);
+            Harness.True(MainBankerFixedDomain.TryCapture(Managers.Inst), "capture with marked inner fixtures");
+            Harness.True(Domain(out float left, out float right), "native domain retained");
+            Harness.Eq(-9f, left, "left marked fixture excluded");
+            Harness.Eq(9f, right, "right marked fixture excluded");
+        });
+
         Harness.Test("fromSave=true and false are both successful load notifications", () =>
         {
             Fixture f = Fixture.BuildGreek(notify: false);

@@ -1,6 +1,6 @@
 {
-  "case": "controlled-economy133-ui-api-20261018-single1",
-  "objective": "world-input-ui",
+  "case": "controlled-candidate136-save-load4-isolated-20261025-r13-single1",
+  "objective": "save-load4-probe",
   "serial": "emulator-5582",
   "avd": "ohmymods_android35_inprocess",
   "emulator": "/opt/homebrew/share/android-commandlinetools/emulator/emulator",
@@ -18,26 +18,73 @@
     "-read-only",
     "-no-snapshot",
     "-no-boot-anim",
+    "-no-window",
     "-crash-report-mode",
     "never"
   ],
   "candidateMain": {
-    "path": "/Users/Admin/projects/ohmymods/.local/tasks/android-profession-archery-20261014/g19-s1-runtime-preparation-20261018/post-input-ui-runtime-triage/bank-api-repaint-diagnostic/release/OhMyMods.AndroidProbe.dll",
-    "sha256": "3e7cdf7c316de3109801dae534140dbd98e96c155c4a06930799f2d8472d86c0",
+    "path": "/Users/Admin/projects/ohmymods/.local/tasks/android-profession-archery-20261014/engine-gaps-20261025/root-build/release/OhMyMods.AndroidProbe.dll",
+    "sha256": "6b14879dee633f67a3e1853058579e1c7143310986bc866f7a4b040298a532b3",
     "dest": "/sdcard/Android/data/com.rawfury.kingdom2crowns/files/MelonLoader/Mods/OhMyMods.AndroidProbe.dll",
     "originalSHA256": "5460efd9652731ce50b3d69d10570f3f599cce1935c007e0afe71a0669da156b"
   },
   "candidateCfg": {
-    "path": "/Users/Admin/projects/ohmymods/.local/tasks/android-profession-archery-20261014/g19-s1-runtime-preparation-20261018/next-input-ui-case/candidate/MelonPreferences.controlled58.cfg",
-    "sha256": "f49c3cfcac16e892dececbc48cfde8feb1ee66e7db6e821e6db13139585d6ae0",
+    "path": "/Users/Admin/projects/ohmymods/.local/tasks/android-profession-archery-20261014/g19-s1-runtime-preparation-20261018/restock-economy-config-20261025/MelonPreferences.restock7.cfg",
+    "sha256": "feefad796591f2043a671085d84d55735f74f3bbac40f19fc680ac0ce82c2fc1",
     "dest": "/sdcard/Android/data/com.rawfury.kingdom2crowns/files/MelonLoader/UserData/MelonPreferences.cfg",
     "originalSHA256": "9758bda80f7834063ba3bdee0146e2c93df4d3ccbb63a71a382e30c7f4d7c882",
     "preferenceKeys": 58
   },
   "addon": {
-    "path": "/Users/Admin/projects/ohmymods/.local/tasks/android-profession-archery-20261014/g19-s1-runtime-preparation-20261018/v3-input-observer/bin/net6.0/OhMyMods.S1InputSurfaceProbeV3.dll",
-    "sha256": "308584c2efbb2135acfbf81f1ee90083706fb867cdff847539345591eccab061",
-    "dest": "/sdcard/Android/data/com.rawfury.kingdom2crowns/files/MelonLoader/Mods/OhMyMods.S1InputSurfaceProbeV3.dll"
+    "path": "/Users/Admin/projects/ohmymods/.local/tasks/android-profession-archery-20261014/g19-s1-runtime-preparation-20261018/prefs-probe-v2/root-build/bin/OhMyMods.NativeSceneControlProbe.dll",
+    "sha256": "9339efaafe3d5bf0ccb82b81c546ed64161b2071051afc41f00be0ddf5e01c12",
+    "dest": "/sdcard/Android/data/com.rawfury.kingdom2crowns/files/MelonLoader/Mods/OhMyMods.NativeSceneControlProbe.dll",
+    "assembly": "OhMyMods.NativeSceneControlProbe"
+  },
+  "nativeFixture": {
+    "path": "/Users/Admin/projects/ohmymods/.local/tasks/android-profession-archery-20261014/g19-s1-runtime-preparation-20261018/save-load-inputs-20261025/Release/global-v35",
+    "sha256": "e6e6e81d7564cc722c57c5bd6862e1c850c0b948b265a2ea1def79958c61cd61",
+    "bytes": 263366,
+    "target": "/sdcard/Android/data/com.rawfury.kingdom2crowns/files/Release/global-v35",
+    "expectedOriginalSHA256": "7ba5f975c098f07fe3e4b13dfe10a32a9575508d22ca5a8a82941cc063236bf8",
+    "expectedOriginalBytes": 82978
+  },
+  "modArchiveSeed": {
+    "dir": "/sdcard/Android/data/com.rawfury.kingdom2crowns/files/MelonLoader/UserData/KingdomEnhancedMod/ModSave",
+    "state": "captured",
+    "files": [
+      {
+        "rel": "hero-identities.v1.json",
+        "path": "/Users/Admin/projects/ohmymods/.local/tasks/android-profession-archery-20261014/g19-s1-runtime-preparation-20261018/save-load-inputs-20261025/ModSave/hero-identities.v1.json",
+        "sha256": "9d90a1096223ef2d8bf4da73da222941a4264ed451200c7cbacaf98519f2fd86",
+        "bytes": 1189
+      },
+      {
+        "rel": "hero-identities.v1.json.bak",
+        "path": "/Users/Admin/projects/ohmymods/.local/tasks/android-profession-archery-20261014/g19-s1-runtime-preparation-20261018/save-load-inputs-20261025/ModSave/hero-identities.v1.json.bak",
+        "sha256": "352a864cf6eef558375b1b9c80f47052b712075712cb63ab5d5375be161604ce",
+        "bytes": 562
+      },
+      {
+        "rel": "musketeer-identities.v2.json",
+        "path": "/Users/Admin/projects/ohmymods/.local/tasks/android-profession-archery-20261014/g19-s1-runtime-preparation-20261018/save-load-inputs-20261025/ModSave/musketeer-identities.v2.json",
+        "sha256": "7e53e04504e7bb73702d468aa72aadfbfcdd10a20ba469bed9c9158f3387aa84",
+        "bytes": 51446
+      },
+      {
+        "rel": "musketeer-pair-global-v35.json",
+        "path": "/Users/Admin/projects/ohmymods/.local/tasks/android-profession-archery-20261014/g19-s1-runtime-preparation-20261018/save-load-inputs-20261025/ModSave/musketeer-pair-global-v35.json",
+        "sha256": "e7583f6c676f19069a5a47698856cd4be25d8f6e2c3c8e58ac53255c29a3a499",
+        "bytes": 380656
+      }
+    ],
+    "expectedBaseline": [
+      {
+        "rel": "hero-identities.v1.json",
+        "sha256": "352a864cf6eef558375b1b9c80f47052b712075712cb63ab5d5375be161604ce",
+        "bytes": 562
+      }
+    ]
   },
   "runtimeRefs": [
     {
@@ -64,18 +111,13 @@
       "remote": "/sdcard/Android/data/com.rawfury.kingdom2crowns/files/MelonLoader/MelonLoader/Il2CppAssemblies/UnityEngine.CoreModule.dll",
       "local": "/Users/Admin/projects/ohmymods/.local/tasks/android-profession-archery-20261014/g1-native-memory-apkbudget/cases/swiftshader-memory-20261015-apkbudget-single1/original-logs/Il2CppAssemblies/UnityEngine.CoreModule.dll",
       "sha256": "4f50e9afbd69f692b4347a3ed12a548e2882c35f8dc3063dbdcf2cb9d10274f2"
-    },
-    {
-      "remote": "/sdcard/Android/data/com.rawfury.kingdom2crowns/files/MelonLoader/MelonLoader/Il2CppAssemblies/Il2CppRewired_Core.dll",
-      "local": "/Users/Admin/projects/ohmymods/.local/tasks/android-profession-archery-20261014/g1-native-memory-apkbudget/cases/swiftshader-memory-20261015-apkbudget-single1/original-logs/Il2CppAssemblies/Il2CppRewired_Core.dll",
-      "sha256": "b4ff7e723cecb579c0ab1df58d90ef6624ff2458f4b6cde20b72c7089d172366"
     }
   ],
   "hostProtection": [
     {
       "label": "normalDLL",
       "path": "/Applications/ohmymods/arm64/BepInEx/plugins/KingdomEnhancedMod/KingdomEnhancedMod.dll",
-      "sha256": "8345f086c2a93ec6202f3e6c292733661b4f81e0e7fd28dff8993e51ec9d9e1b"
+      "sha256": "055368a3964d307b9a3155160d6a2036cd554f8765c7ea79bdac198b6e59fcaf"
     },
     {
       "label": "localChecklist",
@@ -111,11 +153,11 @@
   ],
   "budgets": {
     "bootSecondsMax": 90.0,
-    "prepareSecondsMax": 60.0,
-    "worldSecondsMax": 900.0,
-    "totalSecondsMax": 1200.0,
+    "prepareSecondsMax": 120.0,
+    "worldSecondsMax": 360.0,
+    "totalSecondsMax": 900.0,
     "cleanupSecondsMax": 30.0,
-    "windowMinRemainingSeconds": 1230.0,
+    "windowMinRemainingSeconds": 930.0,
     "leaseMarginMinutes": 15
   },
   "targetFiles": {
@@ -128,15 +170,15 @@
     "logs": "/sdcard/Android/data/com.rawfury.kingdom2crowns/files/MelonLoader/MelonLoader/Logs",
     "package": "com.rawfury.kingdom2crowns",
     "launchActivity": "eagle.simple.sdks.manage.FakeActivity",
-    "addon": "/sdcard/Android/data/com.rawfury.kingdom2crowns/files/MelonLoader/Mods/OhMyMods.S1InputSurfaceProbeV3.dll"
+    "probe": "/sdcard/Android/data/com.rawfury.kingdom2crowns/files/MelonLoader/Mods/OhMyMods.NativeSceneControlProbe.dll"
   },
-  "resourceWindowSHA256": "7e379679ad90c072c5528b4eb300e471cb0e72a56708113590327b578023bbac",
+  "gateSHA256": "465e2db9a0124f4bf3626ac663256c64b2ec8f60be644ed90b801062847ac5fe",
+  "sourceReviewSHA256": "df40dc8b8f00704e15e98aec20d9ad5f81a48212356d3b15fc9a2a53a6d098e3",
+  "resourceWindowSHA256": "cb510b5dc0b037852e07e1949fb47af38d7c57b1fc2268fb5015797d7e336fba",
   "taskIdentity": {
     "issue": 232,
-    "owner": "mac-codex-ohmymods-android-operator",
-    "session": "codex-android-profession-archery-20261014",
+    "owner": "mac-dsh-ohmymods-android-operator",
+    "session": "dsh-android-profession-archery-20261023",
     "operation": "a7459a58-3446-4856-aaa3-5f02e1115de2"
-  },
-  "gateSHA256": "098c57a6d2a702fe47fa4aaf13c7945b4f679eab06de476ef0728f9f5b100761",
-  "sourceReviewSHA256": "ffc74fc58dd2603923785eaa14eb8b21130be67cf77b9c619104bcdebe27eb32"
+  }
 }

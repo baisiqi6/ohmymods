@@ -34,7 +34,11 @@ internal static class CharacterLeisureAtlas
             pending = new Texture2D(2, 2, TextureFormat.RGBA32, false);
             if (!ImageConversion.LoadImage(pending, bytes, false)) return false;
             if (pending.width != width * Columns || pending.height != height * Rows) return false;
+#if ANDROID
+            Color32[] pixels = AndroidTexturePixels.ReadOwnedPng(pending, pending.width, pending.height);
+#else
             Color32[] pixels = pending.GetPixels32();
+#endif
             if (pixels == null || pixels.Length != pending.width * pending.height) return false;
             for (int frame = 0; frame < Frames; frame++)
             {

@@ -18,6 +18,9 @@ internal static class Program
             RasterBoundaries();
             AttachmentBridge();
             RuntimeGeometry();
+#if ANDROID
+            AndroidVertexColorAlpha();
+#endif
             ActualRunStop();
             Console.WriteLine("ALL SCARF GEOMETRY TESTS PASSED (" + passed + ")");
             return 0;
@@ -254,6 +257,77 @@ internal static class Program
         var material=h.Renderers[0].sharedMaterial; HeroArcherCloth.Destroy(h);
         Check(h.Vertices[0]==null && !material.destroyed,"destroy returns mesh buffers while retaining shared material");
     }
+#if ANDROID
+    /// <summary>
+    /// Android 2.4（-p:AndroidTintTest=true）没有 Renderer.Get/SetPropertyBlock ICall：alpha 改为烘进
+    /// cloth 网格既有的 vertex colors alpha 通道。断言：初始镜像 reference.a 且 rgb 保持调色板像素色；
+    /// alpha 变化只原地改 alpha 并重新提交同一数组（不重建、不逐帧分配）；相同 alpha 不重写；
+    /// NaN fail-closed；全路径不触碰 PropertyBlock；Destroy 归还基准数组。
+    /// </summary>
+    private static void AndroidVertexColorAlpha()
+    {
+        var parent=new GameObject("androidAlphaHero");
+        var body=new GameObject("androidAlphaBody");
+        body.transform.SetParent(parent.transform,false);
+        var reference=body.AddComponent<SpriteRenderer>();
+        var material=new Material(Shader.Find("Sprites/Default"));
+        reference.Initialize(new Color(1f,1f,1f,0.35f),false,1,5,material);
+        var h=HeroArcherCloth.Create(parent.transform,reference);
+        Check(h!=null,"android alpha: creation succeeds");
+        bool mirrored=true;
+        var baselineRgb=new Color[2][];
+        for(int c=0;c<HeroArcherCloth.ChainCount;c++)
+        {
+            baselineRgb[c]=new Color[h.Meshes[c].colors.Length];
+            for(int i=0;i<baselineRgb[c].Length;i++)
+            {
+                Color color=h.Meshes[c].colors[i];
+                baselineRgb[c][i]=color;
+                int segment=i/HeroArcherScarfGeometry.VerticesPerSegment;
+                int face=(i%HeroArcherScarfGeometry.VerticesPerSegment)/HeroArcherScarfGeometry.VerticesPerFace;
+                int rgb=HeroArcherScarfGeometry.FaceRgb(c,segment,face);
+                mirrored&=color.a==0.35f
+                    &&color.r==((rgb>>16)&255)/255f
+                    &&color.g==((rgb>>8)&255)/255f
+                    &&color.b==(rgb&255)/255f;
+            }
+        }
+        Check(mirrored,"android alpha: create keeps palette rgb and mirrors reference alpha in vertex colors");
+        Check(ReferenceEquals(h.Colors[0],h.Meshes[0].colors)&&ReferenceEquals(h.Colors[1],h.Meshes[1].colors),
+            "android alpha: baseline color arrays retained on the handle");
+
+        int writes0=h.Meshes[0].ColorWrites,writes1=h.Meshes[1].ColorWrites;
+        var colors0=h.Meshes[0].colors;var colors1=h.Meshes[1].colors;
+        reference.Initialize(new Color(1f,1f,1f,0.6f),false,1,5,material);
+        HeroArcherCloth.Tick(h,1f/60f,0f,true);
+        bool updated=ReferenceEquals(colors0,h.Meshes[0].colors)&&ReferenceEquals(colors1,h.Meshes[1].colors)
+            &&h.Meshes[0].ColorWrites==writes0+1&&h.Meshes[1].ColorWrites==writes1+1;
+        for(int c=0;c<HeroArcherCloth.ChainCount;c++)
+            for(int i=0;i<h.Meshes[c].colors.Length;i++)
+                updated&=h.Meshes[c].colors[i].a==0.6f&&SameRgb(h.Meshes[c].colors[i],baselineRgb[c][i]);
+        Check(updated,"android alpha: change rewrites only the alpha channel of the same color array");
+
+        int stable0=h.Meshes[0].ColorWrites,stable1=h.Meshes[1].ColorWrites;
+        for(int frame=0;frame<5;frame++)HeroArcherCloth.Tick(h,1f/60f,0f,true);
+        Check(h.Meshes[0].ColorWrites==stable0&&h.Meshes[1].ColorWrites==stable1,
+            "android alpha: unchanged alpha never resubmits colors");
+        reference.Initialize(new Color(1f,1f,1f,float.NaN),false,1,5,material);
+        HeroArcherCloth.Tick(h,1f/60f,0f,true);
+        bool nanSafe=true;
+        for(int c=0;c<HeroArcherCloth.ChainCount;c++)
+            for(int i=0;i<h.Meshes[c].colors.Length;i++)nanSafe&=h.Meshes[c].colors[i].a==0.6f;
+        Check(nanSafe,"android alpha: NaN reference alpha stays fail-closed");
+        Check(Renderer.PropertyBlockReads==0&&Renderer.PropertyBlockWrites==0,
+            "android alpha: no PropertyBlock get/set (reads="+Renderer.PropertyBlockReads
+                +" writes="+Renderer.PropertyBlockWrites+")");
+
+        var baseline0=h.Colors[0];
+        HeroArcherCloth.Destroy(h);
+        Check(h.Colors[0]==null&&h.Colors[1]==null&&baseline0!=null,
+            "android alpha: destroy releases baseline color buffers");
+    }
+#endif
+
     private static void ActualRunStop()
     {
         float runEdgeMin=100, maxStep=0, maxComponentStep=0, stopClearanceMax=0;string stepAt="";
@@ -354,4 +428,5 @@ internal static class Program
     private static float Distance(Vector3 a,Vector3 b)=>Math.Abs(a.x-b.x)+Math.Abs(a.y-b.y);
     private static float Area(Vector3 a,Vector3 b,Vector3 c)=>(b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x);
     private static bool SameColor(Color a,Color b)=>a.r==b.r&&a.g==b.g&&a.b==b.b&&a.a==b.a;
+    private static bool SameRgb(Color a,Color b)=>a.r==b.r&&a.g==b.g&&a.b==b.b;
 }

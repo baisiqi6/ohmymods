@@ -12,7 +12,8 @@ namespace MelonLoader
         internal static string LastWarning;
         internal static string LastError;
         internal static int WarningCalls;
-        internal static void Msg(string message) => LastMessage = message;
+        internal static int MessageCalls;
+        internal static void Msg(string message) { LastMessage = message; MessageCalls++; }
         internal static void Warning(string message) { LastWarning = message; WarningCalls++; }
         internal static void Error(string message) => LastError = message;
     }

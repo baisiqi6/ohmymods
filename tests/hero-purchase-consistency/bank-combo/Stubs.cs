@@ -914,3 +914,13 @@ namespace KingdomEnhancedMod
         }
     }
 }
+
+// Data-only game boundary: MainBankerFixedDomain excludes the production wall-spot marker.
+// The selection algorithm remains linked production code; no wall-placement logic is modelled.
+namespace KingdomEnhancedMod
+{
+    internal static class PatchWorld_WallSpots
+    {
+        internal const string MarkerPrefix = "KEM_WallSpot";
+    }
+}

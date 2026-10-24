@@ -240,7 +240,6 @@ namespace UnityEngine
     public class Component : Object
     {
         public GameObject gameObject;
-        public bool enabled = true;
         public Transform transform => gameObject != null ? gameObject.transform : null;
 
         public T GetComponent<T>() where T : Component => gameObject != null ? gameObject.GetComponent<T>() : null;
@@ -253,11 +252,34 @@ namespace UnityEngine
         }
     }
 
-    public class MonoBehaviour : Component
+    /// <summary>
+    /// 真实 Unity 的 enabled 在 Behaviour 上（Component 没有）。替身把 enabled 放在 Behaviour：
+    /// <see cref="EnabledWrites"/> 记录写入次数，<see cref="SuppressEnabledWrites"/> 让紧随其后的 N 次
+    /// 写入被引擎忽略（写后读回不确认），用于验证 Android compat 的 Hide/Show 读回确认失败路径。
+    /// </summary>
+    public class Behaviour : Component
     {
+        private bool _enabled = true;
+        public int EnabledWrites;
+        public int SuppressEnabledWrites;
+
+        public bool enabled
+        {
+            get => _enabled;
+            set
+            {
+                EnabledWrites++;
+                if (SuppressEnabledWrites > 0)
+                {
+                    SuppressEnabledWrites--;
+                    return;
+                }
+                _enabled = value;
+            }
+        }
     }
 
-    public class Behaviour : Component
+    public class MonoBehaviour : Behaviour
     {
     }
 
@@ -379,11 +401,38 @@ namespace UnityEngine
         public static bool LoadImageResult = true;
     }
 
-    public class Renderer : Component
+    /// <summary>
+    /// 真实 Unity 的 Renderer 直接拥有 enabled/forceRenderingOff，SpriteRenderer 只追加 sprite 属性。
+    /// Android 2.4 没有 forceRenderingOff 与 Get/SetPropertyBlock 的 ICall：ANDROID 下这些成员
+    /// 只计数并抛异常（与 flipY 同型），因此任何触达都会让测试失败或让计数断言失败。
+    /// </summary>
+    public class Renderer : Behaviour
     {
         public int sortingLayerID;
         public int sortingOrder;
         public Material sharedMaterial;
+#if ANDROID
+        public static int ForceOffReads, ForceOffWrites;
+        public static int PropertyBlockReads, PropertyBlockWrites;
+
+        public bool forceRenderingOff
+        {
+            get { ForceOffReads++; throw new InvalidOperationException("Android 2.4 Renderer has no forceRenderingOff getter"); }
+            set { ForceOffWrites++; throw new InvalidOperationException("Android 2.4 Renderer has no forceRenderingOff setter"); }
+        }
+
+        public void GetPropertyBlock(MaterialPropertyBlock block)
+        {
+            PropertyBlockReads++;
+            throw new InvalidOperationException("Android 2.4 Renderer has no GetPropertyBlock ICall");
+        }
+
+        public void SetPropertyBlock(MaterialPropertyBlock block)
+        {
+            PropertyBlockWrites++;
+            throw new InvalidOperationException("Android 2.4 Renderer has no SetPropertyBlock ICall");
+        }
+#else
         private bool _forceRenderingOff;
 
         /// <summary>测试用：下一次写 forceRenderingOff 抛异常（验证归还失败保留凭据）。</summary>
@@ -406,6 +455,7 @@ namespace UnityEngine
         public void GetPropertyBlock(MaterialPropertyBlock block) { block.Color = PropertyBlockColor; }
         public void SetPropertyBlock(MaterialPropertyBlock block) { PropertyBlockColor = block.Color; }
         public Color PropertyBlockColor;
+#endif
     }
 
     public class SpriteRenderer : Renderer
@@ -413,7 +463,17 @@ namespace UnityEngine
         public Sprite sprite;
         public Color color = Color.white;
         public bool flipX;
+#if ANDROID
+        // Android 2.4 has no SpriteRenderer.flipY getter/setter (MissingICall).
+        public static int FlipYReads, FlipYWrites;
+        public bool flipY
+        {
+            get { FlipYReads++; throw new InvalidOperationException("Android 2.4 SpriteRenderer has no flipY getter"); }
+            set { FlipYWrites++; throw new InvalidOperationException("Android 2.4 SpriteRenderer has no flipY setter"); }
+        }
+#else
         public bool flipY;
+#endif
     }
 
     public struct AnimatorStateInfo
@@ -423,7 +483,7 @@ namespace UnityEngine
         public float length;
     }
 
-    public class Animator : Component
+    public class Animator : Behaviour
     {
         public bool isActiveAndEnabled = true;
         public AnimatorStateInfo State;
@@ -431,7 +491,7 @@ namespace UnityEngine
         public static int StringToHash(string name) => name != null ? name.GetHashCode() : 0;
     }
 
-    public class Collider2D : Component
+    public class Collider2D : Behaviour
     {
         /// <summary>真实 Collider2D.bounds（鹿弹微调只用它；绝不硬编码生物尺寸）。</summary>
         public Bounds bounds;
@@ -543,6 +603,10 @@ namespace UnityEngine
         public static float unscaledTime = 0f;
         public static float timeScale = 1f;
         public static int frameCount = 1;
+#if !ANDROID
+        /// <summary>PC 2.4 时钟；Android 2.4 无该 getter（见 AndroidUnityCompat.UnscaledSeconds）。</summary>
+        public static double unscaledTimeAsDouble => unscaledTime;
+#endif
     }
 
     public static class Mathf

@@ -103,6 +103,9 @@ namespace UnityEngine
         public static float time;
         public static float deltaTime = 1f / 60f;
         public static float timeScale = 1f;
+        // AndroidUnityCompat 的两个时间分支：PC 用 unscaledTimeAsDouble，Android 用 unscaledTime。
+        public static double unscaledTimeAsDouble;
+        public static float unscaledTime;
         public static int frameCount;
     }
 
@@ -267,34 +270,58 @@ namespace UnityEngine
 
     public class Renderer : Component
     {
+#if !ANDROID
+        // PC 原路径：forceRenderingOff 是独立布尔字段（与旧 stub 相同）。
         public bool enabled = true;
+#endif
         public int sortingLayerID;
         public int sortingOrder;
         public Material sharedMaterial;
-    }
+#if ANDROID
+        // Android 2.4 没有 Renderer.forceRenderingOff ICall：任何读写都是缺失 ICall 故障（抛异常），
+        // 计数器证明生产 Android 分支从不访问它（参考 tests/heavy-shield-runtime/Stubs.cs 先例）。
+        public static int ForceOffReads, ForceOffWrites;
+        public bool forceRenderingOff
+        {
+            get { ForceOffReads++; throw new InvalidOperationException("Android 2.4 Renderer has no forceRenderingOff ICall"); }
+            set { ForceOffWrites++; throw new InvalidOperationException("Android 2.4 Renderer has no forceRenderingOff ICall"); }
+        }
 
-    /// <summary>
-    /// SpriteRenderer 替身：forceRenderingOff 可注入一次性写失败（验证「没写成功就不持有」与下一帧重试）。
-    /// </summary>
-    public sealed class SpriteRenderer : Renderer
-    {
+        // Android 的隐藏/恢复原语是共享 enabled（AndroidUnityCompat 通过 Renderer 类型引用写）。
+        // HideWrites 只统计这类 compat 写；SpriteRenderer 自己的 enabled 写入走 EnabledState 字段，不计数。
+        public int HideWrites;
+        /// <summary>下一次 compat 隐藏写抛异常（写入未生效，验证「没写成功就不持有」）。</summary>
+        public bool FailNextHideWrite;
+        /// <summary>下一次 compat 隐藏写落值后再抛异常（模拟部分写入，验证回滚/重试）。</summary>
+        public bool FailAfterHideWrite;
+
+        internal bool EnabledState = true;
+
+        public bool enabled
+        {
+            get => EnabledState;
+            set
+            {
+                HideWrites++;
+                if (FailNextHideWrite)
+                {
+                    FailNextHideWrite = false;
+                    throw new InvalidOperationException("enabled write failed");
+                }
+                EnabledState = value;
+                if (FailAfterHideWrite)
+                {
+                    FailAfterHideWrite = false;
+                    throw new InvalidOperationException("partial enabled write");
+                }
+            }
+        }
+#else
         private bool _forceRenderingOff;
-
-        public Sprite sprite;
-        public bool flipX;
-        public bool flipY;
-        public Color color = Color.white;
-
-        /// <summary>下一次 forceRenderingOff 读取抛异常（模拟半销毁对象）。</summary>
+        public int ForceRenderingOffWrites;
         public bool FailNextForceRenderingOffRead;
-        /// <summary>下一次 forceRenderingOff 写入抛异常。</summary>
         public bool FailNextForceRenderingOffWrite;
         public bool FailAfterForceRenderingOffWrite;
-        /// <summary>下一次 enabled 写入抛异常。</summary>
-        public bool FailNextEnabledWrite;
-
-        public int ForceRenderingOffWrites;
-        public int EnabledWrites;
 
         public bool forceRenderingOff
         {
@@ -319,6 +346,35 @@ namespace UnityEngine
                 if (FailAfterForceRenderingOffWrite) { FailAfterForceRenderingOffWrite=false; throw new InvalidOperationException("partial write"); }
             }
         }
+#endif
+    }
+
+    /// <summary>
+    /// SpriteRenderer 替身：PC 的 forceRenderingOff 可注入一次性写失败（验证「没写成功就不持有」与下一帧重试）；
+    /// Android 的缺失成员（flipY / forceRenderingOff / PropertyBlock）访问即抛并由计数器守卫生成侧从不触碰。
+    /// </summary>
+    public sealed class SpriteRenderer : Renderer
+    {
+        public Sprite sprite;
+        public bool flipX;
+#if ANDROID
+        // Android 2.4 metadata has no SpriteRenderer.flipY getter/setter: any read or write is a
+        // MissingICall fault. Counters prove the production boundary never touches it.
+        public static int FlipYReads, FlipYWrites;
+        public bool flipY
+        {
+            get { FlipYReads++; throw new InvalidOperationException("Android 2.4 SpriteRenderer has no flipY getter"); }
+            set { FlipYWrites++; throw new InvalidOperationException("Android 2.4 SpriteRenderer has no flipY setter"); }
+        }
+#else
+        public bool flipY;
+#endif
+        public Color color = Color.white;
+
+        /// <summary>下一次 enabled 写入抛异常（模拟半销毁对象）。</summary>
+        public bool FailNextEnabledWrite;
+
+        public int EnabledWrites;
 
         public new bool enabled
         {
@@ -331,10 +387,17 @@ namespace UnityEngine
                     throw new InvalidOperationException("enabled write failed");
                 }
                 EnabledWrites++;
+#if ANDROID
+                // 第三方/测试对 SpriteRenderer.enabled 的写直接落共享状态，绕过 Renderer 的 compat
+                // 隐藏写计数（HideWrites 只作为「compat shim 是否多写」的证据）。
+                EnabledState = value;
+#else
                 base.enabled = value;
+#endif
             }
         }
 
+#if !ANDROID
         private MaterialPropertyBlock _block;
 
         public void GetPropertyBlock(MaterialPropertyBlock block)
@@ -347,6 +410,7 @@ namespace UnityEngine
         {
             _block = block != null ? block.Clone() : null;
         }
+#endif
     }
 
     public sealed class MeshRenderer : Renderer

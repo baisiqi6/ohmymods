@@ -336,6 +336,36 @@ namespace KingdomEnhancedMod
         public static bool IsCrossbowman(Archer archer) => CrossbowmanResult;
     }
 
+    /// <summary>
+    /// 原生 DroppableTool 的最小替身：Gun 表现 slice 只读 pickedUp / IsFake / transform / gameObject，
+    /// 原生 pool、collider、pickup 策略与 Persistent 不在替身范围（与被测生产文件一致）。
+    /// </summary>
+    public class DroppableTool : MonoBehaviour
+    {
+        public bool pickedUp;
+        public bool Fake;
+
+        public bool IsFake() => Fake;
+
+        /// <summary>仅用于 HarmonyPatch(typeof(DroppableTool), nameof(DroppableTool.OnEnable)) 的签名形状。</summary>
+        public void OnEnable() { }
+    }
+
+    /// <summary>MusketeerShop rack 排序替身（只覆盖 Gun 表现读取的 TryGetRackSorting）。</summary>
+    internal static class MusketeerShop
+    {
+        internal static bool RackSorting;
+        internal static int RackLayer;
+        internal static int RackOrder;
+
+        internal static bool TryGetRackSorting(DroppableTool gun, out int layer, out int order)
+        {
+            layer = RackLayer;
+            order = RackOrder;
+            return RackSorting;
+        }
+    }
+
     /// <summary>Operator 侧 MusketeerAccess 的同签名替身（测试可控）。</summary>
     internal static class MusketeerAccess
     {
@@ -355,9 +385,11 @@ namespace KingdomEnhancedMod
     internal static class MusketeerIdentity
     {
         internal static readonly List<Archer> Units = new();
+        /// <summary>火铳手 gun 世界名单替身：MusketeerGunVisuals.Sync 通过 CopyGuns 取得。</summary>
+        internal static readonly List<DroppableTool> Guns = new();
         internal static bool UnitResult;
 
-        internal static void Reset() { Units.Clear(); UnitResult = false; }
+        internal static void Reset() { Units.Clear(); Guns.Clear(); UnitResult = false; }
 
         internal static bool IsUnit(Archer actor) => Units.Contains(actor) || UnitResult;
         internal static bool IsMarked(GameObject root) => false;
@@ -370,6 +402,12 @@ namespace KingdomEnhancedMod
         {
             destination.Clear();
             for (int i = 0; i < Units.Count; i++) destination.Add(Units[i]);
+        }
+
+        internal static void CopyGuns(List<DroppableTool> destination)
+        {
+            destination.Clear();
+            for (int i = 0; i < Guns.Count; i++) destination.Add(Guns[i]);
         }
     }
 

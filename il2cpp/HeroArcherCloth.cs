@@ -19,6 +19,10 @@
 // - 材质只建一次（静态共享；shader = reference 共享材质的 shader ?? Sprites/Default ?? Unlit/Texture，
 //   mainTexture = 自有 1x1 白纹理，绝不采样图集/不产生柔边光晕）；只用 sharedMaterial，
 //   从不读写原生 renderer 的 material/propertyBlock；逐帧 alpha 走自有 MaterialPropertyBlock；
+// - Android 2.4（#if ANDROID）：Renderer.Get/SetPropertyBlock ICall 缺失 → 不实例化 block，alpha 改为
+//   烘进 cloth 网格已有的 vertex colors alpha 通道（rgb 仍为 BuildColors 像素色，与 PC 的
+//   _Color/_RendererColor=(1,1,1,alpha) 在 Sprites/Default 下等价）；只在 alpha 变化时原地写 alpha
+//   并重新提交同一数组（零分配），PC 分支保留 PropertyBlock 逐字不变；
 // - 排序在身体后：sortingLayerID = reference.sortingLayerID、sortingOrder = reference.sortingOrder - 1；
 // - 最终每面栅格成 1/32 格的稀疏像素行段（模拟状态不量化）；复用 Il2CppStructArray，
 //   零逐帧托管分配；无坐标扫描（两条链各 8 点）、无协程、无 Unity 物理组件、无碰撞；
@@ -75,9 +79,14 @@ internal static class HeroArcherCloth
     private const string ChainName = "KEM_HeroArcherClothChain";
     private const string MeshName = "KEM_HeroArcherClothMesh";
 
+#if ANDROID
+    // Android 2.4 没有 Renderer.Internal_GetPropertyBlock / Internal_SetPropertyBlock ICall：
+    // alpha 走 cloth 网格已有的 vertex colors alpha 通道，不实例化 MaterialPropertyBlock。
+#else
     private static readonly int ColorProperty = Shader.PropertyToID("_Color");
     private static readonly int RendererColorProperty = Shader.PropertyToID("_RendererColor");
     private static readonly MaterialPropertyBlock Tint = new MaterialPropertyBlock();
+#endif
 
     private static Material _material;
     private static Texture2D _whiteTexture;
@@ -97,6 +106,10 @@ internal static class HeroArcherCloth
         internal MeshFilter[] Filters = new MeshFilter[ChainCount];
         internal MeshRenderer[] Renderers = new MeshRenderer[ChainCount];
         internal Il2CppStructArray<Vector3>[] Vertices = new Il2CppStructArray<Vector3>[ChainCount];
+#if ANDROID
+        /// <summary>建 chain 时的基准顶点色（rgb=调色板像素色、alpha=1）；alpha 变化只原地写 alpha 通道。</summary>
+        internal Il2CppStructArray<Color>[] Colors = new Il2CppStructArray<Color>[ChainCount];
+#endif
         internal int[][] RasterRows = new int[ChainCount][];
         internal int[][] RasterLeft = new int[ChainCount][];
         internal int[][] RasterRight = new int[ChainCount][];
@@ -207,7 +220,15 @@ internal static class HeroArcherCloth
                     handle.RasterLeft[c] = new int[runCapacity];
                     handle.RasterRight[c] = new int[runCapacity];
                     mesh.vertices = vertices; // 空网格会拒绝 colors/triangles：先喂顶点
+#if ANDROID
+                    // 保留基准顶点色数组（rgb=调色板像素色、alpha=1）；ApplyAlpha 只在 alpha 变化时
+                    // 原地写 alpha 通道并重新提交同一数组，不重建 rgb、不产生逐帧分配。
+                    Il2CppStructArray<Color> colors = BuildColors(c);
+                    handle.Colors[c] = colors;
+                    mesh.colors = colors;
+#else
                     mesh.colors = BuildColors(c);
+#endif
                     mesh.triangles = BuildTriangles();
                     mesh.bounds = new Bounds(new Vector3(0f, -0.4f, 0f), new Vector3(3f, 3f, 1f)); // 固定包围盒：无逐帧 RecalculateBounds
 
@@ -379,6 +400,9 @@ internal static class HeroArcherCloth
                 handle.RasterRows[c] = null;
                 handle.RasterLeft[c] = null;
                 handle.RasterRight[c] = null;
+#if ANDROID
+                handle.Colors[c] = null;
+#endif
                 handle.Chains[c] = null;
                 DestroyOwn(mesh); // new Mesh() 不随 GameObject 释放
             }
@@ -497,6 +521,25 @@ internal static class HeroArcherCloth
         if (!HeroArcherClothMath.IsFinite(alpha)) return;
         if (handle.AppliedAlpha == alpha) return;
         handle.AppliedAlpha = alpha;
+#if ANDROID
+        // Android 2.4 无 Renderer.Get/SetPropertyBlock ICall：PC 的 _Color/_RendererColor block tint
+        // 在这里改为把 alpha 烘进 cloth 网格已有的 vertex colors alpha 通道。rgb 保持 BuildColors 的
+        // 固定像素色（PC block 的 rgb 恰为 1,1,1，Sprites/Default 下两者最终颜色等价）；只在 alpha
+        // 变化时原地写同一数组并重新提交，不逐帧分配、不重建整个数组。
+        for (int c = 0; c < ChainCount; c++)
+        {
+            Il2CppStructArray<Color> colors = handle.Colors[c];
+            Mesh mesh = handle.Meshes[c];
+            if (colors == null || mesh == null) continue;
+            for (int i = 0; i < colors.Length; i++)
+            {
+                Color color = colors[i];
+                color.a = alpha;
+                colors[i] = color;
+            }
+            mesh.colors = colors;
+        }
+#else
         Tint.SetColor(ColorProperty, new Color(1f, 1f, 1f, alpha));
         Tint.SetColor(RendererColorProperty, new Color(1f, 1f, 1f, alpha));
         for (int c = 0; c < ChainCount; c++)
@@ -504,6 +547,7 @@ internal static class HeroArcherCloth
             MeshRenderer renderer = handle.Renderers[c];
             if (renderer != null) renderer.SetPropertyBlock(Tint);
         }
+#endif
     }
 
     private static void ApplySorting(Handle handle, int sortingLayer, int primarySortingOrder, int secondarySortingOrder)
