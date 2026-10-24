@@ -32,3 +32,7 @@
 ## 当前证据状态
 
 闭包Worker与独立Reviewer已核真实17源/18配置形状、2组件、25owner/39handler、32不同target与4资源缺口；Reviewer指出的数量、银行保存全站点与challenge删除、动态owner保留等已纳入上方契约。当前正式产品工程尚未实施本批，未装机/未验native交易、detour、池或保存；任务不能据私有诊断标完成。过程与hash/回执留当前任务，公共进展只写实际边界。
+
+## 2026-10-25 运行进展：首次真实补货扣款（fixture 世界）
+
+`next-loader-restock-case-20261025-r5`（plan `bfca313c…`，gate 消费一次，zero Root input）在 Android 候选 `6b14879d…` + restock3 cfg `f0df327e…`（58 keys，仅 Workers/Archers/Ninjas 开）+ day32 fixture `35faea07…` + 609e 探针下取得首个真实经济扣款事实：`[AutoRestock] 工人 补货成功 price=6 nativePrice=3 coins=6`（native `Payable.TransactionComplete()` 之后、shop role 另含 `GetItemCount()+1` 验证），postflight `restockVerdict=paid-purchase-observed`。同 run：world `islandLand=8/castleBuilt=true/wallsCount=7`、live banker + `[BankAssistants] Authority spawned deterministic 8-assistant pool`、零 `MissingIl2CppInternalCallException`、资源/原盘交还通过。其余 6 类补货（Berserkers/Peasants/Farmers/CatapultBarrels/FireTowerAmmo/Musketeers）本 run 关闭/无对应店，未验证；保存/读档/换岛/池重建与手机/多人/长跑仍未验证。详见 `economy-restock-run-20261025.md`。本任务保持 open，不据此关闭 #262。

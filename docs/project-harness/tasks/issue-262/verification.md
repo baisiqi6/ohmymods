@@ -354,3 +354,10 @@ Root 在旧实现得到5条失败、新实现19/0生命周期检查，覆盖 ina
 独审 `APPROVE_DRAFT_CODE_CHECKPOINT_BOAT_POOL_FIX_RAW_NATIVE_FACTS_ONLY`（报告SHA `49a03c6157782981842c228d56b0df2511fb3f30cfca8f07fc33aa252b5b335b`）与Root接受只到Draft代码检查点。实际result SHA `96c7826cc91987660a9f1c81f8b64fab8b7ca30c72256dcd3e557c8074d876ed`、fresh `43ee153114efbfcb31bdea9d0cd199408d1ae4ccc2a8ef66d3152a429b6f3fc4`、Root postflight `df50381b9258aa6ee9caa2b981c0c298cb8b65f5e5bee5986b8fb5212f1119cd`。本机材料位于G19 `next-native-definitions-fix-case/` 与 `boat-upstream-20261021/implementation-native-definitions-20261021/`；不提交原生二进制、存档或日志。
 
 用户要求在合适节点暂停，现收为Draft检查点，不启动下一批。后续先用既有609e control-only观察器复核无额外Pool/Boat detour加载，再核对职业身份/弓弩及银行经济的攻击、FX、回收、保存装载/换岛/池重建。日志新观察的 HeavyShieldRuntime/ CoinCourierTeleportFx 两条 MissingIl2CppInternalCallException 仅登记待定位，不猜API或加入catch兜底。手机/平板、多人、长期和完整视觉继续单列；232/262 OPEN，PR263 Draft，未merge、未关单。
+
+
+## 2026-10-25 单次 Native：fixture 世界真实补货扣款（r5）
+
+- case `controlled-candidate136-loader-restock-isolated-20261025-r5-single1`；plan `bfca313ca22138f3fc39abc7c447b065e6bd30431dd031b77b05be8922299725`；候选 `6b14879d…`、restock3 cfg `f0df327e…`（58 keys，Workers/Archers/Ninjas 开）、fixture F35fae、609e 探针、zero Root input。
+- 结果：controller exit0/evidenceReportable=true；world `islandLand=8/castleBuilt=true/wallsCount=7`；`[BankAssistants] Authority spawned deterministic 8-assistant pool`、live banker=1；`[AutoRestock] 工人 补货成功 price=6 nativePrice=3 coins=6`；postflight `restockVerdict=paid-purchase-observed`、`restockPurchaseIsPaymentProof=true`、`MissingIl2CppInternalCallException` 0、资源/原盘交还通过。
+- 边界：单角色单次采购事实；其余 6 类补货、保存/读档/换岛/池重建、手机/多人/长跑与 UI 手势/画面未验证。详见 `economy-restock-run-20261025.md`。
