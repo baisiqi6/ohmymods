@@ -10,6 +10,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../../il2cpp/MapExtensionIslandArt.cs" />
+    <Compile Include="../../il2cpp/MapIslandDecorationArt.cs" />
     <Compile Include="../../il2cpp/MapResourceIconPlan.cs" />
     <Compile Include="../../il2cpp/Patch_MountIslandArtVariant.cs" />
     <Compile Include="../native-map-shore-art/Fakes.cs" />

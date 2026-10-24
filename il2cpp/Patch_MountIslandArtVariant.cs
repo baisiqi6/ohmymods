@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace KingdomEnhancedMod
@@ -31,7 +32,49 @@ namespace KingdomEnhancedMod
         };
         private static readonly MapIconAnchorSet CrescentAnchors = BuildCrescentAnchors();
 
+        // High-contrast decoration clusters authored in final prepared pixels: half-open
+        // [x0, y0, x1, y1] with y measured from the top. They stay inside the reviewed top
+        // PlacementMask and are the only decoration that blocks icon footprints; low-contrast
+        // ground texture deliberately carries no collision semantics.
+        private static readonly int[] PrimaryDecorationTopDown =
+        {
+            62, 8, 82, 20,
+            146, 22, 166, 34
+        };
+        private static readonly int[] CrescentDecorationTopDown =
+        {
+            38, 28, 50, 36,
+            146, 22, 158, 30
+        };
+
         internal static bool IsSupported(int physicalLand) => physicalLand == 11 || physicalLand == 13;
+
+        /// <summary>
+        /// Adds the two authored decoration frames for a registered island, converting once from
+        /// top-left prepared pixels to the caller's bottom-up shore box and adding the planner's
+        /// standard gutter as visual clearance. Unknown lands and non-positive frames are ignored
+        /// so native islands keep their original planning.
+        /// </summary>
+        internal static void AppendDecorationBlockers(int physicalLand, MapIconBox shoreBox,
+            List<MapIconBox> blockers)
+        {
+            if (blockers == null || !IsSupported(physicalLand)) return;
+            if (!(shoreBox.Width > 0f) || !(shoreBox.Height > 0f) ||
+                !float.IsFinite(shoreBox.X0) || !float.IsFinite(shoreBox.Y0) ||
+                !float.IsFinite(shoreBox.X1) || !float.IsFinite(shoreBox.Y1)) return;
+            int[] frames = physicalLand == 11 ? PrimaryDecorationTopDown : CrescentDecorationTopDown;
+            // Keep the planner's existing icon gap as a minimum visual clearance around the authored
+            // frame; the frame itself is still fully covered.
+            float gap = MapExtensionIslandLayout.Gutter;
+            for (int i = 0; i + 3 < frames.Length; i += 4)
+            {
+                float x0 = shoreBox.X0 + frames[i] / (float)CanvasWidth * shoreBox.Width;
+                float y0 = shoreBox.Y0 + (CanvasHeight - frames[i + 3]) / (float)CanvasHeight * shoreBox.Height;
+                float x1 = shoreBox.X0 + frames[i + 2] / (float)CanvasWidth * shoreBox.Width;
+                float y1 = shoreBox.Y0 + (CanvasHeight - frames[i + 1]) / (float)CanvasHeight * shoreBox.Height;
+                blockers.Add(new MapIconBox(x0 - gap, y0 - gap, x1 + gap, y1 + gap));
+            }
+        }
 
         internal static string ResourceNameFor(int physicalLand)
         {

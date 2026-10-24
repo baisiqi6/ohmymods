@@ -39,5 +39,7 @@
         <EmbeddedResource Include="$(MSBuildThisFileDirectory)Assets/KEM_MapRainbowPony.png" LogicalName="KingdomEnhancedMod.KEM_MapRainbowPony.png" />
         <EmbeddedResource Include="$(MSBuildThisFileDirectory)Assets/KEM_MapSantaReindeer.png" LogicalName="KingdomEnhancedMod.KEM_MapSantaReindeer.png" />
         <EmbeddedResource Include="$(MSBuildThisFileDirectory)Assets/KEM_MapSpookyhorse.png" LogicalName="KingdomEnhancedMod.KEM_MapSpookyhorse.png" />
+        <EmbeddedResource Include="$(MSBuildThisFileDirectory)Assets/KEM_MapIslandDecorPrimary.png" LogicalName="KingdomEnhancedMod.KEM_MapIslandDecorPrimary.png" />
+        <EmbeddedResource Include="$(MSBuildThisFileDirectory)Assets/KEM_MapIslandDecorCrescent.png" LogicalName="KingdomEnhancedMod.KEM_MapIslandDecorCrescent.png" />
     </ItemGroup>
 </Project>

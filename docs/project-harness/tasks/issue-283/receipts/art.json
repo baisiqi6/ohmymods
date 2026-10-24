@@ -1,0 +1,65 @@
+{
+  "A": {
+    "physicalLand": 11,
+    "overlay": "KEM_MapIslandDecorPrimary.png",
+    "overlaySHA256": "8b0802c80dc98f1ebe2a5dbd1c4a1a6ec86951787f2eb83c8ca53a98656f48cd",
+    "size": [
+      228,
+      84
+    ],
+    "basePNG_SHA256": "44c7463fed7e6cb222dfae8c701e492f000b26a21b7d37541fdc76fa994b1479",
+    "basePNGUnchanged": true,
+    "landPixels": 257,
+    "waterPixels": 45,
+    "baseGeometrySHA256": {
+      "maskSha256": "3429318ae2fe419966af1f52b6528ec7337ee65b03bced2794cda79d1f7fb055",
+      "placementMaskSha256": "ec1389ae7c847a3d9961bf26de5340ba21f6a5c9aefd90823128dab109c51f29",
+      "outlineSha256": "14874916f960a9b86401b34d67237c54a8bc7756b18fafe60e915fb164d6f018",
+      "alphaSha256": "011d2cc782c236742b615e43c7f9c5f47d24ffb4990c397861c061b729ff68ff"
+    },
+    "landContract": {
+      "landOutsideFrame": 0,
+      "landNotPlacement": 0,
+      "landNotMask": 0
+    },
+    "waterContract": {
+      "waterInMask": 0,
+      "waterTooHigh": 0,
+      "waterOutline": 0,
+      "waterNearMask": 0
+    }
+  },
+  "B": {
+    "physicalLand": 13,
+    "overlay": "KEM_MapIslandDecorCrescent.png",
+    "overlaySHA256": "bb9594e507c9c28458698a5761d8e0e329975002a120233b53460bcee4bc3d75",
+    "size": [
+      228,
+      84
+    ],
+    "basePNG_SHA256": "a056d1a3ff81ea13c5d9e065abc71d734e45226df2829184e1bd183606a79357",
+    "basePNGUnchanged": true,
+    "landPixels": 99,
+    "waterPixels": 46,
+    "baseGeometrySHA256": {
+      "maskSha256": "951e159372665ba4fe414b2c9764c8bd116c9269de87c7f59296204f44198b00",
+      "placementMaskSha256": "e57bbbfc108c5433550aaa610379412a29be363c602b72dd9c18311026625739",
+      "outlineSha256": "6b50512a40d94c950fcc7256b8c9c3bb7d6696fdc7688ca9ea80255bc52382f6",
+      "alphaSha256": "70b5e1c557f51360cb07b3c849b3269be83351c28e1803b079f9241ec4c26c1a"
+    },
+    "landContract": {
+      "landOutsideFrame": 0,
+      "landNotPlacement": 0,
+      "landNotMask": 0
+    },
+    "waterContract": {
+      "waterInMask": 0,
+      "waterTooHigh": 0,
+      "waterOutline": 0,
+      "waterNearMask": 0
+    }
+  },
+  "scope": "offline pixels and production Prepare only; native UI/input acceptance pending; no game/save/config changes",
+  "revision": "R4",
+  "failures": []
+}

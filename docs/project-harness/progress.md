@@ -1,3 +1,7 @@
+## 2026-10-24 — 坐骑岛地图装饰 #283（代码候选，未安装）
+
+R4左岛疏林/右岛砂岩草石与南侧礁石海纹已接入大地图/详情；原shore alpha/outline/双mask和满意比例保持，独立raycast=false静态层复用既有owner/cache。最终647 runtime、123 shore、105 art通过，独立198入口/31方法体clone host通过；三套Mac240/Win240/Win243引用包装器0W0E、各277资源读回SHA一致。GLM阶段审查及Astra最终独审通过，旧RuntimeProbe全套仍39失败（1040检查），与98259af逐条一致，未冒称全绿。未合并/安装、未开游戏或写正常数据，Windows #281诊断包未替换；Native外观/输入/颜色裁剪/渲染开销待验。见[tasks/issue-283/verification.md](tasks/issue-283/verification.md)。
+
 ## 2026-10-23 — #101 400u宫廷已合并并安装到正常ARM64包
 
 PR #265 merge `fa54574426a528f135e79b2f9d9bf4c1c9a80e15`，Issue #101 已关闭；R12素材PR #279的精确binary补丁已纳入 #265 后关闭，保留作者分支，未另合入master。Mac ARM64 2.4.0单机隔离链通过：自然10币进入→400u/100Tile/452绘制→UI保存退出→新进程宫廷冷读→免费返回来源岛→UI退出→来源冷读及UI退出；19/19终态核验、英雄两席/骑士身份附档/原付费凭据保持。两端截边静帧已复核；动画仅有限运动与Menu停帧采样，不代验全部连续观感、Windows、Android或联机。
