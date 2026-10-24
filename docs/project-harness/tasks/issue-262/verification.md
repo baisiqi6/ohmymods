@@ -373,3 +373,9 @@ Root 在旧实现得到5条失败、新实现19/0生命周期检查，覆盖 ina
 
 - r9（plan `9ffb0dba…`，零 Root 输入，609e 观察 + 有界 save-watch）在 Android 实机取得首次原生保存写入：`Release/global-v35` 由 fixture `35faea07…`（260,337B）变为 `e6e6e81d…`（263,366B），并在 stop 前捕获 4 个 ModSave 身份 sidecar（hero-identities.v1、musketeer-identities.v2、musketeer-pair-global-v35 及其 .bak）；postflight `saveClassification=observed-captured`、`MissingIl2CppInternalCallException` 0、资源交还通过。
 - 该证据证明保存写入路径与 mod 保存钩子执行；银行/助手等 prefs 键位于该 global-v35 内，但**读档回读**尚未验证（load-run 待做），不能据此宣称保存/读档往返或银行账本往返通过。
+
+
+## 2026-10-25 追加：保存→读档两运行往返（r9 save → r12 load）
+
+- r9 零输入自然保存写出新 `global-v35`（`e6e6e81d…`/263,366B）+ 4 个 ModSave sidecar；r12 把该存档与 sidecar 作为输入（seed 安装 byte-verified，hero v1 replaced-expected-baseline 352a864c→9d90a109）正常 boot 读档：首 READY/观察末/stop 设备 sha 均等于输入存档、`autosaveDuringWindow=false`、零 MissingICall、`[HeroRecruitment] loaded:paid:ctx/epoch` 与 `[Musketeer] loaded:records=12:bound=10` token 匹配、postflight `loaded-identity-matched`、cleanup 经 reap 证明。
+- 边界：两运行证据（非同进程 Game.Reload）；银行/助手 prefs 位于该 `global-v35` 内，但**内容级回读**仍需后续 probe v2；换岛/池重建未验，不能据此关闭 #262。
