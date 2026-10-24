@@ -16,8 +16,6 @@
     <Compile Include="../../../il2cpp/SharedBankState.cs" />
     <Compile Include="../../../il2cpp/SharedBankNative.cs" />
     <Compile Include="../../../il2cpp/PatchEconomy_Banker.cs" />
-    <Compile Include="../../../il2cpp/MainBankerFixedDomain.cs" />
-    <Compile Include="../WallSpotsBoundary.cs" />
     <Compile Include="../../../il2cpp/CoinCourierPurse.cs" />
     <Compile Include="../../../il2cpp/CoinCourierEconomy.cs" />
     <Compile Include="../../../il2cpp/CoinCourierRules.cs" />
