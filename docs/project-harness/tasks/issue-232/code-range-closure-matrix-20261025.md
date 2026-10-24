@@ -35,7 +35,8 @@
 
 ## 已知测试基建限制（非产品失败）
 
-- `tests/shared-bank-regressions/{capture,recovery,hotpath}` 在当前分支 host 编译失败：其 csproj 未包含 `il2cpp/MainBankerFixedDomain.cs`，补入后又缺 `PatchWorld_WallSpots` 常量；这些是历史 Windows host 套件，Android 构建与本次验证不受影响，如实记录不虚报为通过。
+- `tests/shared-bank-regressions/{capture,recovery}` 已修复：补入 `il2cpp/MainBankerFixedDomain.cs` 与共享测试边界 `tests/shared-bank-regressions/WallSpotsBoundary.cs`（真实 `MarkerPrefix="KEM_WallSpot"` 常量）后分别 **5 passed / 5 passed**，覆盖银行保存 capture/recovery host 路径。
+- `tests/shared-bank-regressions/hotpath` 仍不能 host 编译（其本地精简 stub 缺 `Il2CppInterop.Runtime.InteropTypes`/`Wallet.SuckCurrency`/`Managers.OnLevelLoaded` 等较新成员）；属性能/热路径套件，Android 构建与本次正确性验证不受影响，如实记录不虚报为通过。
 - iOS? 无。
 
 ## 关闭/合并门（当前不满足）
