@@ -816,6 +816,7 @@ internal static class CoinCourierTeleportFx
     private static bool _materialResolved;
 #if ANDROID
     private static Texture2D _ribbonTexture;   // 唯一自有 1×1 白纹理，随 Clear 释放
+    private static bool _loggedRibbonReady;    // 同段证据：首个 mesh 组建成成功只记一次 info
 #endif
     private static int _lastTickFrame = int.MinValue;
     private static long _nextGeneration;   // 模块单调：Clear/Shutdown 均不重置
@@ -1376,6 +1377,23 @@ internal static class CoinCourierTeleportFx
 #endif
             }
             group.SetActive(false);
+#if ANDROID
+            // 同段诊断：证明第一次真正走到 mesh 组建成成功（旧 LineRenderer 路径在此前即抛
+            // MissingIl2CppInternalCallException，只有警告、无成功标志）。只记一次，PC 不编译。
+            if (!_loggedRibbonReady)
+            {
+                _loggedRibbonReady = true;
+                try
+                {
+                    KingdomEnhancedPlugin.Instance?.LogSource?.LogInfo(
+                        "[CoinCourierTeleportFx] android mesh dashes ready count=" + dashes.Length);
+                }
+                catch (Exception)
+                {
+                    // 表现层绝不因日志失败而中断。
+                }
+            }
+#endif
             return new Slot { Root = group, Dashes = dashes };
         }
         catch (Exception e)
