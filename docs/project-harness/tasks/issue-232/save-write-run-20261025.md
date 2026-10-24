@@ -33,3 +33,10 @@
 
 - result `adddbc90…19c97c`；observed.log `9f2bfede…e0add19b`；postflight `b4dfdda9…23ac744`；spent gate `5df10273…486ad19`；save-capture inventory `d96b9750…40356572`；captured global-v35 `e6e6e81d…c61cd61`；canonical readback `dac09adc…243d170`。
 - r8 失败证据（只读保留）：`next-save-watch-case-20261025-r8/actual/result.json`、raw trace `00672/00676.json`；r8 plan `9c847ad2…` 已正常被 r9 revise 覆盖，gate 已消费不重放。
+
+## 后续 load-run 尝试（r10/r11）：读档事实成功，但两次受工具问题阻断 evidenceReportable
+
+- **r10**（plan `b80f5893…`，旧 r9 plan `9ffb0dba…` 正常 revise；gate 消费一次）：准备阶段 `modArchiveSeedInstall.state=failed-unknown`、`error=seed destination exists; refusing overwrite: hero-identities.v1.json`；pair/fixture/probe 均 byte-verified 但**未 launch**。根因：AVD 基线已有 `UserData/KingdomEnhancedMod/ModSave/hero-identities.v1.json`（`352a864c…`/562 B，恰等于 seed 的 `.bak`），r10 要求全部目标不存在 → abort。工具/输入策略问题，无产品结论；资源交还正常。
+- **r11**（plan `b119b26b…`，旧 r10 plan `b80f5893…` 正常 revise；gate 消费一次）：seed 安装策略改为“不存在→单推；已等于 seed→already-present；等于冻结基线→overlay 内单次替换（记录 before/after）；其它→abort”，`hero-identities.v1.json` 记录 `replaced-expected-baseline`（`352a864c…`→`9d90a109…`）。**读档事实成功**：`loadVerdict=loaded`、`loadReason=load-evidence-present`；首 READY / 观察末 / stop 三处设备 `global-v35` sha 均 = 输入 `e6e6e81d…`（263,366 B），`autosaveDuringWindow=false`，零 `loadMissingIcallLines`；`loadMarkers` 含 `[HeroRecruitment] loaded:paid:ctx=12b7195d:epoch=a16de6cc:hk=2:v1=False:seats=2:bound=2`、`[MusketeerSync] staged:05cfd649:4bd85972:0c15e368`、`[Musketeer] loaded:exact:records=12:bound=10:unbound=0:pending=0:stock=0:conflict=False` 等，与冻结 seed token 匹配；world READY（island8/castle/walls7）、候选控制通过、零 Root 输入。
+- **但 r11 controller exit1 / `state=inconclusive` / `evidenceReportable=false`**：cleanup `stop.error="Identity changed before signal"`、`qemuExitProven=false`、`cleanupUnknown=true`（实际 QEMU 已退出、reaper 成功、5582/5583 空闲、AVD 目录无 holder）；且 packet `root-postflight.py` 抛 `NameError: name 're' is not defined`（缺 `import re`）。均属工具问题，不是产品失败；r11 的 load 事实按“观测事实、未通过 evidenceReportable 门”记录，不能据此宣称保存-读档往返通过。
+- 下一步（r12）：修 cleanup 证明与 postflight import，重跑 load-run 取得 `evidenceReportable=true` 的干净 load 证据；之后才可把 #232/#262 的保存-读档往返标为已验（仍不含同进程 reload/池重建/换岛）。

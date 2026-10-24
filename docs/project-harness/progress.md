@@ -1,3 +1,7 @@
+## 2026-10-25 — 保存写入 r9 成功；load-run r10/r11 读档事实成功但受工具问题阻断
+
+load-run 连续两轮工具受挫并如实保留：**r10**（plan `b80f5893…`）seed 安装要求目标全不存在，但 AVD 基线已有 `hero-identities.v1.json`（`352a864c…`/562B，等于 seed 的 .bak）→ prepare abort 未 launch；**r11**（plan `b119b26b…`）改为冻结基线 allowlist 替换后，**读档事实面成功**——`loadVerdict=loaded`、首 READY/观察末/stop 三处 device `global-v35` sha 均为输入 `e6e6e81d…`、`autosaveDuringWindow=false`、零 MissingICall、`loadMarkers` 含 `[HeroRecruitment] loaded:paid:ctx=12b7195d:epoch=a16de6cc…`/`[MusketeerSync] staged:05cfd649:4bd85972…`/`[Musketeer] loaded:exact:records=12:bound=10…`（与冻结 seed token 匹配）、seed hero v1 记录 `replaced-expected-baseline`——但 controller exit1/`state=inconclusive`/`evidenceReportable=false`，因 cleanup `stop.error="Identity changed before signal"`（实际 qemu 已退、reaper 成功、端口空闲、AVD 无 holder）且 `root-postflight.py` 缺 `import re` 抛 NameError。均属工具问题，非产品失败；r11 load 事实未过 evidenceReportable 门，不能宣称保存-读档往返通过。r12 修复 cleanup 证明 + postflight import 后重跑。
+
 ## 2026-10-25 — 首次 Android 原生保存写入证据（save-watch r9）；r8 工具故障如实保留
 
 - 新增 `tasks/issue-232/save-write-run-20261025.md`（Worker J host-only 派生 + Operator 执行）。
