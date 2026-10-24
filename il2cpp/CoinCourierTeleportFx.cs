@@ -1114,7 +1114,14 @@ internal static class CoinCourierTeleportFx
         catch (Exception e)
         {
             if (group != null) DestroyQuietly(group);
+#if ANDROID
+            var icall = e as Il2CppInterop.Runtime.MissingIl2CppInternalCallException;
+            WarnOnce("effect group create failed: " + e.GetType().Name
+                     + (icall == null ? string.Empty
+                        : " sig=" + (icall.Signature ?? "<null>") + " msg=" + (icall.Message ?? "<null>")));
+#else
             WarnOnce("effect group create failed: " + e.GetType().Name);
+#endif
             return null;
         }
     }

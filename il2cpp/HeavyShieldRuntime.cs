@@ -307,7 +307,14 @@ internal static class HeavyShieldRuntime
         }
         catch (Exception ex)
         {
+#if ANDROID
+            var icall = ex as Il2CppInterop.Runtime.MissingIl2CppInternalCallException;
+            Log("attach held: " + ex.GetType().Name
+                + (icall == null ? string.Empty
+                   : " sig=" + (icall.Signature ?? "<null>") + " msg=" + (icall.Message ?? "<null>")));
+#else
             Log("attach held: " + ex.GetType().Name);
+#endif
             if (attempted) DetachCarrier(handle); // failed CAS/identity leaves the only credential in Entries
             return AttachResult.Failed;
         }
