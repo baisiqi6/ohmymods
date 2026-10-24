@@ -1,0 +1,71 @@
+{
+  "utc": "2026-10-24T13:51:37.767957+00:00",
+  "issue": 281,
+  "base": "98259aff338bb9e5ee1b666e4f5c67da24eed6fe",
+  "status": "phase1-reviewed; Windows native save diagnosis pending; no merge",
+  "production": {
+    "MusketeerPersistence.cs": "187596545e33c044408bc724c7c54fb1297bdf14efd5fe3f23c0590aa8b9bdbf",
+    "MusketeerVoyageSaveDiagnostics.cs": "c1e235fff88656aef36cd53eb69db86b891cda2c89e7062ca60847b85b289a46",
+    "PatchUI_PanelFocus.cs": "b17ba9e61df5e608d8b03faee746a31a794feb7150b788453c73cfe92dfa3f6e"
+  },
+  "host": {
+    "panelFocus": {
+      "passed": 37,
+      "failed": 0
+    },
+    "identityDefault": {
+      "assertions": 659,
+      "failed": 0
+    },
+    "identityDiagnostic": {
+      "assertions": 779,
+      "includesTargeted": 127,
+      "failed": 0
+    },
+    "productCompile": {
+      "profiles": [
+        "240-default",
+        "240-diag",
+        "243-default",
+        "243-diag"
+      ],
+      "warnings": 0,
+      "errors": 0
+    },
+    "androidProbeSHA256": "3226f0bfcc147a5d02aa0d944e2658b69da547318c7dd8a20afe764374b73f4b",
+    "adapterTests": {
+      "passed": 1265,
+      "failed": 0,
+      "notDeviceAcceptance": true
+    }
+  },
+  "reviews": {
+    "decision": {
+      "provider": "zhipu-coding-plan",
+      "model": "glm-5.3",
+      "thinking": "max",
+      "session": "01a16df3-f4b1-70ce-8df3-aa96f5ce2dba",
+      "scope": "phase1 implementation/private builds, not runtime or merge"
+    },
+    "workers": {
+      "provider": "deepseek",
+      "model": "deepseek-flash",
+      "thinking": "max",
+      "saveSession": "01a16dff-5101-77a7-8941-5512ff9aa52b",
+      "panelSession": "01a16dff-50ff-74e2-9dc0-ea655af665c1"
+    },
+    "independent": {
+      "save": "approved A-v2 after read-fault counterexample",
+      "panel": "approved B-v2 after partial-Hide counterexample",
+      "nativePE": "gpt-6-astra, static only"
+    }
+  },
+  "boundaries": [
+    "save-semantic fix not implemented",
+    "no Windows native acceptance",
+    "no Android device or multiplayer acceptance",
+    "B4 forced SailingAway with F5 still open not covered",
+    "no source save guard relaxed",
+    "normal manual writes separately authorized; no automatic restore"
+  ]
+}

@@ -37,7 +37,22 @@ namespace UnityEngine
     }
     public class Component : Object
     {
-        public GameObject gameObject;
+        private GameObject _gameObject;
+        public int GameObjectReads;
+        public bool ThrowOnGameObjectRead;
+        public int ThrowOnGameObjectReadAtCall;
+        public GameObject gameObject
+        {
+            get
+            {
+                GameObjectReads++;
+                if (ThrowOnGameObjectRead
+                    || (ThrowOnGameObjectReadAtCall > 0 && GameObjectReads == ThrowOnGameObjectReadAtCall))
+                    throw new InvalidOperationException("gameObject read");
+                return _gameObject;
+            }
+            set => _gameObject = value;
+        }
         public T GetComponent<T>() where T : Component => gameObject?.GetComponent<T>();
     }
     public struct Scene { public int handle; }
@@ -65,14 +80,45 @@ public class Character : UnityEngine.Component
 public class Archer : UnityEngine.Component { }
 public class Droppable : UnityEngine.Component { public bool pickedUp; public UnityEngine.GameObject enemyClaimer; public UnityEngine.GameObject dropper; }
 public class DroppableTool : Droppable { }
-public class Persistent : UnityEngine.Component { public string path; public bool ShouldPersist() => false; }
+public class Persistent : UnityEngine.Component
+{
+    public string path;
+    private bool _persistObject = true, _persistInactive, __persistInstance = true;
+    public static int PersistObjectReads, PersistInactiveReads, PersistInstanceReads, ShouldPersistCalls;
+    public bool ThrowOnRead;
+    public bool persistObject
+    {
+        get { PersistObjectReads++; if (ThrowOnRead) throw new InvalidOperationException("persistObject read"); return _persistObject; }
+        set => _persistObject = value;
+    }
+    public bool persistInactive
+    {
+        get { PersistInactiveReads++; if (ThrowOnRead) throw new InvalidOperationException("persistInactive read"); return _persistInactive; }
+        set => _persistInactive = value;
+    }
+    // C# interop keeps the native field name verbatim; it is the field the native ShouldPersist
+    // checks alongside persistObject/persistInactive.
+    public bool _persistInstance
+    {
+        get { PersistInstanceReads++; if (ThrowOnRead) throw new InvalidOperationException("_persistInstance read"); return __persistInstance; }
+        set => __persistInstance = value;
+    }
+    public bool ShouldPersist() { ShouldPersistCalls++; return false; }
+}
+public class Game
+{
+    public enum State { None = 0, SailingAway = 32 }
+    public State state;
+}
+public class Boat : UnityEngine.Component { }
+public class Kingdom { public Boat boat; }
 public class Pool
 {
     public UnityEngine.GameObject FastSpawn(UnityEngine.Vector3 position, UnityEngine.Quaternion rotation, UnityEngine.Transform parent, short netID, bool syncReceipt) => null;
     public void FastDespawn(UnityEngine.GameObject clone, float delay, bool ignoreWarnings) { }
 }
 public class World { public UnityEngine.Transform gameLayer; }
-public class Managers { public static Managers Inst; public World world; }
+public class Managers { public static Managers Inst; public World world; public Game game; public Kingdom kingdom; }
 public class GlobalSaveData : UnityEngine.Object
 {
     public static GlobalSaveData loaded;
@@ -98,13 +144,36 @@ public class CampaignSaveData : UnityEngine.Object
 public class IslandSaveData : UnityEngine.Object
 {
     public static IslandSaveData CurrentlySavingIsland; public static bool isSavingGame;
+    private static Il2CppSystem.Collections.Generic.HashSet<Persistent> _registeredPersistents = new();
+    public static int RegisteredPersistentsReads, GetIdCalls;
+    public static Il2CppSystem.Collections.Generic.HashSet<Persistent> registeredPersistents
+    {
+        get { RegisteredPersistentsReads++; return _registeredPersistents; }
+        set => _registeredPersistents = value ?? new();
+    }
     public int land; public string Json = "{}"; public bool isNew = true; public double playTimeDays;
     public List<ObjectData> objects = new();
     public static void Save(int campaign, int land, int challenge) { }
-    public static string GetID(Persistent persistent) => "";
+    public static string GetID(Persistent persistent) { GetIdCalls++; return ""; }
     public bool TryPopObjectsToScene() => true;
     public static Persistent TryCreateOrFind(ObjectData data) => null;
     public class ObjectData : UnityEngine.Object { public string uniqueID; }
+}
+
+namespace Il2CppSystem.Collections.Generic
+{
+    // Native-shaped HashSet subset used by the interop surface (Contains is a method, Count a
+    // getter). Production diagnostics name this type directly so the fixture resolves it without
+    // a project reference to Il2CppSystem.Core.
+    public class HashSet<T>
+    {
+        private readonly System.Collections.Generic.HashSet<T> inner = new();
+        public int Count => inner.Count;
+        public bool Add(T item) => inner.Add(item);
+        public bool Remove(T item) => inner.Remove(item);
+        public void Clear() => inner.Clear();
+        public bool Contains(T item) => inner.Contains(item);
+    }
 }
 
 namespace KingdomEnhancedMod
@@ -135,10 +204,17 @@ namespace KingdomEnhancedMod
     internal class Logger
     {
         internal static readonly List<string> Lines = new();
+        internal static string ThrowOnFragment;
 
-        internal void LogInfo(string message) { Lines.Add("I: " + message); }
-        internal void LogWarning(string message) { Lines.Add("W: " + message); }
-        internal void LogError(string message) { Lines.Add("E: " + message); }
+        private static void Guard(string message)
+        {
+            if (ThrowOnFragment != null && message != null && message.Contains(ThrowOnFragment))
+                throw new InvalidOperationException("logger fault");
+        }
+
+        internal void LogInfo(string message) { Guard(message); Lines.Add("I: " + message); }
+        internal void LogWarning(string message) { Guard(message); Lines.Add("W: " + message); }
+        internal void LogError(string message) { Guard(message); Lines.Add("E: " + message); }
     }
 
     /// <summary>
