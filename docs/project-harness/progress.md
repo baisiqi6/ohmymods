@@ -1,3 +1,9 @@
+## 2026-10-25 — #232/#262 代码范围已关闭（checklist done + GitHub closed）
+
+Coordinate 生命周期：`issue-232`、`issue-262` 依次 closeout packet → review approved（Operator self-review，用户授权）→ **mark-done**，checklist 状态均为 `done`；GitHub [#232](https://github.com/baisiqi6/ohmymods/issues/232) 与 [#262](https://github.com/baisiqi6/ohmymods/issues/262) 已关闭（代码范围），关闭说明附证据/边界/pending。合并物：PR #263 `e15d872`、收口记录 PR #288 `171bd08`。
+- 关闭依据：可达引擎缺口修复并复扫归零（P6–P8 不可达决策）；Android 构建/审查/全量测试/host 证据齐全；native 证据含 readiness、视觉接入、真实补货扣款 3 角色、原生保存写入、保存→读档两运行往返、prefs 内容级回读、读档后池重注册；PR 全部合并。
+- 如实 pending 并单列：换岛触发池重建、其余补货角色正例（world precondition missing/inconclusive）、付费职业/枪、手机/平板/多人/长期自然玩法与完整画面；已知语义差（PropertyBlock tint、P1 own-ledger、P5 AABB、MusketeerRights load ConfirmBaseline）已文档化。后续实机新问题另开 Issue/PR。
+
 ## 2026-10-25 — #232/#262 代码范围收口：PR #263 合并后记录关闭依据
 
 PR #263 已于 2026-10-24T20:40:27Z 合并（merge commit `e15d872…`，base `release/v9.5.13`）；base 合并后 Android 候选 `d6113730…` 与已验证 `6b14879d…` IL 方法体完全一致（5880 methods 0 diff）。新增 `tasks/issue-232/closeout-20261025.md`：汇总可达引擎缺口=0（P1–P5 修复复扫归零、P6–P8 不可达决策）、构建/全量测试/审查、真实补货扣款（工人/农夫/投石车油桶）、保存写入、保存→读档两运行往返、prefs 内容级回读（CoinCourier/SharedBank/HeroRights 一致，MusketeerRights 为 load ConfirmBaseline 设计内重确认）、读档后 InitPools+池重注册；并如实 pending 换岛池重建、其余补货角色、付费职业/枪、手机/多人/长期玩法与已知语义差。按 issue 原文“范围 PR 合并 + 必要代码验证后关闭代码 Issue，不预付实机”，准备在 checklist 走 review/mark-done 并关闭 #232/#262 代码范围。
