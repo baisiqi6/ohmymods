@@ -557,7 +557,7 @@ internal static class HeavyShieldActorVisuals
         own.flipX = (state.Facing < 0) != (scaleX < 0f); // compensate the native Mover's mirrored parent chain exactly once
 #if ANDROID
         // Android 2.4 的 UnityEngine.SpriteRenderer 没有 flipY getter（缺失 ICall）；
-        // 自有新 sprite 初始为未翻转，跳过这一个读取，颜色/层/材质/PropertyBlock 继续原路径复制。
+        // 自有新 sprite 初始为未翻转，跳过这一个读取，颜色/层/排序/材质继续原路径复制。
 #else
         own.flipY = native.flipY;
 #endif
