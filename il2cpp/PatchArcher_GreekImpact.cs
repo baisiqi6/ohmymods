@@ -1360,7 +1360,16 @@ internal static class PatchArcher_GreekImpact
     {
         try
         {
+#if ANDROID
+            // Android 2.4: Collider2D.ClosestPoint 的 ICall（Physics2D::ClosestPoint_Collider_Injected）
+            // 在 pinned player 无注册名；以 collider.bounds（Collider2D::get_bounds_Injected 已注册）的
+            // 轴对齐包围盒最近点近似（Bounds::ClosestPoint_Injected 已注册）。语义差：AABB 是碰撞体形状的
+            // 超集，近似只会更宽松——包围盒角/边落在半径内而真实形状在半径外时会多算命中，绝不把真实
+            // 命中判丢；主查询本身已按同一 Radius 做 OverlapCircle，本复核只用于回调后位移，误差有界。
+            Vector2 closest = collider.bounds.ClosestPoint(point);
+#else
             Vector2 closest = collider.ClosestPoint(point);
+#endif
             float dx = closest.x - point.x, dy = closest.y - point.y;
             return dx * dx + dy * dy <= Radius * Radius + 1e-4f;
         }

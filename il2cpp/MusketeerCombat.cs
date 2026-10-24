@@ -13,6 +13,8 @@
 //    弹道证据：可复用数组（稳态零 List 开销）→ 数组在软上限仍饱和时走官方
 //    Physics2D.Linecast(ContactFilter2D, Il2CppSystem.Collections.Generic.List<RaycastHit2D>) 全量结果
 //    （Unity 自动扩容并复用该 List）；流式取**最近有效**命中，绝不假设返回顺序、绝不因饱和吞伤。
+//    Android 2.4 的 List ICall 未注册 → 同一 LinecastNonAlloc 数组路径扩容到硬上限，饱和即
+//    fail-closed（保守消费、不伪造命中）；PC 行为逐字不变。
 //    弹丸记录池化复用（清旧 source/visual/world 引用）。不生成原生 Arrow 组件（因此不继承原生
 //    Crusher 反弹/canBounce/随机火矢，也不继承原生箭/火焰材质与染色），不调用任何 SO 发声回调。
 // 3. 类型门（射击/命中分开但共用判据）：敌人仍用原生等价的地面敌人判据；鹿用"Deer 根组件 +
@@ -821,11 +823,19 @@ internal static class MusketeerCombat
     internal const int BulletDamage = 2;
 
     /// <summary>
-    /// 物理命中数组的初始容量与软上限：数组按需 32→256 扩容并复用（低密度场景零 List 索引开销）；
-    /// 到软上限仍饱和 → 换官方 List overload 拿**完整**结果，绝不再有"到硬上限直接吞弹"的路径。
+    /// 物理命中数组的初始容量与上限：数组按需 32→2× 扩容并复用（低密度场景零 List 索引开销）。
+    /// PC：软上限 256；到软上限仍饱和 → 换官方 List overload 拿**完整**结果（绝不再有"到硬上限直接吞弹"）。
+    /// Android 2.4：List overload 的 ICall（`PhysicsScene2D::LinecastList_Internal_*`）在 pinned player
+    /// 未注册（数组路径 `LinecastArray_Internal_Injected` 已注册）→ 继续用同一已验证的
+    /// LinecastNonAlloc 数组路径扩容到硬上限 1024；该档仍饱和 = 证据不完整 → fail-closed
+    /// （保守消费、不伪造命中、不新增重试；单段 1024 命中在真实玩法中不可达）。
     /// </summary>
     private const int InitialHitCapacity = 32;
+#if ANDROID
+    private const int MaxArrayCapacity = 1024;
+#else
     private const int MaxArrayCapacity = 256;
+#endif
 
     /// <summary>退休回执上限与重试间隔：Destroy 抛异常时保留自有引用，绝不因为一次异常丢掉所有权。</summary>
     private const int MaxRetiredVisuals = 64;
@@ -857,8 +867,10 @@ internal static class MusketeerCombat
     /// <summary>空闲弹丸记录（LIFO 复用；归还前已清空全部引用），避免每发 new MusketeerBullet。</summary>
     private static readonly List<MusketeerBullet> RecordPool = new List<MusketeerBullet>(16);
     private static Il2CppStructArray<RaycastHit2D> _hitBuffer;
+#if !ANDROID
     /// <summary>数组饱和时的完整结果列表（惰性创建一次；官方 List overload 会自动扩容并复用该 List）。</summary>
     private static Il2CppSystem.Collections.Generic.List<RaycastHit2D> _hitList;
+#endif
     private static readonly List<GameObject> VisualPool = new List<GameObject>(16);
     /// <summary>Destroy 抛异常时保留的自有弹丸引用（退休回执）：下次机会继续销毁，绝不静默丢引用。</summary>
     private static readonly List<GameObject> RetiredVisuals = new List<GameObject>(4);
@@ -892,7 +904,7 @@ internal static class MusketeerCombat
     /// <summary>因子弹表满而跳过的射击次数（诊断；绝不静默）。</summary>
     internal static int SkippedFullTableShots => _skippedFullTableShots;
 
-    /// <summary>物理命中数组容量（诊断/测试；饱和时由完整 List 兜底，不再是吞伤上限）。</summary>
+    /// <summary>物理命中数组容量（诊断/测试；PC 饱和时由完整 List 兜底；Android 扩到硬上限后再饱和即 fail-closed）。</summary>
     internal static int HitCapacity => _hitBuffer != null ? _hitBuffer.Length : 0;
 
     /// <summary>池中空闲弹丸视觉数（诊断/测试）。</summary>
@@ -1367,7 +1379,9 @@ internal static class MusketeerCombat
         _loggedTableFull = false;
         _deerLogs = 0;
         _hitBuffer = null;
+#if !ANDROID
         _hitList = null;
+#endif
     }
 
     /// <summary>测试钩子：注入弹丸精灵（测试程序集没有嵌入资源；生产走 EnsureBulletSprite）。</summary>
@@ -1453,8 +1467,9 @@ internal static class MusketeerCombat
     /// 查询本段并流式选最近有效命中：true = 证据完整（target 可为 null = 本段无有效目标）；
     /// false = 物理证据不完整（真实 API 故障）——调用方保守消费、不伤害。
     /// 查询层 = Enemies | Wildlife（鹿所在层；解析不到 Wildlife 时退回纯敌方层）；
-    /// 常态走可复用数组（低密度场景零 List 索引开销）；数组到软上限仍饱和 → 官方 List overload
-    /// 拿全量结果（Unity 自动扩容并复用；不设第二个吞伤上限，也绝不无限循环）。
+    /// 常态走可复用数组（低密度场景零 List 索引开销）；PC 数组到软上限仍饱和 → 官方 List overload
+    /// 拿全量结果（Unity 自动扩容并复用；不设第二个吞伤上限，也绝不无限循环）；Android 2.4 的 List
+    /// ICall 未注册 → 同一 LinecastNonAlloc 数组路径扩容到硬上限，饱和即 fail-closed（保守消费）。
     /// 选择策略：流式遍历全部结果取严格更近者（与返回顺序无关；友军/飞行/小动物/未知/死亡/自己只跳过）；
     /// 鹿候选另需发射时快照的绑定 lease 仍是同一 life。
     /// </summary>
@@ -1496,6 +1511,14 @@ internal static class MusketeerCombat
             capacity = Mathf.Min(MaxArrayCapacity, capacity * 2);
         }
 
+#if ANDROID
+        // Android 2.4：官方 List overload 的 `PhysicsScene2D::LinecastList_Internal` ICall 在 pinned
+        // player 无注册名（数组路径 `LinecastArray_Internal_Injected` 已注册），数组已按 2× 扩到
+        // Android 硬上限仍饱和 = 单段命中数超出本模块可承受的证据上限 → fail-closed：保守消费、
+        // 不伤害、不新增重试（沿用既有一次性诊断，绝不伪造命中）。
+        LogPhysicsUnavailableOnce();
+        return false;
+#else
         // 数组在软上限仍饱和：换官方完整 List overload（结果完整、可复用；只信返回的 count）。
         try
         {
@@ -1516,12 +1539,15 @@ internal static class MusketeerCombat
             LogPhysicsUnavailableOnce();
             return false;
         }
+#endif
     }
 
+#if !ANDROID
     /// <summary>
     /// 与旧 `LinecastNonAlloc(..., layerMask)` 内部 `ContactFilter2D.CreateLegacyFilter` 同语义：
     /// triggers 由全局 `Physics2D.queriesHitTriggers` 决定、层掩码与数组路径完全一致
-    /// （Enemies | Wildlife）、不做深度/法线过滤。
+    /// （Enemies | Wildlife）、不做深度/法线过滤。仅 PC 的完整 List overload 使用：
+    /// Android 2.4 没有该 List ICall，数组路径直接用同一 layerMask 的 LinecastNonAlloc。
     /// </summary>
     private static ContactFilter2D BuildLegacyContactFilter(int layerMask)
     {
@@ -1533,6 +1559,7 @@ internal static class MusketeerCombat
         filter.useNormalAngle = false;
         return filter;
     }
+#endif
 
     private static void SelectNearestFromArray(Il2CppStructArray<RaycastHit2D> hits, int count,
         float segmentLength, GameObject shooterRoot, long shooterLease, GroundFoeTagState tagState,
@@ -1548,6 +1575,7 @@ internal static class MusketeerCombat
         immunityConsume = bestImmunity;
     }
 
+#if !ANDROID
     private static void SelectNearestFromList(Il2CppSystem.Collections.Generic.List<RaycastHit2D> hits, int count,
         float segmentLength, GameObject shooterRoot, long shooterLease, GroundFoeTagState tagState,
         out Damageable target, out bool immunityConsume)
@@ -1561,6 +1589,7 @@ internal static class MusketeerCombat
         target = bestTarget;
         immunityConsume = bestImmunity;
     }
+#endif
 
     /// <summary>
     /// 流式最近命中（绝不重建候选对象）：段外/透明候选只跳过，不阻挡也不伤害。
@@ -1596,10 +1625,12 @@ internal static class MusketeerCombat
             _hitBuffer = new Il2CppStructArray<RaycastHit2D>(capacity);
     }
 
+#if !ANDROID
     private static void EnsureHitList()
     {
         if (_hitList == null) _hitList = new Il2CppSystem.Collections.Generic.List<RaycastHit2D>();
     }
+#endif
 
     private static void LogPhysicsUnavailableOnce()
     {
