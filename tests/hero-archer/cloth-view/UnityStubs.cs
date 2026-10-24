@@ -169,7 +169,14 @@ namespace UnityEngine
     public sealed class Mesh : Object
     {
         public Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppStructArray<Vector3> vertices;
-        public Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppStructArray<Color> colors;
+        private Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppStructArray<Color> _colors;
+        /// <summary>mesh.colors 提交次数（Android 断言：alpha 只在变化时重新提交同一数组）。</summary>
+        public int ColorWrites;
+        public Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppStructArray<Color> colors
+        {
+            get => _colors;
+            set { _colors = value; ColorWrites++; }
+        }
         public Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppStructArray<int> triangles;
         public Bounds bounds;
         public bool dynamic;
@@ -201,6 +208,22 @@ namespace UnityEngine
         public int sortingLayerID;
         public int sortingOrder;
         public Material sharedMaterial;
+#if ANDROID
+        // Android 2.4 没有 Renderer.Internal_GetPropertyBlock / Internal_SetPropertyBlock ICall：
+        // 生产 Android 分支不得实例化/提交 MaterialPropertyBlock；计数器 + 抛异常守卫其从不被调用。
+        public static int PropertyBlockReads, PropertyBlockWrites;
+        public MaterialPropertyBlock lastBlock;
+        public void GetPropertyBlock(MaterialPropertyBlock block)
+        {
+            PropertyBlockReads++;
+            throw new InvalidOperationException("Android 2.4 Renderer has no GetPropertyBlock ICall");
+        }
+        public void SetPropertyBlock(MaterialPropertyBlock block)
+        {
+            PropertyBlockWrites++;
+            throw new InvalidOperationException("Android 2.4 Renderer has no SetPropertyBlock ICall");
+        }
+#else
         public MaterialPropertyBlock lastBlock;
         public int BlockWrites;
 
@@ -209,6 +232,7 @@ namespace UnityEngine
             lastBlock = block;
             BlockWrites++;
         }
+#endif
     }
 
     public sealed class MeshRenderer : Renderer

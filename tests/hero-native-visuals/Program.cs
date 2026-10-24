@@ -4,10 +4,13 @@
 // 写失败不持有并重试、同帧双入口只执行一次、放箭事件不重启相位、诊断有界（上限 120 且不随帧数增长）、
 // Prepare 窗口（桥记录 pending/active、进入与回绕锁入、进行中不改、非法/陌生/life 拒绝、重建不沿用）、
 // 事件锚定释放表现（同帧散射去重、隔帧重启、Walk/Run/Shoot/新 Prepare 取消、暂停冻结、0.18s 有界、双英雄独立）。
+// Android（-p:AndroidFlipYTest=true → ANDROID）：上述语义经共享 enabled 隐藏原语复核；缺失的
+// Renderer.forceRenderingOff / flipY / PropertyBlock 访问即抛并由计数守卫，PropertyBlock 复制只记一次 skip 日志，
+// 第三方恢复可见时 relinquish（见 AndroidSharedHideFieldContract / NativeHiddenIsFollowedWithoutFighting）。
 // 运行： C:/Users/ADMIN/dotnet8/dotnet.exe run --project tests/visuals-native-stub/Tests.csproj
 //
 // 不覆盖（须由 operator 真机复核）：真实 Animator 的 shortNameHash/相位语义、IL2CPP interop 注入与
-// forceRenderingOff 的真实行为、渲染层排序与视觉观感。
+// 原生 renderer 隐藏/共享 enabled 的真实行为、渲染层排序与视觉观感。
 
 using System;
 using System.Collections.Generic;
@@ -52,6 +55,9 @@ internal static class Program
         LeisureOverlayPriorityAndPause();
         LeisureClockPolicy();
         RendererLookFollowsPlatformFlipYContract();
+#if ANDROID
+        AndroidSharedHideFieldContract();
+#endif
 
         Console.WriteLine();
         Console.WriteLine(_failed == 0
@@ -59,6 +65,34 @@ internal static class Program
             : _failed + " VISUALS-NATIVE-STUB TEST(S) FAILED, " + _passed + " passed");
         return _failed == 0 ? 0 : 1;
     }
+
+#if ANDROID
+    /// <summary>
+    /// Android 2.4 共享 enabled 隐藏边界：隐藏只经 compat 写一次 enabled=false（forceRenderingOff 从不访问）；
+    /// 归还只写我们自己写下的隐藏——第三方已把共享启用位改回可见时 Remove 不得再写 enabled（不覆盖第三方）。
+    /// </summary>
+    private static void AndroidSharedHideFieldContract()
+    {
+        FreshWorld();
+        Fixture fixture = CreateFixture();
+        HeroArcherVisuals.Apply(fixture.Archer);
+        SpriteRenderer own = OwnBody();
+        Check("android.hide.sharedFieldHidden", own != null && own.enabled && NativeHidden(fixture)
+            && fixture.Native.HideWrites == 1, "隐藏写=1 次 enabled=false、自有可见，got writes=" + fixture.Native.HideWrites);
+        AdvanceFrame();
+        HeroArcherVisuals.Sync("android");
+        Check("android.forceOffNeverTouched", Renderer.ForceOffReads == 0 && Renderer.ForceOffWrites == 0,
+            "forceRenderingOff reads=" + Renderer.ForceOffReads + " writes=" + Renderer.ForceOffWrites);
+
+        // 第三方把共享启用位改回可见后直接移除（不经过 Sync 的 relinquish）：只丢弃凭据，不得覆写第三方可见状态。
+        SetNativeHidden(fixture, false);
+        int writes = fixture.Native.HideWrites;
+        HeroArcherVisuals.Remove(fixture.Archer);
+        Check("android.releaseOnlyOurHide", HeroArcherVisuals.Count == 0 && !NativeHidden(fixture)
+            && fixture.Native.HideWrites == writes && own.gameObject.Destroyed,
+            "第三方已可见时 Remove 不得再写 enabled（writes=" + fixture.Native.HideWrites + "/" + writes + "）");
+    }
+#endif
 
     // ---------------------------------------------------------------- harness
 
@@ -75,6 +109,61 @@ internal static class Program
         Time.frameCount = ++_frame;   // 帧号必须推进：Sync 按帧号去重
         Time.deltaTime = dt;
         Time.time += dt;
+    }
+
+    // ---------------------------------------------------------------- hide-原语 helper
+    // PC 的原生隐藏是独立 Renderer.forceRenderingOff；Android 2.4 该 ICall 缺失，隐藏落在共享
+    // Renderer.enabled 上（AndroidUnityCompat 写后读回确认）。测试的观察/第三方模拟统一走这里，
+    // Android 分支保证测试自身永远不访问 forceRenderingOff（守卫计数只允许为 0）。
+
+    /// <summary>原生 renderer 当前是否对我们/第三方不可见。</summary>
+    private static bool NativeHidden(Fixture fixture)
+    {
+#if ANDROID
+        return !fixture.Native.enabled;
+#else
+        return fixture.Native.forceRenderingOff;
+#endif
+    }
+
+    /// <summary>模拟第三方/原生写原生 renderer 的隐藏状态（不经过 compat 计数）。</summary>
+    private static void SetNativeHidden(Fixture fixture, bool hidden)
+    {
+#if ANDROID
+        fixture.Native.enabled = !hidden;
+#else
+        fixture.Native.forceRenderingOff = hidden;
+#endif
+    }
+
+    /// <summary>compat 隐藏原语对原生 renderer 的写次数（Android 只统计 Renderer 类型引用上的 enabled 写）。</summary>
+    private static int NativeHideWrites(Fixture fixture)
+    {
+#if ANDROID
+        return fixture.Native.HideWrites;
+#else
+        return fixture.Native.ForceRenderingOffWrites;
+#endif
+    }
+
+    /// <summary>让下一次 compat 隐藏写抛异常（写入未生效）。</summary>
+    private static void FailNextNativeHideWrite(Fixture fixture)
+    {
+#if ANDROID
+        fixture.Native.FailNextHideWrite = true;
+#else
+        fixture.Native.FailNextForceRenderingOffWrite = true;
+#endif
+    }
+
+    /// <summary>让下一次 compat 隐藏写先落值再抛异常（模拟部分写入）。</summary>
+    private static void FailAfterNativeHideWrite(Fixture fixture)
+    {
+#if ANDROID
+        fixture.Native.FailAfterHideWrite = true;
+#else
+        fixture.Native.FailAfterForceRenderingOffWrite = true;
+#endif
     }
 
     private static Fixture CreateFixture(int life = 1)
@@ -107,6 +196,11 @@ internal static class Program
         Managers.Inst = null;
         Time.timeScale = 1f;
         IslandSaveData.isSavingGame = false;
+#if ANDROID
+        // Android 缺失 ICall 守卫计数按用例重置：任何用例/生产分支访问 forceRenderingOff/flipY 都必须可见。
+        Renderer.ForceOffReads = Renderer.ForceOffWrites = 0;
+        SpriteRenderer.FlipYReads = SpriteRenderer.FlipYWrites = 0;
+#endif
     }
 
     private static GameObject FindLive(string name)
@@ -200,6 +294,14 @@ internal static class Program
 #if ANDROID
         Check("flipY.android.noAccess", SpriteRenderer.FlipYReads == 0 && SpriteRenderer.FlipYWrites == 0,
             "reads=" + SpriteRenderer.FlipYReads + " writes=" + SpriteRenderer.FlipYWrites);
+        Check("flipY.android.androidForceOffGuard", Renderer.ForceOffReads == 0 && Renderer.ForceOffWrites == 0,
+            "forceRenderingOff reads=" + Renderer.ForceOffReads + " writes=" + Renderer.ForceOffWrites);
+        // 跨帧再同步两次：一次性 skip 日志不得逐帧重复（进程内累计必须恰好 1 次）。
+        int skipsBeforeSyncs = LogSourceStub.TotalPropertyBlockSkips;
+        AdvanceFrame(); HeroArcherVisuals.Sync("android-contract");
+        AdvanceFrame(); HeroArcherVisuals.Sync("android-contract");
+        Check("flipY.android.propertyBlockSkipNotRepeated", skipsBeforeSyncs == LogSourceStub.TotalPropertyBlockSkips,
+            "skip logs " + skipsBeforeSyncs + " -> " + LogSourceStub.TotalPropertyBlockSkips);
 #else
         fixture.Native.flipY = true;
         AdvanceFrame(); HeroArcherVisuals.Sync("flipY");
@@ -214,10 +316,15 @@ internal static class Program
         Check("flipY.sameFrame.layer", own.gameObject.layer == native.gameObject.layer, "layer still copied");
         Check("flipY.sameFrame.material", ReferenceEquals(own.sharedMaterial, native.sharedMaterial),
             "shared material still copied");
+#if ANDROID
+        Check("flipY.android.propertyBlockSkipOnce", LogSourceStub.TotalPropertyBlockSkips == 1,
+            "skip logs in process=" + LogSourceStub.TotalPropertyBlockSkips);
+#else
         var block = typeof(SpriteRenderer).GetField("_block",
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
         Check("flipY.sameFrame.propertyBlock", block != null && block.GetValue(own) != null,
             "property block still written");
+#endif
     }
 
     private static void ApplyTakesOverSupportedState()
@@ -234,7 +341,7 @@ internal static class Program
             Check("apply.ownExists", false, "自有 renderer 未创建（见日志）");
             return;
         }
-        Check("apply.nativeHidden", fixture.Native.forceRenderingOff, "接管后必须隐藏原生 renderer");
+        Check("apply.nativeHidden", NativeHidden(fixture), "接管后必须隐藏原生 renderer");
         Check("apply.ownVisible", own != null && own.enabled, "自有 renderer 必须显示");
         Check("apply.frame", FrameOf(own) == 0, "Stand 相位 0.05 → 帧 0，got " + FrameOf(own));
         Check("apply.anchor", own != null && own.transform.parent == fixture.Native.transform,
@@ -320,7 +427,7 @@ internal static class Program
         SetState(fixture, "Prepare", float.NaN);
         AdvanceFrame();
         HeroArcherVisuals.Sync("panel");
-        Check("sync.illegalPhase", !own.enabled && !fixture.Native.forceRenderingOff && HeroArcherVisuals.HasVisual(fixture.Archer),
+        Check("sync.illegalPhase", !own.enabled && !NativeHidden(fixture) && HeroArcherVisuals.HasVisual(fixture.Archer),
             "NaN 相位 → 显式交还原生但保持VisualState，got " + FrameOf(own) + " enabled=" + own.enabled);
     }
 
@@ -357,13 +464,13 @@ internal static class Program
         HeroArcherVisuals.Apply(fixture.Archer);
         SpriteRenderer own = OwnBody();
         GameObject ownRoot = OwnRoot();
-        Check("unknown.precondition", own.enabled && fixture.Native.forceRenderingOff);
+        Check("unknown.precondition", own.enabled && NativeHidden(fixture));
 
         SetState(fixture, "Ghost Die", 0.4f);
         AdvanceFrame();
         HeroArcherVisuals.Sync("panel");
         Check("unknown.suspendsOwn", !own.enabled, "未绘状态必须隐藏自有 body");
-        Check("unknown.restoresNative", !fixture.Native.forceRenderingOff, "未绘状态必须归还原生 renderer");
+        Check("unknown.restoresNative", !NativeHidden(fixture), "未绘状态必须归还原生 renderer");
         Check("unknown.keepsState", HeroArcherVisuals.Count == 1 && HeroArcherVisuals.HasVisual(fixture.Archer),
             "未知状态不得移除/重建凭据");
         Check("unknown.sameRoot", ReferenceEquals(OwnRoot(), ownRoot) && CountLive("KEM_HeroArcherSprite") == 1,
@@ -374,12 +481,12 @@ internal static class Program
         SetState(fixture, "Spawn", 0.2f);
         AdvanceFrame();
         HeroArcherVisuals.Sync("panel");
-        Check("unknown.spawnAlsoSuspended", !own.enabled && !fixture.Native.forceRenderingOff);
+        Check("unknown.spawnAlsoSuspended", !own.enabled && !NativeHidden(fixture));
 
         SetState(fixture, "Stand", 0f);
         AdvanceFrame();
         HeroArcherVisuals.Sync("panel");
-        Check("unknown.retakes", own.enabled && fixture.Native.forceRenderingOff,
+        Check("unknown.retakes", own.enabled && NativeHidden(fixture),
             "回到支持状态必须安全接管（隐藏原生 + 显示自有）");
         Check("unknown.noRebuildOnRetake", ReferenceEquals(OwnRoot(), ownRoot) && CountLive("KEM_HeroArcherSprite") == 1);
 
@@ -387,7 +494,7 @@ internal static class Program
         SetState(fixture, "Defend", 0.5f);
         AdvanceFrame();
         HeroArcherVisuals.Sync("panel");
-        Check("unknown.foreignControllerState", !own.enabled && !fixture.Native.forceRenderingOff);
+        Check("unknown.foreignControllerState", !own.enabled && !NativeHidden(fixture));
 
         // 不可读（读取抛错）同样挂起但保留凭据。
         fixture.Animator.ThrowOnRead = true;
@@ -399,7 +506,7 @@ internal static class Program
         SetState(fixture, "Walk", 0.25f);
         AdvanceFrame();
         HeroArcherVisuals.Sync("panel");
-        Check("unreadable.recovers", own.enabled && fixture.Native.forceRenderingOff && FrameOf(own) == 11);
+        Check("unreadable.recovers", own.enabled && NativeHidden(fixture) && FrameOf(own) == 11);
     }
 
     private static void UnknownAtApplyKeepsNativeVisible()
@@ -409,14 +516,14 @@ internal static class Program
         SetState(fixture, "Spawn", 0.5f);
         HeroArcherVisuals.Apply(fixture.Archer);
         SpriteRenderer own = OwnBody();
-        Check("apply.unknownKeepsNative", !fixture.Native.forceRenderingOff && !own.enabled,
+        Check("apply.unknownKeepsNative", !NativeHidden(fixture) && !own.enabled,
             "未绘状态起步时：原生显现、自有隐藏");
         Check("apply.unknownRegistered", HeroArcherVisuals.Count == 1 && HeroArcherVisuals.HasVisual(fixture.Archer));
 
         SetState(fixture, "Stand", 0f);
         AdvanceFrame();
         HeroArcherVisuals.Sync("panel");
-        Check("apply.unknownThenTakesOver", own.enabled && fixture.Native.forceRenderingOff);
+        Check("apply.unknownThenTakesOver", own.enabled && NativeHidden(fixture));
     }
 
     private static void NativeHiddenIsFollowedWithoutFighting()
@@ -425,21 +532,37 @@ internal static class Program
         Fixture fixture = CreateFixture();
         HeroArcherVisuals.Apply(fixture.Archer);
         SpriteRenderer own = OwnBody();
-        int writes = fixture.Native.ForceRenderingOffWrites;
+        int writes = NativeHideWrites(fixture);
 
         fixture.Native.enabled = false;   // 原生 SetHideStatus：必须跟随隐藏
         AdvanceFrame();
         HeroArcherVisuals.Sync("panel");
+#if ANDROID
+        // Android 的隐藏与原生可视共享 enabled：第三方把 enabled 置 false 与我们写下的隐藏不可区分，
+        // 按「我们写的」处理 → 继续显示自有 body（原生不可见，无双重渲染、不来回抢写）。
+        Check("nativeHidden.sharedFieldKeepsTakeover", own.enabled && NativeHidden(fixture)
+            && NativeHideWrites(fixture) == writes, "共享 enabled 无法区分时继续显示自有 body");
+#else
         Check("nativeHidden.follows", !own.enabled, "原生隐藏时必须隐藏自有 renderer，绝不强行显示");
-        Check("nativeHidden.keepsCredential", fixture.Native.forceRenderingOff && fixture.Native.ForceRenderingOffWrites == writes,
+        Check("nativeHidden.keepsCredential", NativeHidden(fixture) && NativeHideWrites(fixture) == writes,
             "原生本就不可见时保留凭据、不来回抢放");
+#endif
 
         fixture.Native.enabled = true;
         AdvanceFrame();
         HeroArcherVisuals.Sync("panel");
-        Check("nativeVisible.resumes", own.enabled && fixture.Native.forceRenderingOff
-            && fixture.Native.ForceRenderingOffWrites == writes,
+#if ANDROID
+        // 第三方把共享启用位改回可见 = 我们记下的隐藏已被撤销 → relinquish：撤掉自有表现、交还原生
+        // （避免双重渲染），且不得重新抢写隐藏（不新增 retry 循环，等 runtime 既有补挂载路径）。
+        Check("nativeVisible.relinquishes", HeroArcherVisuals.Count == 0 && !NativeHidden(fixture)
+            && own.gameObject.Destroyed && HeroArcherCloth.Destroyed == 1 && NativeHideWrites(fixture) == writes,
+            "第三方恢复可见必须 relinquish（count=" + HeroArcherVisuals.Count
+            + " hidden=" + NativeHidden(fixture) + " hideWrites=" + NativeHideWrites(fixture) + "/" + writes + ")");
+#else
+        Check("nativeVisible.resumes", own.enabled && NativeHidden(fixture)
+            && NativeHideWrites(fixture) == writes,
             "原生恢复可见时直接还原自有显示，不需重新写 forceRenderingOff（无闪烁窗口）");
+#endif
     }
 
     private static void ThirdPartyHideIsNotOverridden()
@@ -452,20 +575,20 @@ internal static class Program
         SetState(fixture, "Ghost Die", 0.5f);
         AdvanceFrame();
         HeroArcherVisuals.Sync("panel");   // 挂起 → 归还我们的隐藏
-        Check("thirdParty.releasedOnSuspend", !fixture.Native.forceRenderingOff && !own.enabled);
+        Check("thirdParty.releasedOnSuspend", !NativeHidden(fixture) && !own.enabled);
 
-        fixture.Native.forceRenderingOff = true;   // 第三方（其它 mod / 原生清理）设的隐藏
-        int writes = fixture.Native.ForceRenderingOffWrites;
+        SetNativeHidden(fixture, true);   // 第三方（其它 mod / 原生清理）设的隐藏
+        int writes = NativeHideWrites(fixture);
         SetState(fixture, "Stand", 0f);
         AdvanceFrame();
         HeroArcherVisuals.Sync("panel");
-        Check("thirdParty.notOverridden", !own.enabled && fixture.Native.ForceRenderingOffWrites == writes,
+        Check("thirdParty.notOverridden", !own.enabled && NativeHideWrites(fixture) == writes,
             "不得覆盖第三方设置的隐藏（自有不得比本体更显眼）");
 
-        fixture.Native.forceRenderingOff = false;   // 第三方归还
+        SetNativeHidden(fixture, false);   // 第三方归还
         AdvanceFrame();
         HeroArcherVisuals.Sync("panel");
-        Check("thirdParty.retakeAfterRelease", own.enabled && fixture.Native.forceRenderingOff,
+        Check("thirdParty.retakeAfterRelease", own.enabled && NativeHidden(fixture),
             "第三方归还后我们才能再接管");
     }
 
@@ -473,25 +596,25 @@ internal static class Program
     {
         FreshWorld();
         Fixture fixture = CreateFixture();
-        fixture.Native.FailNextForceRenderingOffWrite = true;
+        FailNextNativeHideWrite(fixture);
         HeroArcherVisuals.Apply(fixture.Archer);
         SpriteRenderer own = OwnBody();
-        Check("takeoverFail.keepsState", HeroArcherVisuals.Count == 1 && !fixture.Native.forceRenderingOff,
+        Check("takeoverFail.keepsState", HeroArcherVisuals.Count == 1 && !NativeHidden(fixture),
             "写失败不得回滚状态（没写成功就不持有，下一帧重试）");
         Check("takeoverFail.staysHidden", !own.enabled, "写失败帧不得显示自有 renderer");
 
         AdvanceFrame();
         HeroArcherVisuals.Sync("panel");
-        Check("takeoverFail.retries", own.enabled && fixture.Native.forceRenderingOff,
+        Check("takeoverFail.retries", own.enabled && NativeHidden(fixture),
             "下一帧必须重试接管成功");
         SetState(fixture, "Ghost Die", .2f);
         AdvanceFrame(); HeroArcherVisuals.Sync("panel");
-        fixture.Native.FailAfterForceRenderingOffWrite = true;
+        FailAfterNativeHideWrite(fixture);
         SetState(fixture, "Walk", .3f);
         AdvanceFrame(); HeroArcherVisuals.Sync("panel");
-        Check("takeoverPartial.restoresNative", !fixture.Native.forceRenderingOff && !own.enabled);
+        Check("takeoverPartial.restoresNative", !NativeHidden(fixture) && !own.enabled);
         AdvanceFrame(); HeroArcherVisuals.Sync("panel");
-        Check("takeoverPartial.recovers", fixture.Native.forceRenderingOff && own.enabled);
+        Check("takeoverPartial.recovers", NativeHidden(fixture) && own.enabled);
     }
 
     private static void ReleaseFailureKeepsOwnership()
@@ -501,16 +624,16 @@ internal static class Program
         HeroArcherVisuals.Apply(fixture.Archer);
         SpriteRenderer own = OwnBody();
 
-        fixture.Native.FailNextForceRenderingOffWrite = true;
+        FailNextNativeHideWrite(fixture);
         SetState(fixture, "Ghost Die", 0.5f);
         AdvanceFrame();
         HeroArcherVisuals.Sync("panel");
-        Check("releaseFail.keepsCredential", fixture.Native.forceRenderingOff && !own.enabled,
+        Check("releaseFail.keepsCredential", NativeHidden(fixture) && !own.enabled,
             "归还失败必须保留凭据（绝不丢归还责任）");
 
         AdvanceFrame();
         HeroArcherVisuals.Sync("panel");
-        Check("releaseFail.retries", !fixture.Native.forceRenderingOff, "下一帧必须完成归还，让原生显现");
+        Check("releaseFail.retries", !NativeHidden(fixture), "下一帧必须完成归还，让原生显现");
     }
 
     private static void PoolLifeChangeRemovesAndRestores()
@@ -524,7 +647,7 @@ internal static class Program
         AdvanceFrame();
         HeroArcherVisuals.Sync("panel");
         Check("pool.removed", HeroArcherVisuals.Count == 0 && !HeroArcherVisuals.HasVisual(fixture.Archer));
-        Check("pool.nativeRestored", !fixture.Native.forceRenderingOff);
+        Check("pool.nativeRestored", !NativeHidden(fixture));
         Check("pool.ownDestroyed", ownRoot.Destroyed && OwnRoot() == null);
         Check("pool.clothDestroyed", HeroArcherCloth.Destroyed == 1);
     }
@@ -587,7 +710,7 @@ internal static class Program
 
         // 换 world / 关功能：归还并重置诊断预算。
         HeroArcherVisuals.Clear();
-        Check("clear.restores", !keep.Native.forceRenderingOff && HeroArcherVisuals.Count == 0);
+        Check("clear.restores", !NativeHidden(keep) && HeroArcherVisuals.Count == 0);
         Fixture next = CreateFixture();
         HeroArcherVisuals.Apply(next.Archer);
         Check("clear.resetsBudget", NativeLines() == HeroArcherNativeEventLog.Capacity + 1,
@@ -681,7 +804,7 @@ internal static class Program
         HeroArcherRuntime.Life = 2;
         AdvanceFrame();
         HeroArcherVisuals.Sync("panel");
-        Check("window.poolRemoved", HeroArcherVisuals.Count == 0 && !fixture.Native.forceRenderingOff);
+        Check("window.poolRemoved", HeroArcherVisuals.Count == 0 && !NativeHidden(fixture));
         HeroArcherRuntime.Life = 3;
         HeroArcherVisuals.Apply(fixture.Archer);
         SpriteRenderer fresh = OwnOf(fixture);
@@ -812,7 +935,7 @@ internal static class Program
         HeroArcherRuntime.Hero = false;
         AdvanceFrame();
         HeroArcherVisuals.Sync("panel");
-        Check("release.offRemovesVisual", HeroArcherVisuals.Count == 0 && !fixture.Native.forceRenderingOff);
+        Check("release.offRemovesVisual", HeroArcherVisuals.Count == 0 && !NativeHidden(fixture));
         HeroArcherRuntime.Hero = true;
         HeroArcherVisuals.Apply(fixture.Archer);
         SetState(fixture, "Stand", 0f, 1.6666665f);
@@ -921,7 +1044,7 @@ internal static class Program
         for (int i = 0; i < 8; i++) { AdvanceFrame(.1f); HeroArcherVisuals.Sync("panel"); }
         Check("leisure.saveFreezes", ReferenceEquals(frame, own.sprite));
         IslandSaveData.isSavingGame = false;
-        Check("leisure.nativeRendererStillOwned", fixture.Native.forceRenderingOff && own.enabled);
+        Check("leisure.nativeRendererStillOwned", NativeHidden(fixture) && own.enabled);
 
         // Same-frame native prepare receipt must restore the original atlas now,
         // without a second Sync/Cloth tick or an Animator write.
@@ -954,7 +1077,7 @@ internal static class Program
         for (int i = 0; i < 190; i++) { AdvanceFrame(.1f); HeroArcherVisuals.Sync("panel"); }
         Check("leisure.nightBlocks", own.sprite.texture.width == 384);
         HeroArcherVisuals.Remove(fixture.Archer);
-        Check("leisure.removeRestoresNative", !fixture.Native.forceRenderingOff);
+        Check("leisure.removeRestoresNative", !NativeHidden(fixture));
     }
 
     private static void LeisureClockPolicy()

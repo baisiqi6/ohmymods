@@ -170,8 +170,15 @@ namespace KingdomEnhancedMod
     internal sealed class LogSourceStub
     {
         internal static readonly List<string> Lines = new List<string>();
+        /// <summary>整个测试进程内「PropertyBlock skip」日志累计次数（跨 FreshWorld 的 LogSourceStub.Reset 保留）：
+        /// 生产契约是每个进程只记一次，不是每次 attach/每帧记。</summary>
+        internal static int TotalPropertyBlockSkips;
 
-        internal void LogInfo(string message) => Lines.Add(message);
+        internal void LogInfo(string message)
+        {
+            Lines.Add(message);
+            if (message.Contains("MaterialPropertyBlock not copied")) TotalPropertyBlockSkips++;
+        }
 
         internal static int CountContaining(string needle)
         {
