@@ -41,3 +41,8 @@
 - 用同一 MemberRef sweeper 复扫新候选：`gaps.tsv` 仅剩 **P6–P8（当前 Android 安装集不可达）**；P1–P5 已从候选 IL 中归零，替代路径（数组 NonAlloc/数组 OverlapArea/Bounds.ClosestPoint/StringToHash+GetFloat(int)/own-ledger wall-pierce）均在候选中。
 - 新候选已用于 gameplay readiness r3 单次回归（见 `gameplay-profession-activation-run-20261025.md` r3 节）：evidenceReportable/controlValid 通过、零 MissingICall、PROFESSION/BANK markers 完整、资源交还通过。
 - 残余风险不变：P1 假设“本模块是唯一 IgnoreCollision 写者”（编译集内已审计；游戏原生侧静态不可完全排除）；P3 Android ≥1024 命中断段 fail-closed（真实不可达）；P4 ≥256 collider 保守 fail-closed；P5 AABB 近似 over-inclusive；P6–P8 待 DeadlandsPowers/采集面板移植决策再评估。
+
+## P6–P8 决策（2026-10-25）
+
+- P6 `Animator.get_speed`、P7 `Animator.GetCurrentAnimatorClipInfo`、P8 `AnimatorClipInfo.clip` 均在 `DeadlandsFollowerCapture`/`PatchRoles_DeadlandsPowers` 诊断/采集路径，当前 Android ResolveOwners/HarmonyDontPatchAll 不启用这些类型（候选 IL 有调用点但运行不可达）。
+- 决策：本批**不修**，保留记录；若将来移植 DeadlandsPowers/采集面板（或启用其诊断），先重新评估这三条 ICall 的替代实现与证据，再按 producer 修复流程处理。当前不把它们算作可达兼容缺口。
