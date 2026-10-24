@@ -69,8 +69,18 @@ namespace UnityEngine
         public static bool operator !=(Color a,Color b)=>a.Value!=b.Value;public override bool Equals(object o)=>o is Color c&&c==this;public override int GetHashCode()=>Value; }
     public class Sprite : Object {}
     public class RuntimeAnimatorController : Object {}
-    public class Animator : Behaviour {public RuntimeAnimatorController runtimeAnimatorController=new();public float Speed;public bool ReadFails;public int SpeedReads;
-        public float GetFloat(string name){SpeedReads++;if(ReadFails)throw new Exception("animation sample unavailable");if(name!="Speed")throw new Exception("unexpected animator parameter");return Speed;} }
+    public class Animator : Behaviour {public RuntimeAnimatorController runtimeAnimatorController=new();public float Speed;public bool ReadFails;public int SpeedReads;public static int StringReads,IntReads;
+        // Unity's string overload is StringToHash(name) + GetFloat(int); the Android 2.4 player has no
+        // Animator::GetFloatString_Injected ICall, so the ANDROID production path caches StringToHash and
+        // uses the int overload. The ANDROID string overload throws (like flipY) to prove it is unused.
+        public static int StringToHash(string name)=>name!=null?name.GetHashCode():0;
+        public float GetFloat(int id){SpeedReads++;IntReads++;if(ReadFails)throw new Exception("animation sample unavailable");if(id!=StringToHash("Speed"))throw new Exception("unexpected animator parameter");return Speed;}
+#if ANDROID
+        public float GetFloat(string name){SpeedReads++;StringReads++;throw new Exception("Android 2.4 Animator has no GetFloat(string) ICall");}
+#else
+        public float GetFloat(string name){SpeedReads++;StringReads++;if(ReadFails)throw new Exception("animation sample unavailable");if(name!="Speed")throw new Exception("unexpected animator parameter");return Speed;}
+#endif
+    }
     public class Material : Object {}
     public class MaterialPropertyBlock {}
     // Synthetic renderer boundary: the real Renderer owns enabled/forceRenderingOff; SpriteRenderer

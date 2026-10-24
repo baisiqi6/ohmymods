@@ -60,6 +60,20 @@ void NativePool(GameObject root) {HeavyShieldIntegration.BeforePoolDespawn(root,
         &&flipOwn.gameObject.layer==flipNative.gameObject.layer&&ReferenceEquals(flipOwn.sharedMaterial,flipNative.sharedMaterial)
         &&NativeBoundaryWrites.Count>flipWrites,"flipY boundary keeps color/layer/order/material and renderer writes");
 #if ANDROID
+    // P2: the 2.4 player has no Animator.GetFloat(string) ICall. TryActualMotion must use the cached
+    // int hash + GetFloat(int) path; the ANDROID stub string overload throws and is counted.
+    var motionEntries=(System.Collections.IDictionary)typeof(HeavyShieldRuntime).GetField("Entries",BindingFlags.NonPublic|BindingFlags.Static).GetValue(null);
+    var motionEntry=(HeavyShieldRuntime.Entry)motionEntries[flipFixture.Handle.GoId];
+    flipFixture.Archer._animator.Speed=2f;
+    int motionIntReads=Animator.IntReads,motionStringReads=Animator.StringReads;
+    var motionMethod=typeof(HeavyShieldRuntime).GetMethod("TryActualMotion",BindingFlags.NonPublic|BindingFlags.Static);
+    object[] motionArgs={motionEntry,HeavyShieldStance.BackIdle};
+    bool motionKnown=(bool)motionMethod.Invoke(null,motionArgs);
+    Check(motionKnown&&(HeavyShieldStance)motionArgs[1]==HeavyShieldStance.BackRun
+        &&Animator.IntReads>motionIntReads&&Animator.StringReads==motionStringReads,
+        $"Android TryActualMotion uses Animator.GetFloat(int): int={Animator.IntReads-motionIntReads} string={Animator.StringReads-motionStringReads}");
+#endif
+#if ANDROID
     // The skipped property-block copy must announce itself exactly once, not once per frame.
     Check(KingdomEnhancedPlugin.Instance.LogSource.Infos==1,
         $"Android property-block skip logs once: infos={KingdomEnhancedPlugin.Instance.LogSource.Infos}");

@@ -22,6 +22,7 @@ namespace KingdomEnhancedMod;
 /// 碰撞账本（本文件私有，逐箭有界；替代旧「按全局快照 blanket 归还 false」的写法，本次修复核心）：
 ///   * 只接管原值 <c>GetIgnoreCollision == false</c> 的 pair：写 true **前**先记账（native 写成功后才抛
 ///     异常也不丢责任），本来已是 true 的 pair **不碰不记**（不是本模块接管的，绝不改回 false）。
+///     （Android 读不可得：按下方「Android 契约」把未知原值视作 false，其余语义不变。）
 ///   * 同一本账**只对应一个实际 collider**：每次 Apply 重验箭头碰撞体的 native 指针与账本记录一致；
 ///     不一致/读不到 → 拒新写、保旧账（旧账只归还它自己写过的那个对象，绝不把新 collider 记进旧账）。
 ///   * 记下第一笔之后的任何外层异常（含某个墙的原生 null 检查抛出）都把这份已有责任**交回调用方**
@@ -33,6 +34,17 @@ namespace KingdomEnhancedMod;
 ///     已离开物理世界、Unity 随之清除 ignore 状态）才视作该项已由引擎清除。
 ///   * 硬上限：每箭 ≤ <see cref="MaxWallColliders"/> 对、全局 ≤ <see cref="MaxLedgerArrows"/> 箭；
 ///     表满 = **拒绝新 Apply**（一个 pair 都不写），绝不驱逐仍有未归还 pair 的账本。
+///
+/// Android 契约（2.4 player 未编译 <c>Physics2D.GetIgnoreCollision</c> 的 ICall：pinned native 注册名
+/// <c>UnityEngine.Physics2D::GetIgnoreCollision_Injected</c> = 0/1；对照写侧 <c>IgnoreCollision_Injected</c> = 1）：
+///   * 本模块是它接管的 (箭碰撞体, 墙碰撞体) pair 的**唯一** <c>Physics2D.IgnoreCollision</c> 写者
+///     （Android 编译集代码审计：产品源码只有本文件调用读/写 API；<see cref="CrossbowmanBoltWallPierce"/>
+///     只经 <see cref="Apply"/>/<see cref="Restore"/> 复用同一本账）。这是本平台分支的显式前提。
+///   * 读 API 缺失 ⇒ 「既有 ignore 状态」不可观测：显式按「未知 = 未被接管（false）」处理，仍然先记账
+///     后写、只归还/重试本模块自己记下的 pair；不新增 retry/fallback/开关，不产生 <see cref="PierceLedger.StateProbe"/>
+///     （重探只用于写失败补偿）。首次触发记一条 info 说明该语义差（每 world 换代有界一次）。
+///   * 显式接受的语义差：若未来另有写者把某个 (箭, 墙) pair 预置为 true，Android 无法识别，归还时会写
+///     false（PC 则保持外部 true 不碰）；当前 Android 编译集内不存在这样的写者。
 ///
 /// 墙碰撞体快照（**只负责发现墙**，绝不承担归还责任）：<c>FindObjectsOfType&lt;Wall&gt;()</c>（仅活动墙）
 /// → 每墙 <c>GetComponentsInChildren&lt;Collider2D&gt;(false)</c>（仅活动碰撞体）展开扁平列表
@@ -105,7 +117,7 @@ internal static class HeroArcherWallPierce
         internal const byte StateOwned = 0;
         /// <summary>true 写入抛异常（native 侧可能已成功）：保留责任，重写或归还。</summary>
         internal const byte StateUnwritten = 1;
-        /// <summary>GetIgnoreCollision 读取异常（未知，未写）：只重探，不认领。</summary>
+        /// <summary>GetIgnoreCollision 读取异常（未知，未写）：只重探，不认领（仅 PC；Android 读点按文件头契约跳过，永不产生该状态）。</summary>
         internal const byte StateProbe = 2;
 
         internal IntPtr GoPtr;
@@ -185,6 +197,7 @@ internal static class HeroArcherWallPierce
     /// 的 pair 一律不碰（不是本模块的，绝不归还成 false）。每箭重复调用幂等：已记账的 pair 不重复写、
     /// 不清账，只补记新出现的墙并重试未确认项。返回本箭账本（表满/无身份/快照不可用 = null，
     /// 此时**不写任何 pair**），供视觉回执持有。绝不抛异常进原生调用链。
+    /// Android：读 API 缺失，按文件头「Android 契约」把未知原值视作 false（不产生 StateProbe）。
     /// </summary>
     internal static PierceLedger Apply(Arrow arrow)
     {
@@ -242,6 +255,17 @@ internal static class HeroArcherWallPierce
                 if (ledger != null && ledger.IndexOf(wall) >= 0) continue;     // 已记账：幂等，重试交给 RetryPending
 
                 bool ignored;
+#if ANDROID
+                // Android 2.4 player 未编译 Physics2D.GetIgnoreCollision 的 ICall（pinned native
+                // 注册名 UnityEngine.Physics2D::GetIgnoreCollision_Injected = 0/1；对照写侧
+                // IgnoreCollision_Injected = 1）。按本文件头「Android 契约」显式处理：本模块是这些
+                // (箭, 墙) pair 的唯一 IgnoreCollision 写者 → 不可读的既有状态按「未知 = 未被接管」
+                // 视作 ignored=false，继续既有 PierceLedger 先记账后写；不产生 StateProbe（见下）。
+                // 首次触发记一条 info（每 world 换代有界一次）说明该语义差。
+                LogOnce("android-unreadable", "android: Physics2D.GetIgnoreCollision is unavailable in this player; "
+                    + "unknown pre-existing ignore state is treated as not ignored (this module is the only IgnoreCollision writer for arrow/wall pairs)");
+                ignored = false;
+#else
                 try { ignored = Physics2D.GetIgnoreCollision(arrowCollider, wall); }
                 catch (Exception)
                 {
@@ -251,6 +275,7 @@ internal static class HeroArcherWallPierce
                     if (!ledger.AddProbe(wall)) LogOnce("pairs-full", PairsFullMessage());
                     continue;
                 }
+#endif
                 if (ignored) continue;                                         // 原本 true：不是本模块接管的，绝不碰
 
                 if (ledger == null) ledger = RentLedger(goPtr, goId, arrowPtr, arrowCollider);
@@ -373,7 +398,8 @@ internal static class HeroArcherWallPierce
 
     /// <summary>
     /// 退避重试（巡检调用，**不扫描世界**，只处理账本里已有的碰撞体）：
-    /// StateProbe → 重读：false 补写 true，true 说明不是本模块接管的（删项），异常继续挂账；
+    /// StateProbe → 重读（仅 PC；Android 永无该状态，遇到则按未知删项）：false 补写 true，
+    /// true 说明不是本模块接管的（删项），异常继续挂账；
     /// StateUnwritten → 重写 true（native 写成功后才抛异常的情况在此补记）。绝不抛异常。
     /// </summary>
     internal static void RetryPending(PierceLedger ledger)
@@ -400,11 +426,19 @@ internal static class HeroArcherWallPierce
                 if (wallCleared) { ledger.RemoveAt(i); continue; }                 // 明确销毁/停用：引擎已清除
                 if (state == PierceLedger.StateProbe)
                 {
+#if ANDROID
+                    // Android 读点按显式契约跳过 GetIgnoreCollision，不会产生 StateProbe（见文件头
+                    // 「Android 契约」）；防御性清理：未知原值 = 非本模块接管，不写 false、绝不调用
+                    // 缺失的读 API，删项交还。
+                    ledger.RemoveAt(i);
+                    continue;
+#else
                     bool ignored;
                     try { ignored = Physics2D.GetIgnoreCollision(arrowCollider, wall); }
                     catch (Exception) { continue; }                                // 仍未知：保留账本项，下次再探
                     if (ignored) { ledger.RemoveAt(i); continue; }                 // 已是 true：不是本模块接管的
                     ledger.MarkUnwritten(i);
+#endif
                 }
                 try
                 {
