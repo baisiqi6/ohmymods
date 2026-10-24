@@ -1,0 +1,12 @@
+{
+  "utc": "2026-10-23T12:58:16.117116+00:00",
+  "originalArtCommit": "3dfad32c498d7505275652ba3ad7488f0ec01daa",
+  "localIntegrationCommit": "0ef5d44f6f664882db498011c40263b80fbbe816",
+  "binaryDiffByteIdentical": true,
+  "addedPaths": 116,
+  "frozenPackFilesEqual": 92,
+  "releaseMerged": false,
+  "pushed": false,
+  "installed": false,
+  "preflightCorrection": "Initial path allowlist accidentally said tasks/issue-101 instead of reviewed tasks/palace400-r12-art; assertion failed but multiline shell continued cherry-pick. No reset. Post-readback proves exact independently reviewed diff; future dependent mutation run inside checked subprocess only."
+}

@@ -1,0 +1,61 @@
+// compile-only native 类型 stub：只为让 output/source/Patch_PalaceTripContext.cs 的**全文**（含 native 成员
+// Read/Write/TryBinding/TryTargetIsland/RecordMatches）通过类型检查，证明 transform 改动在 native 上下文同样
+// 可编译（新增 using/helper 调用点/签名）。
+//
+// 非 native 行为证据：本文件不含任何 native 逻辑，方法一律抛异常；compilecheck 项目没有测试、不执行任何代码。
+// 真实 build/host/fullbuild 由 Root 在插件工程内执行（本 worker 不写 cwd 外文件）。
+using System;
+using System.Collections.Generic;
+
+namespace KingdomEnhancedMod;
+
+internal sealed class PrefsSaveData
+{
+    internal Dictionary<string, string> contents = new Dictionary<string, string>();
+    internal void SetString(string key, string value) => throw new NotSupportedException("compile-only stub");
+}
+
+internal sealed class IslandSaveData
+{
+    internal IntPtr Pointer => IntPtr.Zero;
+    internal int land = 0;
+    internal List<object> objects = new List<object>();
+}
+
+internal sealed class CampaignSaveData
+{
+    internal IntPtr Pointer => IntPtr.Zero;
+    internal List<IslandSaveData> _islands = new List<IslandSaveData>();
+    internal int biomeIndex = 0;
+    internal int reign = 0;
+    internal int realStartDateTime = 0;
+}
+
+internal sealed class GlobalSaveData
+{
+    internal IntPtr Pointer => IntPtr.Zero;
+    internal PrefsSaveData prefs = new PrefsSaveData();
+    internal CampaignSaveData currentCampaign = new CampaignSaveData();
+}
+
+internal static class PalaceLand12Runtime
+{
+    internal const int LandIndex = 12;
+
+    internal static bool TryReadSavedCampaignBinding(GlobalSaveData global, CampaignSaveData campaign,
+        out string savedGuid, out int savedSlot, out string savedReason)
+        => throw new NotSupportedException("compile-only stub");
+}
+
+internal sealed class HeavyShieldCampaignToken
+{
+    internal IntPtr Global => IntPtr.Zero;
+    internal IntPtr Campaign => IntPtr.Zero;
+    internal string Guid = "";
+}
+
+internal static class HeavyShieldIdentity
+{
+    internal static bool TryGetCampaign(out HeavyShieldCampaignToken token)
+        => throw new NotSupportedException("compile-only stub");
+}

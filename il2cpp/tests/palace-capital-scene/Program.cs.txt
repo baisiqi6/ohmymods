@@ -1,0 +1,590 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Text.Json.Nodes;
+using KingdomEnhancedMod;
+
+internal static class Program
+{
+    private const double GroundY=0.885;
+    private const double WaterY=-0.125;
+    private static int _checks;
+    private static string _registryText;
+    private static string _layoutText;
+    private static JsonObject _registryRoot;
+    private static JsonObject _layoutRoot;
+    private static PalaceProductionSource _source;
+    private static PalaceScrollCalibration _calibration;
+    private static Dictionary<string,double> _scales;
+    private static Dictionary<string,double> _ratios;
+    private static PalaceCapitalScenePlan _plan;
+
+    private static void Check(bool value,string name)
+    {
+        _checks++;
+        if(!value)throw new Exception("FAIL: "+name);
+    }
+
+    private static void Close(double actual,double expected,string name)
+        =>Check(Math.Abs(actual-expected)<=1e-9,name+" actual="+actual+" expected="+expected);
+
+    private static void Throws(Action action,string name)
+    {
+        _checks++;
+        try{action();throw new Exception("not refused: "+name);}
+        catch(ArgumentOutOfRangeException){}
+    }
+
+    private static void ThrowsInvalid(Action action,string name)
+    {
+        _checks++;
+        try{action();throw new Exception("not refused: "+name);}
+        catch(InvalidOperationException){}
+    }
+
+    private static bool Finite(double value)
+        =>!double.IsNaN(value)&&!double.IsInfinity(value)&&float.IsFinite((float)value);
+
+    private static bool FinitePose(PalaceCapitalScenePose pose)
+        =>Finite(pose.WorldX)&&Finite(pose.WorldY)&&Finite(pose.ScaleX)&&Finite(pose.ScaleY)
+        &&Finite(pose.SpritePivotNormalizedX)&&Finite(pose.SpritePivotNormalizedY);
+
+    private static string[] ActorIds()
+        =>_source.Assets.Where(a=>a.Kind==PalaceProductionSource.AssetKinds.ActorAtlas).Select(a=>a.Id).ToArray();
+
+    private static Dictionary<string,double> Scales(double dancer=1d)
+    {
+        var map=new Dictionary<string,double>(_scales,StringComparer.Ordinal);
+        if(dancer!=1d)map["court-dancer"]=dancer;
+        return map;
+    }
+
+    private static Dictionary<string,double> Ratios()
+        =>new Dictionary<string,double>(_ratios,StringComparer.Ordinal);
+
+    private static PalaceCapitalSceneNode Node(string id)
+    {
+        Check(_plan.TryGetNode(id,out var node),"node exists: "+id);
+        return node;
+    }
+
+    private static PalaceFrame Resolve(PalaceCapitalSceneNode node,string clipId,double elapsed,double phase,
+        out PalaceCapitalScenePose pose)
+    {
+        bool resolved=PalaceCapitalScenePlan.TryFrameAt(node,clipId,elapsed,phase,out var frame,out pose,out string reason);
+        Check(resolved,"resolve "+node.Placement.Id+" "+clipId+" t="+elapsed+" phase="+phase+": "+reason);
+        Check(FinitePose(pose),"resolved pose finite "+node.Placement.Id);
+        return frame;
+    }
+
+    private static PalaceFrame Resolve(PalaceCapitalSceneNode node,string clipId,double elapsed,double phase)
+        =>Resolve(node,clipId,elapsed,phase,out _);
+
+    private static void RejectFrame(PalaceCapitalSceneNode node,string clipId,double elapsed,double phase,
+        string expected,string name)
+    {
+        _checks++;
+        bool resolved=PalaceCapitalScenePlan.TryFrameAt(node,clipId,elapsed,phase,out _,out _,out string reason);
+        if(resolved)throw new Exception("accepted frame: "+name);
+        if(reason!=expected)throw new Exception("FAIL reason: "+name+" expected="+expected+" actual="+reason);
+    }
+
+    private static void Reject(PalaceProductionSource source,PalaceScrollCalibration calibration,double? water,
+        IReadOnlyDictionary<string,double> scales,IReadOnlyDictionary<string,double> ratios,string expected,string name)
+    {
+        _checks++;
+        bool created=PalaceCapitalScenePlan.TryCreate(source,calibration,water,scales,ratios,out _,out string reason);
+        if(created)throw new Exception("accepted create: "+name);
+        if(reason!=expected)throw new Exception("FAIL reason: "+name+" expected="+expected+" actual="+reason);
+    }
+
+    private static JsonArray Numbers(params double[] values)
+    {
+        var array=new JsonArray();
+        foreach(double value in values)array.Add(JsonValue.Create(value));
+        return array;
+    }
+
+    private static int Main(string[] args)
+    {
+        if(args.Length!=2)
+        {
+            Console.Error.WriteLine("usage: PalaceCapitalScene.Tests.dll <registry.json> <layout.json>");
+            return 2;
+        }
+        _registryText=File.ReadAllText(args[0]);
+        _layoutText=File.ReadAllText(args[1]);
+        _registryRoot=JsonNode.Parse(_registryText)!.AsObject();
+        _layoutRoot=JsonNode.Parse(_layoutText)!.AsObject();
+        Check(PalaceProductionSource.TryParse(_registryText,_layoutText,out _source,out string parseReason),
+            "actual frozen r1 parse: "+parseReason);
+        Check(_source.Assets.Count==86&&_source.Placements.Count==452,"86 assets / 452 placements");
+
+        var descriptor=new PalaceScrollDescriptor(PalaceLayoutRecipe.Capital400,12840,252,224,0,0,12840,252);
+        _calibration=new PalaceScrollCalibration(descriptor,1d/32d,0d,GroundY);
+        _scales=new Dictionary<string,double>(StringComparer.Ordinal);
+        foreach(string id in ActorIds())_scales[id]=1d;
+        _ratios=new Dictionary<string,double>(StringComparer.Ordinal)
+        {
+            ["independent-east-vista"]=0.25,
+            ["independent-far-palace"]=0.3,
+            ["independent-middle-forest"]=0.2,
+            ["independent-rear-courtyard"]=0.1,
+        };
+        Check(PalaceCapitalScenePlan.TryCreate(_source,_calibration,WaterY,_scales,_ratios,
+            out _plan,out string createReason),"actual Capital400 plan: "+createReason);
+
+        CheckPlanGeometry();
+        CheckStaticGeometry();
+        CheckTheatreAndDancer();
+        CheckSyntheticActor();
+        CheckFrameResolution();
+        CheckFrameContract();
+        CheckParallax();
+        CheckCreateRejections();
+        Console.WriteLine("PASS "+_checks+" Capital400 scene geometry/frame checks; actual r1 + synthetic actor through the production reader; no PNG/Native/Unity");
+        return 0;
+    }
+
+    private static void CheckPlanGeometry()
+    {
+        Check(_plan.Nodes.Count==452,"452 immutable nodes");
+        bool order=true;
+        for(int i=0;i<_plan.Nodes.Count;i++)
+            order&=_plan.Nodes[i].Placement.Id==_source.Placements[i].Id;
+        Check(order,"nodes preserve layout placement order");
+        Check(_plan.GroundReferenceY==GroundY&&_plan.WaterReferenceY==WaterY,"explicit plane references preserved");
+        Check(_plan.AnchorWorldX==0d&&_plan.UnitsPerPixel==1d/32d
+            &&_plan.DesignPpu==32&&_plan.GateAxisPixelX==6420&&_plan.DesignStreetReferenceY==224,
+            "plan exposes the frozen Capital400 calibration");
+
+        int background=0,water=0,actors=0,timed=0;
+        foreach(var node in _plan.Nodes)
+        {
+            string id=node.Placement.Id;
+            Check(_plan.TryGetNode(id,out var found)&&ReferenceEquals(found,node),"node lookup "+id);
+            Check(Finite(node.SupportWorldX)&&Finite(node.ReferencePlaneWorldY)&&Finite(node.LayoutOffsetYUnits)
+                &&Finite(node.SupportWorldY)&&Finite(node.ScaleX)&&Finite(node.ScaleY)
+                &&Finite(node.CameraFollowRatio)&&Finite(node.StaticWorldX)&&Finite(node.StaticWorldY),
+                "node numeric finite float "+id);
+            Check(node.SupportWorldX==node.Placement.SupportWorldX
+                &&node.LayoutOffsetYUnits==node.Placement.SupportOffsetYUnits,"placement projection "+id);
+            Check(node.DrawRoleHint==node.Placement.DrawRole,"relative role hint only "+id);
+            if(node.Placement.ReferencePlane=="native-water")
+            {
+                water++;
+                Check(node.ReferencePlaneWorldY==WaterY,"water plane is explicit "+id);
+            }
+            else Check(node.ReferencePlaneWorldY==GroundY,"ground plane from calibration "+id);
+            if(node.IsBackgroundCompound)
+            {
+                background++;
+                Check(node.CameraFollowRatio==_ratios[node.Placement.MotionGroup],"explicit background ratio "+id);
+            }
+            else Check(node.CameraFollowRatio==0d,"non-background never uses a background rate "+id);
+            if(node.Asset.Kind==PalaceProductionSource.AssetKinds.ActorAtlas)
+            {
+                actors++;
+                Check(node.ScaleY==_scales[node.Asset.Id],"actor y-only scale "+id);
+            }
+            else Check(node.ScaleY==1d,"non-actor scale stays 1 "+id);
+            if(node.Clips.Count>0)timed++;
+        }
+        Check(background==123&&water==48&&actors==10&&timed==56,"123 background / 48 water / 10 actors / 56 timed placements");
+        Check(_ratios.Count==4,"four explicit background groups");
+        Check(!_plan.TryGetNode("missing",out _)&&!_plan.TryGetNode(null,out _),"unknown/null node lookup refused");
+    }
+
+    private static void CheckStaticGeometry()
+    {
+        int statics=0,timed=0,doubleOffset=0;
+        foreach(var node in _plan.Nodes)
+        {
+            if(node.Clips.Count>0){timed++;continue;}
+            statics++;
+            bool resolved=PalaceCapitalScenePlan.TryFrameAt(node,null,0d,0d,out var frame,out var pose,out string reason);
+            Check(resolved,"static pose "+node.Placement.Id+": "+reason);
+            Check(frame==null,"static frame is null "+node.Placement.Id);
+            double supportX=node.Placement.SupportLocalPixel.X;
+            double supportY=node.Placement.SupportLocalPixel.Y;
+            double expectedX=node.SupportWorldX-supportX/32d;
+            double expectedY=node.ReferencePlaneWorldY+node.LayoutOffsetYUnits+(supportY-node.Asset.Height)/32d;
+            Check(pose.WorldX==expectedX&&pose.WorldY==expectedY,"static pivot(0,0) formula "+node.Placement.Id);
+            Check(pose.ScaleX==1d&&pose.ScaleY==1d
+                &&pose.SpritePivotNormalizedX==0d&&pose.SpritePivotNormalizedY==0d,
+                "static pivot/scale "+node.Placement.Id);
+            Check(FinitePose(pose),"static pose finite float "+node.Placement.Id);
+            if(node.Asset.Support.TryGetProperty("designOffsetYUnits",out var assetOffset))
+            {
+                doubleOffset++;
+                Check(node.SupportWorldY==GroundY+node.Placement.SupportOffsetYUnits,
+                    "layout offset applied once, asset fact not re-added "+node.Placement.Id);
+                Check(assetOffset.GetDouble()==node.LayoutOffsetYUnits,"asset/layout offset facts agree "+node.Placement.Id);
+            }
+        }
+        Check(statics==396&&timed==56,"396 static / 56 timed nodes");
+        Check(doubleOffset==108,"108 ground modules carry asset designOffsetYUnits");
+
+        var far=Node("far-palace-0");
+        Close(far.StaticWorldX,-203.75-68d/32d,"outside background static X");
+        Close(far.StaticWorldY,GroundY+0d+(55.5-58d)/32d,"outside background static Y");
+        Check(far.Placement.AllowOutsideWalkDomain&&far.CameraFollowRatio==0.3,"outside background keeps reviewed flag and explicit ratio");
+        var cargo=Node("cargo-granary");
+        Close(cargo.StaticWorldX,-146.84375-243d/32d,"entity static X");
+        Close(cargo.StaticWorldY,GroundY+(163-168d)/32d,"entity static Y");
+        var quay=Node("quay-vertical-brick-wall-0");
+        Close(quay.SupportWorldY,GroundY-0.3125,"quay top-edge layout offset once");
+        Check(quay.SupportWorldY!=GroundY-0.625,"quay asset offset is not double-applied");
+        var ferry=Node("ferry-covered-boat");
+        Check(ferry.ReferencePlaneWorldY==WaterY,"water static node uses the explicit water plane");
+    }
+
+    private static void CheckTheatreAndDancer()
+    {
+        var dancer=Node("court-dancer");
+        var theatre=Node("pear-garden-theatre");
+        Check(dancer.LayoutOffsetYUnits==0.53125,"dancer deck drop lives in layout once");
+        Close(dancer.SupportWorldY,GroundY+0.53125,"dancer support world Y");
+        Check(dancer.SupportWorldY!=GroundY+1.0625,"dancer deck drop not repeated");
+        Check(dancer.Placement.ParentSurface!=null
+            &&dancer.Placement.ParentSurface.AssetId=="pear-garden-theatre"
+            &&dancer.Placement.ParentSurface.LocalDeckPixel.X==257
+            &&dancer.Placement.ParentSurface.LocalDeckPixel.Y==123,"dancer parent deck fact");
+
+        var pose=Resolve(dancer,"idle",0d,0d,out var dancerPose);
+        var pivot=pose.PivotBottomLeftPixels;
+        double supportX=dancerPose.WorldX+(dancer.Placement.SupportLocalPixel.X-pivot.X)/32d;
+        double supportY=dancerPose.WorldY+dancerPose.ScaleY
+            *(dancer.Asset.LogicalCellHeight.Value-dancer.Placement.SupportLocalPixel.Y-pivot.Y)/32d;
+        Close(supportX,32.3125,"dancer support world X");
+        Close(supportY,GroundY+0.53125,"dancer support world Y from pivot formula");
+
+        bool theatreResolved=PalaceCapitalScenePlan.TryFrameAt(theatre,null,0d,0d,
+            out _,out var theatrePose,out string theatreReason);
+        Check(theatreResolved,"theatre static pose: "+theatreReason);
+        var deck=dancer.Placement.ParentSurface.LocalDeckPixel;
+        double deckX=theatrePose.WorldX+deck.X/32d;
+        double deckY=theatrePose.WorldY+(theatre.Asset.Height-deck.Y)/32d;
+        Close(deckX,supportX,"unique theatre deck world X equals dancer support");
+        Close(deckY,supportY,"unique theatre deck world Y equals dancer support");
+
+        var sourceRows=new HashSet<double>();
+        foreach(var dancerClip in dancer.Asset.Clips)
+        {
+            long elapsedMs=0;
+            for(int k=0;k<dancerClip.Indices.Count;k++)
+            {
+                var frame=Resolve(dancer,dancerClip.Id,elapsedMs/1000d,0d,out var framePose);
+                var framePivot=frame.PivotBottomLeftPixels;
+                double frameSupportX=framePose.WorldX
+                    +(dancer.Placement.SupportLocalPixel.X-framePivot.X)/32d;
+                double frameSupportY=framePose.WorldY+framePose.ScaleY
+                    *(dancer.Asset.LogicalCellHeight.Value-dancer.Placement.SupportLocalPixel.Y-framePivot.Y)/32d;
+                Close(frameSupportX,dancer.SupportWorldX,"dancer support X independent of the frame");
+                Close(frameSupportY,dancer.SupportWorldY,"dancer support Y independent of source/master rect");
+                sourceRows.Add(frame.SourceRectTopLeft.Y);
+                elapsedMs+=dancerClip.DurationsMs[k];
+            }
+        }
+        Check(sourceRows.Count>1,"dancer frames vary source rect Y while the support point stays fixed");
+    }
+
+    private static PalaceProductionSource SyntheticActor(double supportLocalX,double supportLocalY,double layoutOffset)
+    {
+        JsonObject dancer=null;
+        foreach(var row in _registryRoot["assets"]!.AsArray())
+            if(row!["id"]!.GetValue<string>()=="court-dancer"){dancer=(JsonObject)row!.DeepClone();break;}
+        Check(dancer!=null,"synthetic source finds the actual court-dancer asset");
+        var registry=new JsonObject
+        {
+            ["schema"]="palace400-r12-production/1",
+            ["assets"]=new JsonArray(dancer),
+            ["entityCount"]=0,["backgroundAssetCount"]=0,["groundModuleCount"]=0,
+            ["actorCount"]=1,["actorTemporalFrames"]=dancer["frameCount"]!.GetValue<int>(),
+            ["localMotionAtlases"]=0,["localMotionFrames"]=0,
+            ["offlineReviewPending"]=new JsonArray(),["nativeAccepted"]=false,
+            ["readyForIsolatedIntegration"]=true,["runtimePaidEntryGateOwner"]="main-runtime",
+            ["paletteSHA256"]=_registryRoot["paletteSHA256"]!.GetValue<string>(),
+        };
+        var layout=new JsonObject
+        {
+            ["schema"]="palace400-r12-layout/1",
+            ["worldDomain"]=Numbers(-200,200),
+            ["pixelsPerUnitDesign"]=32,
+            ["designXAxis"]=new JsonObject
+            {
+                ["physicalPixelDomain"]=Numbers(20,12820),
+                ["gateAxisPixelX"]=6420,
+            },
+            ["designStreetReferenceY"]=224,
+            ["districts"]=_layoutRoot["districts"]!.DeepClone(),
+            ["placementFormula"]=_layoutRoot["placementFormula"]!.GetValue<string>(),
+            ["drawOrderHints"]=_layoutRoot["drawOrderHints"]!.DeepClone(),
+            ["nativeUnknowns"]=new JsonArray("groundY","waterY"),
+            ["placements"]=new JsonArray(new JsonObject
+            {
+                ["id"]="court-dancer",
+                ["assetId"]="court-dancer",
+                ["referencePlane"]="native-ground",
+                ["supportWorldX"]=0d,
+                ["supportOffsetYUnits"]=layoutOffset,
+                ["supportLocalPixel"]=Numbers(supportLocalX,supportLocalY),
+                ["designSupportPixel"]=Numbers(6420d,224d-layoutOffset*32d),
+                ["district"]=6,
+                ["drawRole"]="actor",
+                ["motionGroup"]="native-local-clock",
+            }),
+            ["backgroundMotionRates"]=null,["nativeAccepted"]=false,
+        };
+        string registryJson=registry.ToJsonString(),layoutJson=layout.ToJsonString();
+        bool parsed=PalaceProductionSource.TryParse(registryJson,layoutJson,out var source,out string reason);
+        Check(parsed,"synthetic actor source through the actual reader: "+reason);
+        return source;
+    }
+
+    private static Dictionary<string,double> OneScale(double value)
+        =>new Dictionary<string,double>(StringComparer.Ordinal){["court-dancer"]=value};
+
+    private static void CheckSyntheticActor()
+    {
+        var noRatios=new Dictionary<string,double>(StringComparer.Ordinal);
+        var source=SyntheticActor(10d,40d,0.25d);
+        Check(PalaceCapitalScenePlan.TryCreate(source,_calibration,null,OneScale(0.5d),noRatios,
+            out var halfPlan,out string halfReason),"synthetic support!=pivot plan half scale: "+halfReason);
+        Check(halfPlan.TryGetNode("court-dancer",out var half),"synthetic node");
+        Check(half.SupportWorldY==GroundY+0.25d,"synthetic support world Y");
+        var frame=Resolve(half,"idle",0d,0d,out var halfPose);
+        var pivot=frame.PivotBottomLeftPixels;
+        double cellHeight=half.Asset.LogicalCellHeight.Value;
+        double factor=(cellHeight-half.Placement.SupportLocalPixel.Y-pivot.Y)/32d;
+        Check(Math.Abs(factor)>1e-9,"support differs from pivot on the synthetic frame");
+        Close(halfPose.WorldX,0d-(10d-pivot.X)/32d,"support-based GOx with support!=pivot");
+        Close(halfPose.WorldY,GroundY+0.25d-0.5d*factor,"support-based GOy with yScale");
+        Close(halfPose.WorldY+halfPose.ScaleY*factor,GroundY+0.25d,"yScale preserves the support point");
+        Close(halfPose.SpritePivotNormalizedX,pivot.X/48d,"normalized pivot X");
+        Close(halfPose.SpritePivotNormalizedY,pivot.Y/48d,"normalized pivot Y");
+        Check(halfPose.ScaleX==1d,"renderer flipX stays out of geometry");
+
+        Check(PalaceCapitalScenePlan.TryCreate(source,_calibration,null,OneScale(1d),noRatios,
+            out var fullPlan,out string fullReason),"synthetic plan unit scale: "+fullReason);
+        Check(fullPlan.TryGetNode("court-dancer",out var full),"synthetic unit node");
+        var fullFrame=Resolve(full,"idle",0d,0d,out var fullPose);
+        Close(fullFrame.PivotBottomLeftPixels.X,pivot.X,"same frame pivot across scales");
+        Close(fullPose.WorldY,GroundY+0.25d-factor,"GOy tracks yScale");
+        Check(Math.Abs(halfPose.WorldY-fullPose.WorldY)>1e-6,"scale change moves GOy");
+        Close(fullPose.WorldY+fullPose.ScaleY*factor,GroundY+0.25d,"unit scale preserves the support point");
+
+        var overflowSource=SyntheticActor(10d,0d,0.25d);
+        Check(PalaceCapitalScenePlan.TryCreate(overflowSource,_calibration,null,OneScale(float.MaxValue),noRatios,
+            out var overflowPlan,out string overflowReason),"overflow plan create: "+overflowReason);
+        Check(overflowPlan.TryGetNode("court-dancer",out var overflow),"overflow node");
+        RejectFrame(overflow,"idle",0d,0d,"pose","pose overflow is refused, not clamped");
+
+        Reject(source,_calibration,double.NaN,OneScale(0.5d),noRatios,"water-reference",
+            "explicit water plane is validated even without water placements");
+    }
+
+    private static void CheckFrameResolution()
+    {
+        int actorNodeFrames=0;
+        var localAssets=new HashSet<string>(StringComparer.Ordinal);
+        foreach(var node in _plan.Nodes)
+        {
+            if(node.Clips.Count==0)continue;
+            int covered=0;
+            foreach(var assetClip in node.Asset.Clips)
+            {
+                Check(node.Clips.TryGetValue(assetClip.Id,out var cursor),"clip table "+node.Placement.Id+":"+assetClip.Id);
+                Check(cursor.Frames.Count==assetClip.Indices.Count,"clip frame count "+node.Placement.Id+":"+assetClip.Id);
+                Check(cursor.PeriodSeconds==assetClip.TotalDurationMs/1000d,"precomputed period "+node.Placement.Id+":"+assetClip.Id);
+                long cumulativeMs=0;
+                for(int k=0;k<assetClip.Indices.Count;k++)
+                {
+                    int durationMs=assetClip.DurationsMs[k];
+                    long nextMs=cumulativeMs+durationMs;
+                    Check(cursor.BoundariesSeconds[k]==nextMs/1000d,"precomputed cumulative boundary "+node.Placement.Id+":"+assetClip.Id+":"+k);
+                    double startMs=cumulativeMs;
+                    double midpointMs=cumulativeMs+durationMs/2d;
+                    var atStart=Resolve(node,assetClip.Id,startMs/1000d,0d);
+                    Check(atStart.Index==assetClip.Indices[k],"frame start boundary "+node.Placement.Id+":"+assetClip.Id+":"+k);
+                    var atMid=Resolve(node,assetClip.Id,midpointMs/1000d,0d);
+                    Check(atMid.Index==assetClip.Indices[k],"frame midpoint "+node.Placement.Id+":"+assetClip.Id+":"+k);
+                    if(k+1<assetClip.Indices.Count)
+                    {
+                        var atNext=Resolve(node,assetClip.Id,nextMs/1000d,0d);
+                        Check(atNext.Index==assetClip.Indices[k+1],"exact next-frame boundary "+node.Placement.Id+":"+assetClip.Id+":"+k);
+                    }
+                    else
+                    {
+                        double period=assetClip.TotalDurationMs/1000d;
+                        var atEnd=Resolve(node,assetClip.Id,period,0d);
+                        Check(atEnd.Index==(assetClip.Loops?assetClip.Indices[0]:assetClip.Indices[assetClip.Indices.Count-1]),
+                            "period boundary loop/one-shot "+node.Placement.Id+":"+assetClip.Id);
+                        if(!assetClip.Loops)
+                        {
+                            var past=Resolve(node,assetClip.Id,period+7d,0d);
+                            Check(past.Index==assetClip.Indices[assetClip.Indices.Count-1],"one-shot stops on last frame");
+                        }
+                    }
+                    cumulativeMs=nextMs;
+                    covered++;
+                }
+            }
+            Check(covered==node.Asset.Frames.Count,"clip coverage "+node.Placement.Id);
+            if(node.Asset.Kind==PalaceProductionSource.AssetKinds.ActorAtlas)actorNodeFrames+=node.Asset.Frames.Count;
+            else localAssets.Add(node.Asset.Id);
+        }
+        Check(actorNodeFrames==294,"294 actor timed frames");
+        Check(localAssets.Sum(id=>_source.Assets.First(a=>a.Id==id).Frames.Count)==64,"64 local-motion frames");
+    }
+
+    private static void CheckFrameContract()
+    {
+        var dancer=Node("court-dancer");
+        var danceClip=dancer.Asset.Clips.First(c=>c.Id=="dance");
+        Check(danceClip.Loops,"dance loops");
+        var idleClip=dancer.Asset.Clips.First(c=>c.Id=="idle");
+        int aliasA=-1,aliasB=-1;
+        for(int i=0;i<idleClip.Indices.Count&&aliasA<0;i++)
+            for(int j=i+1;j<idleClip.Indices.Count;j++)
+            {
+                var a=dancer.Asset.Frames[idleClip.Indices[i]].SourceRectTopLeft;
+                var b=dancer.Asset.Frames[idleClip.Indices[j]].SourceRectTopLeft;
+                if(a.X==b.X&&a.Y==b.Y&&a.Width==b.Width&&a.Height==b.Height){aliasA=i;aliasB=j;break;}
+            }
+        Check(aliasA>=0&&aliasB>=0,"idle clip repeats one physical rectangle");
+        Check(idleClip.DurationsMs[aliasA]!=idleClip.DurationsMs[aliasB],
+            "repeated physical rectangle carries distinct durations");
+        long aliasStartMs=0;
+        for(int k=0;k<aliasB;k++)aliasStartMs+=idleClip.DurationsMs[k];
+        var aliasFrame=Resolve(dancer,"idle",aliasStartMs/1000d,0d);
+        Check(aliasFrame.Index==idleClip.Indices[aliasB],
+            "duration-distinct duplicate rect keeps its own temporal frame");
+
+        long dancePeriodMs=danceClip.TotalDurationMs;
+        var phased=Resolve(dancer,"dance",0d,2500d/1000d);
+        Check(phased.Index==danceClip.Indices[8],"loop phase offset 2.5s selects frame 8");
+        var boundaryPhase=Resolve(dancer,"dance",0d,danceClip.DurationsMs[0]/1000d);
+        Check(boundaryPhase.Index==danceClip.Indices[1],"phase exactly on a boundary advances one frame");
+        var wrapped=Resolve(dancer,"dance",dancePeriodMs/1000d-0.05d,0.05d);
+        Check(wrapped.Index==danceClip.Indices[0],"elapsed wrap plus initial phase wraps to frame 0");
+        var zeroPhase=Resolve(dancer,"dance",0d,-0d);
+        Check(zeroPhase.Index==danceClip.Indices[0],"negative zero phase equals zero");
+
+        var bowClip=dancer.Asset.Clips.First(c=>c.Id=="bow");
+        Check(!bowClip.Loops,"bow is one-shot");
+        var bowBoundary=Resolve(dancer,"bow",1980d/1000d,0d);
+        Check(bowBoundary.Index==25,"one-shot boundary advances to the final frame");
+        var bowLast=Resolve(dancer,"bow",2220d/1000d,0d);
+        Check(bowLast.Index==25,"one-shot elapsed==period stays on the last frame");
+        var bowPast=Resolve(dancer,"bow",999d,0d);
+        Check(bowPast.Index==25,"one-shot after the period stays on the last frame");
+
+        var frozenA=Resolve(dancer,"dance",1234d/1000d,0d,out var frozenPoseA);
+        var frozenB=Resolve(dancer,"dance",1234d/1000d,0d,out var frozenPoseB);
+        Check(frozenA.Index==frozenB.Index&&frozenPoseA.WorldX==frozenPoseB.WorldX
+            &&frozenPoseA.WorldY==frozenPoseB.WorldY,"same elapsed is a pure freeze");
+
+        var lotus=Node("lotus-0");
+        var lotusClip=lotus.Asset.Clips[0];
+        var lotusFrame=Resolve(lotus,lotusClip.Id,lotusClip.DurationsMs[0]/1000d-0.001d,0d,out var lotusPose);
+        Check(lotusFrame.Index==lotusClip.Indices[0],"local motion first frame resolves");
+        Check(lotusPose.ScaleX==1d&&lotusPose.ScaleY==1d,"lotus remains unscaled");
+
+        RejectFrame(dancer,"dance",double.NaN,0d,"elapsed","NaN elapsed");
+        RejectFrame(dancer,"dance",-1d,0d,"elapsed","negative elapsed");
+        RejectFrame(dancer,"dance",double.PositiveInfinity,0d,"elapsed","infinite elapsed");
+        RejectFrame(dancer,"dance",0d,double.NaN,"phase-offset","NaN phase offset");
+        RejectFrame(dancer,"dance",0d,double.PositiveInfinity,"phase-offset","infinite phase offset");
+        RejectFrame(dancer,"dance",0d,dancePeriodMs/1000d,"phase-offset-loop","loop offset equals the period");
+        RejectFrame(dancer,"dance",0d,-0.1d,"phase-offset-loop","negative loop offset");
+        RejectFrame(dancer,"bow",0d,0.1d,"phase-offset-oneshot","one-shot requires explicit zero offset");
+        RejectFrame(dancer,"nope",0d,0d,"clip-unknown:nope","unknown clip");
+        RejectFrame(dancer,null,0d,0d,"clip-required","motion requires an explicit clip id");
+        RejectFrame(dancer,"",0d,0d,"clip-required","empty clip id refused");
+
+        var cargo=Node("cargo-granary");
+        RejectFrame(cargo,"idle",0d,0d,"clip-on-static","static node refuses a clip");
+        RejectFrame(cargo,null,0d,0.1d,"phase-offset-static","static node refuses a clock phase");
+        RejectFrame(null,null,0d,0d,"node-null","null node refused");
+    }
+
+    private static void CheckParallax()
+    {
+        var far=Node("far-palace-0");
+        Close(far.GetWorldX(0d),far.StaticWorldX,"anchor camera leaves the base X");
+        Close(far.GetWorldX(10d),far.StaticWorldX+10d*0.3d,"camera delta uses the explicit far ratio");
+        Close(far.GetWorldX(-10d),far.StaticWorldX-10d*0.3d,"negative camera delta is symmetric");
+        var cargo=Node("cargo-granary");
+        Close(cargo.GetWorldX(1000d),cargo.StaticWorldX,"non-background placement is world-fixed");
+        ThrowsInvalid(()=>Node("court-dancer").GetWorldX(0d),"timed node has no layer parallax");
+        Throws(()=>far.GetWorldX(double.NaN),"non-finite camera refused");
+
+        var zeroRatios=Ratios();
+        foreach(string key in zeroRatios.Keys.ToArray())zeroRatios[key]=0d;
+        Check(PalaceCapitalScenePlan.TryCreate(_source,_calibration,WaterY,_scales,zeroRatios,
+            out var zeroPlan,out string zeroReason),"zero-ratio world-fixed plan: "+zeroReason);
+        Check(zeroPlan.TryGetNode("far-palace-0",out var zeroFar),"zero plan far node");
+        Close(zeroFar.GetWorldX(500d),zeroFar.StaticWorldX,"explicit zero ratio is world-fixed");
+
+        var oneRatios=Ratios();
+        foreach(string key in oneRatios.Keys.ToArray())oneRatios[key]=1d;
+        Check(PalaceCapitalScenePlan.TryCreate(_source,_calibration,WaterY,_scales,oneRatios,
+            out var onePlan,out string oneReason),"ratio 1 boundary accepted: "+oneReason);
+        Check(onePlan.TryGetNode("east-celestial-vista",out var east),"east vista node");
+        Close(east.GetWorldX(-100d),east.StaticWorldX-100d,"ratio 1 follows the full camera delta");
+    }
+
+    private static void CheckCreateRejections()
+    {
+        Reject(null,_calibration,WaterY,_scales,_ratios,"source-null","null source");
+        Reject(_source,null,WaterY,_scales,_ratios,"calibration-null","null calibration");
+        Reject(_source,_calibration,WaterY,null,_ratios,"actor-scale-map-null","null actor scale map");
+        Reject(_source,_calibration,WaterY,_scales,null,"background-ratio-map-null","null ratio map");
+
+        var legacy44=new PalaceScrollDescriptor(PalaceLayoutRecipe.Known44,1448,252,187,-32,0,1480,252);
+        var legacyCalibration=new PalaceScrollCalibration(legacy44,1d/32d,
+            PalaceLayoutRecipe.Known44.GateWorldX,GroundY);
+        Reject(_source,legacyCalibration,WaterY,_scales,_ratios,"descriptor-recipe","legacy recipe descriptor");
+        var footline225=new PalaceScrollDescriptor(PalaceLayoutRecipe.Capital400,12840,252,225,0,0,12840,252);
+        Reject(_source,new PalaceScrollCalibration(footline225,1d/32d,0d,GroundY),WaterY,_scales,_ratios,
+            "descriptor-footline","reviewed street reference 225");
+        var hugeGround=new PalaceScrollCalibration(
+            new PalaceScrollDescriptor(PalaceLayoutRecipe.Capital400,12840,252,224,0,0,12840,252),
+            1d/32d,0d,1e300);
+        Reject(_source,hugeGround,WaterY,_scales,_ratios,"ground-reference","ground reference must be a float");
+
+        Reject(_source,_calibration,null,_scales,_ratios,"water-reference-missing","water plane required by the source");
+        Reject(_source,_calibration,double.NaN,_scales,_ratios,"water-reference","NaN water plane");
+        Reject(_source,_calibration,1e300,_scales,_ratios,"water-reference","non-float water plane");
+
+        var missingScale=Scales();
+        missingScale.Remove("court-dancer");
+        Reject(_source,_calibration,WaterY,missingScale,_ratios,"actor-scale-missing:court-dancer","missing actor scale");
+        foreach(double bad in new[]{0d,-1d,double.NaN,double.PositiveInfinity,1e300,1e-300,double.Epsilon})
+            Reject(_source,_calibration,WaterY,Scales(bad),_ratios,"actor-scale:court-dancer","invalid actor scale "+bad);
+        foreach(double tiny in new[]{(double)float.Epsilon,1e-40})
+            Check(PalaceCapitalScenePlan.TryCreate(_source,_calibration,WaterY,Scales(tiny),_ratios,
+                out _,out string tinyReason),"representable positive actor scale "+tiny+": "+tinyReason);
+        var extraScale=Scales();
+        extraScale["not-an-actor"]=1d;
+        Reject(_source,_calibration,WaterY,extraScale,_ratios,"actor-scale-unknown:not-an-actor","unknown actor scale key");
+
+        var missingRatio=Ratios();
+        missingRatio.Remove("independent-middle-forest");
+        Reject(_source,_calibration,WaterY,_scales,missingRatio,
+            "background-follow-missing:independent-middle-forest","missing background group ratio");
+        var extraRatio=Ratios();
+        extraRatio["unknown-group"]=0.5d;
+        Reject(_source,_calibration,WaterY,_scales,extraRatio,
+            "background-follow-unknown:unknown-group","unknown background group key");
+        foreach(double bad in new[]{double.NaN,double.PositiveInfinity,-0.01d,1.01d})
+        {
+            var badRatio=Ratios();
+            badRatio["independent-far-palace"]=bad;
+            Reject(_source,_calibration,WaterY,_scales,badRatio,
+                "background-follow:independent-far-palace","invalid background ratio "+bad);
+        }
+    }
+}

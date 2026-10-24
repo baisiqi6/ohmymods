@@ -1,0 +1,332 @@
+// Behavioral checks for the read-only source-8 observer, compiled against the real product file.
+// One scenario per process: the product latches (_armed/_closed/_validationAttempt) permanently.
+using System;
+using System.Collections.Generic;
+using KingdomEnhancedMod;
+
+internal static class Program
+{
+    private static int _failures;
+
+    private static void Check(bool condition, string message)
+    {
+        if (condition) return;
+        _failures++;
+        Console.WriteLine("FAIL " + message);
+    }
+
+    private static void CheckContains(string text, string expected, string label)
+        => Check(text.Contains(expected, StringComparison.Ordinal), label + " missing: " + expected);
+
+    private static void CheckAbsent(string text, string unexpected, string label)
+        => Check(!text.Contains(unexpected, StringComparison.Ordinal), label + " unexpectedly contains: " + unexpected);
+
+    private static int CountWhere(Func<string, bool> predicate)
+    {
+        int count = 0;
+        foreach (string line in HostLog.Lines) if (predicate(line)) count++;
+        return count;
+    }
+
+    private static string Logs => HostLog.All;
+
+    private static int Main(string[] args)
+    {
+        string scenario = args.Length > 0 ? args[0] : "";
+        try
+        {
+            switch (scenario)
+            {
+                case "default-perfect": DefaultPerfect(); break;
+                case "diagnostic-fresh": DiagnosticFresh(); break;
+                case "diagnostic-online": DiagnosticOnline(); break;
+                case "diagnostic-saving": DiagnosticSaving(); break;
+                case "diagnostic-challenge": DiagnosticChallenge(); break;
+                case "diagnostic-wrong-land": DiagnosticWrongLand(); break;
+                case "diagnostic-owner-drift": DiagnosticOwnerDrift(); break;
+                case "diagnostic-agent-mismatch": DiagnosticAgentMismatch(); break;
+                case "diagnostic-scene-drift": DiagnosticSceneDrift(); break;
+                case "diagnostic-observe-before-arm": DiagnosticObserveBeforeArm(); break;
+                case "diagnostic-post-arm-campaign": DiagnosticPostArmCampaign(); break;
+                case "diagnostic-post-arm-agent": DiagnosticPostArmAgent(); break;
+                case "diagnostic-post-arm-land": DiagnosticPostArmLand(); break;
+                case "diagnostic-camera-ambiguity": DiagnosticCameraAmbiguity(); break;
+                case "diagnostic-camera-water-null": DiagnosticCameraWaterNull(); break;
+                case "diagnostic-water-self": DiagnosticUnsupportedWater("self"); break;
+                case "diagnostic-water-mismatch": DiagnosticUnsupportedWater("mismatch"); break;
+                case "diagnostic-water-throws": DiagnosticUnsupportedWater("throws"); break;
+                case "diagnostic-material-missing-property": DiagnosticMaterialMissingProperty(); break;
+                default:
+                    Console.WriteLine("unknown scenario: " + scenario);
+                    return 2;
+            }
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine("FAIL exception " + e.GetType().Name + ": " + e.Message);
+            _failures++;
+        }
+        Console.WriteLine("scenario=" + scenario + " failures=" + _failures + " logLines=" + HostLog.Count);
+        if (_failures != 0 || (args.Length > 1 && args[1] == "dump")) Console.WriteLine(Logs);
+        return _failures == 0 ? 0 : 1;
+    }
+
+    private static void Perfect() => Fixture.ResetPerfect();
+
+    private static void DefaultPerfect()
+    {
+        Perfect();
+        PalaceAdultBodyMetrics.Arm(Fixture.Game);
+        PalaceAdultBodyMetrics.Arm(Fixture.Game);
+        PalaceAdultBodyMetrics.ObserveAfterRegisteredY();
+        PalaceAdultBodyMetrics.ObserveAfterRegisteredY();
+        Check(HostLog.Count == 0, "normal profile must stay sealed: no observer log");
+        Check(FixtureCounters.TripRead == 0, "normal profile must not read trip");
+        Check(FixtureCounters.WorkerCountRead == 0 && FixtureCounters.WorkerCopy == 0,
+            "normal profile must not touch roster");
+        Check(FixtureCounters.PeasantEnumerate == 0, "normal profile must not enumerate characters");
+    }
+
+    private static void DiagnosticFresh()
+    {
+        Perfect();
+        PalaceAdultBodyMetrics.Arm(Fixture.Game);
+        PalaceAdultBodyMetrics.Arm(Fixture.Game);
+        string armedLogs = Logs;
+        Check(CountWhere(l => l.Contains("[AdultBody] armed", StringComparison.Ordinal)) == 1,
+            "exactly one accepted epoch");
+        CheckContains(armedLogs, "trip=not-required", "diagnostic arm marks trip independence");
+        CheckAbsent(armedLogs, "record{", "diagnostic arm must not fabricate trip record");
+        CheckAbsent(armedLogs, "tripId=", "diagnostic arm must not fabricate trip id");
+        Check(FixtureCounters.TripRead == 0 && FixtureCounters.TripBinding == 0 && FixtureCounters.TripMatch == 0,
+            "diagnostic arm must not read trip");
+
+        CheckContains(Logs, "camera identity ok:", "typed unique P1 camera accepted");
+        CheckContains(Logs, "hits=1", "bounded 4x4 match is unique");
+        Check(Fixture.MainCameraActor.CamWaterReads == 0, "known unsupported CamWater must not be invoked");
+        CheckContains(Logs, "water=unknown", "unsupported Water instance remains unknown");
+        CheckContains(Logs, "0x060023bc", "audited getter identity recorded");
+        CheckAbsent(Logs, "waterTopOffset=", "no Water instance field projection");
+        CheckContains(Logs, "visibleWaterY=Unknown", "visible water Y stays unknown");
+        CheckAbsent(Logs, "measuredVisibleWaterY", "no fake measured water Y");
+        CheckContains(Logs, "selectedMaterial=Unknown", "no lazy water material getter");
+        CheckContains(Logs, "SPReflectionProperties", "reflection property id recorded");
+        CheckContains(Logs, "has=true", "HasProperty read before GetVector");
+        Check(Fixture.MaterialA.hasPropertyCalls == 1 && Fixture.MaterialA.getVectorCalls == 1,
+            "HasProperty/GetVector read exactly once per material");
+        Check(Fixture.MaterialB.hasPropertyCalls == 1 && Fixture.MaterialB.getVectorCalls == 1,
+            "second instance material also read once");
+        Check(Fixture.MaterialC.hasPropertyCalls == 1 && Fixture.MaterialC.getVectorCalls == 1,
+            "base water material also read once");
+        Check(FixtureCounters.ForbiddenWaterCalls == 0, "no water setter / GetWaterMaterialInstance calls");
+        Check(FixtureCounters.DebugRendererReads == 0, "debugRenderer not substituted for water");
+        Check(Fixture.WaterActor.resizeWaterCalls == 0 && Fixture.WaterActor.setReflectionBufferCalls == 0
+            && Fixture.WaterActor.setPropertiesCalls == 0, "water methods not invoked");
+        Check(Fixture.RenderingActor.getWaterMaterialInstanceCalls == 0, "GetWaterMaterialInstance not called");
+
+        PalaceAdultBodyMetrics.ObserveAfterRegisteredY();
+        Check(CountWhere(l => l.Contains("[AdultBody] worker:", StringComparison.Ordinal)) == 1, "worker sampled once");
+        Check(CountWhere(l => l.Contains("[AdultBody] peasant:", StringComparison.Ordinal)) == 1, "peasant sampled once");
+        CheckContains(Logs, "bodyPixelTop=Unknown bodyPixelBottom=Unknown", "BODY top/bottom remain unknown");
+        CheckContains(Logs, "sample complete (one-shot, closed)", "sample closes after one epoch");
+        CheckContains(Logs, "registered=", "registered target recorded");
+        CheckAbsent(Logs, "closed: cancelled", "no drift on the frozen epoch");
+
+        int logsAfter = HostLog.Count;
+        PalaceAdultBodyMetrics.Arm(Fixture.Game);
+        PalaceAdultBodyMetrics.ObserveAfterRegisteredY();
+        Check(HostLog.Count == logsAfter, "no re-arm or re-scan after close");
+        Check(FixtureCounters.WorkerCountRead == 1 && FixtureCounters.WorkerCopy == 1,
+            "roster copied exactly once");
+        Check(FixtureCounters.PeasantEnumerate == 1, "character roster enumerated exactly once");
+    }
+
+    private static void DiagnosticOnline()
+    {
+        Perfect();
+        NetworkBigBoss.IsOnline = true;
+        PalaceAdultBodyMetrics.Arm(Fixture.Game);
+        Check(CountWhere(l => l.Contains("armed", StringComparison.Ordinal)) == 0, "online must not arm");
+        Check(FixtureCounters.WorkerCountRead == 0, "online must not read roster");
+        NetworkBigBoss.IsOnline = false;
+        PalaceAdultBodyMetrics.Arm(Fixture.Game);
+        Check(CountWhere(l => l.Contains("armed", StringComparison.Ordinal)) == 1, "arms after going offline");
+    }
+
+    private static void DiagnosticSaving()
+    {
+        Perfect();
+        IslandSaveData.isSavingGame = true;
+        PalaceAdultBodyMetrics.Arm(Fixture.Game);
+        Check(CountWhere(l => l.Contains("armed", StringComparison.Ordinal)) == 0, "saving must not arm");
+        IslandSaveData.isSavingGame = false;
+        PalaceAdultBodyMetrics.Arm(Fixture.Game);
+        Check(CountWhere(l => l.Contains("armed", StringComparison.Ordinal)) == 1, "arms after saving clears");
+    }
+
+    private static void DiagnosticChallenge()
+    {
+        Perfect();
+        Fixture.Global.InChallenge = true;
+        PalaceAdultBodyMetrics.Arm(Fixture.Game);
+        Check(CountWhere(l => l.Contains("armed", StringComparison.Ordinal)) == 0, "challenge must not arm");
+        Fixture.Global.InChallenge = false;
+        PalaceAdultBodyMetrics.Arm(Fixture.Game);
+        Check(CountWhere(l => l.Contains("armed", StringComparison.Ordinal)) == 1, "arms outside challenge");
+    }
+
+    private static void DiagnosticWrongLand()
+    {
+        Perfect();
+        Fixture.Game.currentLand = 12;
+        PalaceAdultBodyMetrics.Arm(Fixture.Game);
+        Check(CountWhere(l => l.Contains("armed", StringComparison.Ordinal)) == 0, "non-source8 must not arm");
+        Fixture.Game.currentLand = 8;
+        PalaceAdultBodyMetrics.Arm(Fixture.Game);
+        Check(CountWhere(l => l.Contains("armed", StringComparison.Ordinal)) == 1, "arms at source8");
+    }
+
+    private static void DiagnosticOwnerDrift()
+    {
+        Perfect();
+        Fixture.Global.Owner = new CampaignSaveData { Pointer = (IntPtr)999, CurrentLand = 8 };
+        PalaceAdultBodyMetrics.Arm(Fixture.Game);
+        Check(CountWhere(l => l.Contains("armed", StringComparison.Ordinal)) == 0,
+            "GetCurrentCampaign owner drift must not arm");
+        Fixture.Global.Owner = Fixture.Campaign;
+        PalaceAdultBodyMetrics.Arm(Fixture.Game);
+        Check(CountWhere(l => l.Contains("armed", StringComparison.Ordinal)) == 1, "arms after owner is exact");
+    }
+
+    private static void DiagnosticAgentMismatch()
+    {
+        Perfect();
+        Fixture.AgentMatches = false;
+        Fixture.AgentMatchReason = "folder-mismatch";
+        PalaceAdultBodyMetrics.Arm(Fixture.Game);
+        Check(CountWhere(l => l.Contains("armed", StringComparison.Ordinal)) == 0, "agent mismatch must not arm");
+        CheckContains(Logs, "private agent", "agent mismatch recorded");
+        CheckContains(Logs, "unknown:", "camera sample degrades to unknown");
+        Check(FixtureCounters.WorkerCountRead == 0, "agent mismatch must not read roster");
+        Fixture.AgentMatches = true;
+        PalaceAdultBodyMetrics.Arm(Fixture.Game);
+        Check(CountWhere(l => l.Contains("armed", StringComparison.Ordinal)) == 0,
+            "identity window is accepted once; no retry");
+    }
+
+    private static void DiagnosticSceneDrift()
+    {
+        Perfect();
+        Fixture.Level.gameObject.scene.handle = 99;
+        PalaceAdultBodyMetrics.Arm(Fixture.Game);
+        Check(CountWhere(l => l.Contains("armed", StringComparison.Ordinal)) == 0, "owner scene drift must not arm");
+    }
+
+    private static void DiagnosticObserveBeforeArm()
+    {
+        Perfect();
+        PalaceAdultBodyMetrics.ObserveAfterRegisteredY();
+        Check(HostLog.Count == 0, "observe before arm is a no-op");
+    }
+
+    private static void DiagnosticPostArmCampaign()
+    {
+        Perfect();
+        PalaceAdultBodyMetrics.Arm(Fixture.Game);
+        Check(CountWhere(l => l.Contains("armed", StringComparison.Ordinal)) == 1, "armed before drift");
+        Fixture.Global.Owner = new CampaignSaveData { Pointer = (IntPtr)999, CurrentLand = 8 };
+        PalaceAdultBodyMetrics.ObserveAfterRegisteredY();
+        CheckContains(Logs, "closed: cancelled before sample", "campaign drift cancels");
+        Check(FixtureCounters.WorkerCountRead == 0, "cancelled sample must not read roster");
+    }
+
+    private static void DiagnosticPostArmAgent()
+    {
+        Perfect();
+        PalaceAdultBodyMetrics.Arm(Fixture.Game);
+        var replacement = new Filer.DotNetAgent { Pointer = (IntPtr)77, folder = "/private/root" };
+        Filer.agent = replacement;
+        PalaceAdultBodyMetrics.ObserveAfterRegisteredY();
+        CheckContains(Logs, "closed: cancelled before sample", "agent drift cancels");
+        CheckContains(Logs, "agent drift", "agent drift is named");
+        Check(FixtureCounters.WorkerCountRead == 0, "agent drift must not read roster");
+    }
+
+    private static void DiagnosticPostArmLand()
+    {
+        Perfect();
+        PalaceAdultBodyMetrics.Arm(Fixture.Game);
+        Fixture.Game.currentLand = 12;
+        PalaceAdultBodyMetrics.ObserveAfterRegisteredY();
+        CheckContains(Logs, "closed: cancelled before sample", "land drift cancels");
+        CheckContains(Logs, "land drift", "land drift is named");
+        Check(FixtureCounters.WorkerCountRead == 0, "land drift must not read roster");
+    }
+
+    private static void DiagnosticCameraAmbiguity()
+    {
+        Perfect();
+        AddSecondP1Camera();
+        PalaceAdultBodyMetrics.Arm(Fixture.Game);
+        Check(CountWhere(l => l.Contains("armed", StringComparison.Ordinal)) == 1,
+            "camera ambiguity must not block the identity epoch");
+        CheckContains(Logs, "unknown: typed camera identity rejected", "ambiguity logged as unknown");
+        CheckContains(Logs, "hits=2", "both hits recorded");
+        PalaceAdultBodyMetrics.ObserveAfterRegisteredY();
+        CheckContains(Logs, "sample complete (one-shot, closed)", "BODY flow continues after camera unknown");
+    }
+
+    private static void AddSecondP1Camera()
+    {
+        var refs = new Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppReferenceArray<MainCamera>(2);
+        refs[0] = Fixture.MainCameraActor;
+        refs[1] = new MainCamera
+        {
+            Pointer = (IntPtr)212,
+            _camera = Fixture.CameraActor,
+            cameraTargets = new Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppReferenceArray<UnityEngine.GameObject>(1),
+        };
+        refs[1].cameraTargets[0] = Fixture.PlayerOne.gameObject;
+        CameraMarshaller.Inst.cameraRefs = refs;
+    }
+
+    private static void DiagnosticCameraWaterNull()
+    {
+        Perfect();
+        Fixture.MainCameraActor.CamWater = null;
+        Fixture.MainCameraActor._water = null;
+        PalaceAdultBodyMetrics.Arm(Fixture.Game);
+        Check(CountWhere(l => l.Contains("armed", StringComparison.Ordinal)) == 1, "null water must not block arm");
+        Check(Fixture.MainCameraActor.CamWaterReads == 0, "null water does not invoke unsupported getter");
+        CheckContains(Logs, "water=unknown", "water detail explicitly unknown");
+        CheckAbsent(Logs, "waterTopOffset=", "no water numeric read without an instance");
+        PalaceAdultBodyMetrics.ObserveAfterRegisteredY();
+        CheckContains(Logs, "sample complete (one-shot, closed)", "BODY flow continues with null water");
+    }
+
+    private static void DiagnosticUnsupportedWater(string kind)
+    {
+        Perfect();
+        if (kind == "self") Fixture.WaterActor.Pointer = Fixture.MainCameraActor.Pointer;
+        if (kind == "mismatch") Fixture.MainCameraActor._water = new Water { Pointer = (IntPtr)9999 };
+        if (kind == "throws") Fixture.MainCameraActor.ThrowCamWater = true;
+        PalaceAdultBodyMetrics.Arm(Fixture.Game);
+        Check(Fixture.MainCameraActor.CamWaterReads == 0, "unsupported getter not invoked: " + kind);
+        CheckContains(Logs, "water=unknown", "Water unavailable: " + kind);
+        CheckAbsent(Logs, "waterTopOffset=", "no projected numeric Water data: " + kind);
+        PalaceAdultBodyMetrics.ObserveAfterRegisteredY();
+        CheckContains(Logs, "sample complete (one-shot, closed)", "BODY continues independently: " + kind);
+    }
+
+    private static void DiagnosticMaterialMissingProperty()
+    {
+        Perfect();
+        Fixture.MaterialA.hasProperty = false;
+        Fixture.MaterialB.hasProperty = false;
+        PalaceAdultBodyMetrics.Arm(Fixture.Game);
+        CheckContains(Logs, "has=false", "missing property recorded instead of read");
+        Check(Fixture.MaterialA.hasPropertyCalls == 1 && Fixture.MaterialA.getVectorCalls == 0,
+            "GetVector is skipped when HasProperty is false");
+        Check(FixtureCounters.ForbiddenWaterCalls == 0, "no forbidden water calls");
+    }
+}

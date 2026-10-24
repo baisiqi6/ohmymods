@@ -1,0 +1,19 @@
+using System.Text.Json.Nodes;using KingdomEnhancedMod;
+int checks=0;void Check(bool v,string n){checks++;if(!v)throw new Exception(n);}
+string raw=File.ReadAllText(args[0]);Check(PalaceActorRegistry.TryParse(raw,out var r,out var reason),"actual manifest: "+reason);
+Check(r.RegistrySha256=="155980be920a6779c2946041f35227e619ebc62d07ca4480209d479e86d2c8ea","real raw hash");Check(r.Actors.Count==10&&r.TimedFrameCount==294,"actual10/294");
+var dancer=r.Actors.Single(a=>a.Id=="court-dancer");Check(dancer.Frames.Count==26&&dancer.DistinctAtlasCells==21,"dancer temporal/physical distinction");
+Check(dancer.Frames[25].SourceRectTopLeft.X==0&&dancer.Frames[25].SourceRectTopLeft.Y==0&&dancer.Frames[25].UnitySourceRectBottomLeft.Y==96,"last timed frame uses explicit rect instead of index%columns");
+Check(dancer.Frames[25].DurationMs==240&&dancer.Frames[0].DurationMs==280,"repeated rect independent timing");Check(dancer.PivotBottomLeftPixels.X==24.5&&dancer.PivotBottomLeftPixels.Y==4,"explicit pivot");
+Check(r.Actors.All(a=>!a.NativeFootprintKnown&&!a.NativeSupportConfirmed&&a.NativeCalibrationPending)&&!r.NativeAccepted,"native facts remain unknown");Check(r.Actors.Single(a=>a.Id=="guardian-orb").OriginalDeclaredLogicalPPU==null,"undeclared original PPU retained null");
+foreach(var a in r.Actors)foreach(var f in a.Frames)Check(f.UnitySourceRectBottomLeft.Y==a.Height-f.SourceRectTopLeft.Y-f.SourceRectTopLeft.Height,"Unity rect Y explicit");
+void Reject(Action<JsonObject> mutate,string name){var j=JsonNode.Parse(raw)!.AsObject();mutate(j);Check(!PalaceActorRegistry.TryParse(j.ToJsonString(),out _,out _),name);}
+JsonObject A(JsonObject j)=>j["actors"]![0]!.AsObject();JsonObject F(JsonObject j)=>A(j)["frames"]![0]!.AsObject();
+Reject(j=>A(j)["path"]="../atlas.png","path traversal");Reject(j=>A(j)["path"]="/tmp/a.png","absolute path");Reject(j=>A(j)["path"]="C:\\a.png","windows path");Reject(j=>A(j)["size"]![0]=2049,"oversized atlas");
+Reject(j=>F(j)["durationMs"]=0,"zero duration");Reject(j=>F(j)["durationMs"]=-1,"negative duration");Reject(j=>F(j)["durationMs"]="240","duration type");Reject(j=>F(j)["index"]=1,"frame order");
+Reject(j=>F(j)["sourceRect"]![0]=10000,"rect outside atlas");Reject(j=>F(j)["masterRect"]![0]=10000,"master rect outside master");Reject(j=>F(j).Remove("sourceRect"),"missing explicit rect");Reject(j=>A(j)["id"]="new-profession","unknown role");
+Reject(j=>A(j)["support"]!["nativeConfirmed"]=true,"no fake native support");Reject(j=>A(j)["footprint"]!["value"]=1,"no invented footprint");Reject(j=>j["nativeAcceptance"]=true,"no fake native acceptance");Reject(j=>A(j)["distinctAtlasCells"]=1,"distinct count");Reject(j=>j["extra"]=1,"closed root");
+Reject(j=>A(j)["clips"]!["idle"]!["durationsMs"]![0]=999,"clip timing mismatch");Reject(j=>A(j)["clips"]!["idle"]!["indices"]![0]=1,"clip index mismatch");
+Reject(j=>{string master=A(j)["masterId"]!.GetValue<string>();var second=j["actors"]![1]!;second["masterId"]=master;foreach(var f in second["frames"]!.AsArray())f!["masterId"]=master;},"duplicate master identity across distinct actor atlases");
+Check(!PalaceActorRegistry.TryParse(raw.Replace("32.5","1e309"),out _,out _),"nonfinite pivot");Check(!PalaceActorRegistry.TryParse(raw.Insert(raw.IndexOf('{')+1,"\"schema\":\"duplicate\","),out _,out _),"duplicate root");Check(!PalaceActorRegistry.TryParse(new string('x',PalaceActorRegistry.MaxJsonChars+1),out _,out _),"length budget");
+Console.WriteLine("PASS "+checks+" real actor registry checks; no texture or native allocation");

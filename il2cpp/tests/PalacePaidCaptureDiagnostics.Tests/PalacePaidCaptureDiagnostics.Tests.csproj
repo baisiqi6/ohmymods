@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <UseSharedCompilation>false</UseSharedCompilation>
+    <NodeReuse>false</NodeReuse>
+    <NuGetAudit>false</NuGetAudit>
+    <CheckEolTargetFramework>false</CheckEolTargetFramework>
+    <PaidSource>$(MSBuildProjectDirectory)/../../Patch_PalacePaidResponsibility.cs</PaidSource>
+    <GeneratedDir>$(MSBuildProjectDirectory)/obj/Generated</GeneratedDir>
+    <DefineConstants>$(DefineConstants);PALACE_PAID_CAPTURE_DIAGNOSTICS</DefineConstants>
+    <!-- Optional pinned baseline source for the old-guard negative control; absent in normal builds. -->
+    <LegacyPaidSource></LegacyPaidSource>
+    <LegacyGeneratedDir>$(GeneratedDir)/Legacy</LegacyGeneratedDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(LegacyPaidSource)' != ''">
+    <DefineConstants>$(DefineConstants);PAID_ARRIVAL_LEGACY</DefineConstants>
+  </PropertyGroup>
+  <Target Name="ExtractDiagnostics" BeforeTargets="BeforeCompile">
+    <Exec Command="&quot;$(DOTNET_HOST_PATH)&quot; run --project &quot;$(MSBuildProjectDirectory)/Extractor/Extractor.csproj&quot; -c Release -p:UseSharedCompilation=false -p:NuGetAudit=false -- &quot;$(PaidSource)&quot; &quot;$(GeneratedDir)&quot;"
+          EnvironmentVariables="MSBUILDDISABLENODEREUSE=1" />
+  </Target>
+  <Target Name="ExtractLegacyArrival" BeforeTargets="BeforeCompile" Condition="'$(LegacyPaidSource)' != ''">
+    <Exec Command="&quot;$(DOTNET_HOST_PATH)&quot; run --project &quot;$(MSBuildProjectDirectory)/Extractor/Extractor.csproj&quot; -c Release -p:UseSharedCompilation=false -p:NuGetAudit=false -- legacy &quot;$(LegacyPaidSource)&quot; &quot;$(LegacyGeneratedDir)&quot;"
+          EnvironmentVariables="MSBUILDDISABLENODEREUSE=1" />
+  </Target>
+  <ItemGroup>
+    <Compile Include="Program.cs.txt" />
+    <Compile Include="$(GeneratedDir)/PalacePaidCaptureDiagnostics.Extracted.cs" />
+    <Compile Include="$(GeneratedDir)/PalacePaidCaptureDiagnostics.Identity.cs" />
+    <Compile Include="$(GeneratedDir)/WalletPostfixExpression.g.cs" />
+    <Compile Include="$(GeneratedDir)/ArrivalDiagnostic.Extracted.cs" />
+    <Compile Include="$(LegacyGeneratedDir)/Arrival.Legacy.g.cs" Condition="'$(LegacyPaidSource)' != ''" />
+    <AssemblyMetadata Include="PaidSourcePath" Value="$(PaidSource)" />
+    <AssemblyMetadata Include="LegacyPaidSourcePath" Value="$(LegacyPaidSource)" />
+  </ItemGroup>
+</Project>

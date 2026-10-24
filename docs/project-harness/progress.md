@@ -76,6 +76,11 @@ DSH 已完成 Batch A 最小工具派生与两级 source 增量复审（R3 资�
 DSH 新写入工作树从精确 200a793 派生（`dsh/android-economy-262-20261023`，路径 `.local/worktrees/android-economy-262-dsh`）；原 W5 工作树保持 200a793 供旧回执路径解析。本批将主线 `release/v9.5.13`=`f2b6dcaa` 合并入分支：双方改动文件交集仅 `docs/project-harness/progress.md`，冲突按两侧条目时间序合并解决；主线 52 个变化文件与本 Android 工程 249 个显式编译输入无交集，本合并无 Android 产品源码变化，c1e43/cfg16b/F35fae 候选绑定保持有效。
 
 下一步：以 609e control-only 观察器准备零额外 Pool/Boat hook 的单次加载对照（新 plan/source review/运行门），并取两处 MissingICall 精确 Signature；随后按依赖验证职业/弓弩与银行补货的付款、保存、池生命周期。构建、原生运行和审查证据分别记账，未变化证据不重复复核。
+## 2026-10-23 — #101 400u宫廷已合并并安装到正常ARM64包
+
+PR #265 merge `fa54574426a528f135e79b2f9d9bf4c1c9a80e15`，Issue #101 已关闭；R12素材PR #279的精确binary补丁已纳入 #265 后关闭，保留作者分支，未另合入master。Mac ARM64 2.4.0单机隔离链通过：自然10币进入→400u/100Tile/452绘制→UI保存退出→新进程宫廷冷读→免费返回来源岛→UI退出→来源冷读及UI退出；19/19终态核验、英雄两席/骑士身份附档/原付费凭据保持。两端截边静帧已复核；动画仅有限运动与Menu停帧采样，不代验全部连续观感、Windows、Android或联机。
+
+`2026-10-23T19:15:01.156608+00:00` 安装default-net6 DLL `055368a3964d307b9a3155160d6a2036cd554f8765c7ea79bdac198b6e59fcaf`，仅更新独立ARM64正常包DLL、package-manifest.json和SHA256SUMS。安装前旧DLL/两份包记录/15份正常数据备份保留；写后恰3键变化、15份存档/配置/偏好及71个物理游戏文件保持，原launcher只读预检退出0且运行树无额外写入，未自动开正常游戏。实机用diagnostic `62a5fa1f…27b7`；default来自同623项冻结源/资源及实际build/embed证据，未称default已独立Native验。未发release/tag，下次正式版宫廷只计一次+0.3。详见[本轮回执](tasks/issue-101/r12-runtime-foundation-20261023.md)；下文保留历史。
 
 ## 2026-10-22 — #260 已交付修复收尾，旧 PR #264 撤回
 
@@ -2397,6 +2402,8 @@ PR229发布后仅进展文档追加段冲突；已保留主线与Android两端�
 
 - Android #232 G18只读存储诊断随后完成：新具名objective源码/29host经独审、最终producer1+6由Root在c148重跑后，正常计划58161139登记、独立读回及本分支镜像一致，其他任务/计划、lease及既有doctor边界保持。单次30.21s中boot1/CEtrue时emulated卷仍checking，随后全部祖先与562B旁档stat可见；这提供启动/存储时序线索，未读取正文或定上例唯一根因。8查询/10stat无unknown/timeout，cat0/game0/无设备文件写命令，Root真reap及后host/端口/8345保护已核，原生窗口提前交还。完整232的真实付款/保存/load及池重建兼容组仍待验；当前906的232具名职业/弓弩闭环未发现确认源码缺口，旧相同input构建与106注册证据复用，后续场景按producer和池依赖合并，不为每字段重复全交付。详见[G18记录](tasks/issue-232/g5-main106-preflight.md)。
 
+
+2026-10-23 #101 / R12 宫廷：400u 配方/100×4u 地面与收费布局记录已接线；本轮又接入冻结 R12 的 92 项资源、452 个绘制节点和唯一 CourtScene 生命周期。资源一次完整校验后发布，CanPay 不读文件；新布局不回退旧44，旧44/Legacy路径保留。创建失败对象所有权、world/view 深度、失活借用对象、Level/镜头绑定与 outer-root 清理已补定向回归；最终增量复审通过。当前完整源 default/diagnostic × net6/net8 四构建均0W0E，实际DLL新92项逐字节核对/275检查通过；旧DLL缺包负例及Android资源边界独立复核通过，均不代替实机。当前尚未启动这一完整候选的自然10币进入→保存退出→新进程重进→免费返回流程；水线/人物比例是待实机初值。#101与PR265仍进行中/Draft，未合并安装，正常存档/配置与正常DLL保持，Windows性能测试继续暂停。详见[任务记录](tasks/issue-101/r12-runtime-foundation-20261023.md)。
 
 - 2026-10-21 Android #232/#262：Boat 上游实际 FieldInfo 已确认0x20/0x140/0x148；prefab/parent有效，raw-key池entry缺失、learningMode=false、cachedPools=9。当前ELF证明SpawnGO先swap后查池且会调用FastSpawn，已撤回旧“船路径不经过FastSpawn”判断；raw-key与缺postfix均不代实际swap-key根因。原生OnLevelLoaded Count门控及Norse1+Bank8源码候选存在，入口九池身份仍未取到，不加force-init/补池。私有0.0.4独立构建0W0E/67checks；修复控制器把同PID `<pre-initialized>` 误判退出的产生处，启动+parser28/控制器37回归通过，无新启动/宽限/重试。single2 fresh归属及同Boat失败成立，但入口探针maps-line-limit安装前拒绝，diagnosticGoalReached=false，Native/玩法未验；更名分支该例未重现，不冒充实测。停止/wait已合为同Popen单一owner，两新例真wait0/all8完整metadataheld；N9原cleanupUnknown保留，后读F一致仅READ。正常计划d2a751f4受管登记/独立镜像，其他184rows/168plans保持、validator0；旧doctor247/251错误不冒称全绿。产品Main2e55不变、PR263 Draft、232/262 OPEN。详见[上游与入口观测记录](tasks/issue-262/verification.md#g20-boat-upstream-pool-phase)。
 

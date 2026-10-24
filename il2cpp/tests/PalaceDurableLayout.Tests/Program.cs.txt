@@ -1,0 +1,219 @@
+using System;
+
+using System.Text;
+
+using System.Text.Json;
+
+using System.IO;
+
+using KingdomEnhancedMod;
+
+internal static class Program
+{
+    static int failures, checks;
+    static void Check(bool x, string name)
+    {
+        checks++;
+        Console.WriteLine((x ? "PASS " : "FAIL ") + name);
+        if (!x) failures++;
+    }
+    const string Record = "{\"tripId\":\"a0000000-0000-4000-8000-000000000001\",\"revision\":1,\"stage\":\"ChargeIntent\",\"owner\":{\"profile\":\"profile-a\",\"campaignGuid\":\"11111111-2222-3333-4444-555555555555\",\"campaignSlot\":0,\"biome\":5,\"reign\":7,\"start\":1750000000,\"playerSlot\":1},\"sourceLand\":8,\"palaceLand\":12,\"anchor\":{\"entryX\":10,\"entryY\":0.5,\"entryZ\":-3,\"sourcePlayerX\":10,\"standX\":12,\"side\":1},\"onPayObserved\":false,\"settlementObserved\":false,\"captureProof\":null,\"fileProof\":null,\"reason\":null}";
+
+    static string NewRecord => Record.Insert(Record.Length - 1, ",\"destinationLayoutId\":\"palace-capital400-r1\",\"destinationLayoutVersion\":1");
+
+    static bool Parses(string json) => PalacePaidCodec.Parse(Encoding.UTF8.GetBytes(json)).Ok;
+
+    static string TripJson(int version, bool layout)
+    {
+        var facts = new PalaceClockReceiptFacts("a0000000-0000-4000-8000-000000000001", "11111111-2222-3333-4444-555555555555", 0, 5, 7, 1750000000, 8, new string('a', 64), 43, 43, 10, 20, 100, 7, new string('b', 64), new string('c', 64));
+
+        if (!PalaceSourceClockReceipt.TryCreateFromVerifiedFacts(facts, out var receipt, out var why)) throw new Exception(why);
+
+        return "{\"version\":" + version + ",\"tripId\":\"a0000000-0000-4000-8000-000000000001\",\"campaignGuid\":\"11111111-2222-3333-4444-555555555555\",\"campaignSlot\":0,\"biome\":5,\"reign\":7,\"start\":1750000000,\"sourceLand\":8,\"palaceLand\":12,\"phase\":\"PalaceSelected\",\"migrationEvidence\":\"\",\"sourceEntryAnchor\":{\"entryX\":10,\"entryY\":0.5,\"entryZ\":-3,\"sourcePlayerX\":10,\"standX\":12,\"side\":1},\"sourceClockReceipt\":" + System.Text.Json.JsonSerializer.Serialize(receipt.WriteCanonicalStrict()) + (layout ? ",\"destinationLayoutId\":\"palace-capital400-r1\",\"destinationLayoutVersion\":1" : "") + "}";
+
+    }
+    static void TripChecks()
+    {
+        Check(PalaceTripContext.TryParse(TripJson(3, false), out _, out _), "legacy trip3 unchanged");
+
+        Check(PalaceTripContext.TryParse(TripJson(4, true), out _, out _), "trip4 real receipt and known layout");
+
+        Check(!PalaceTripContext.TryParse(TripJson(3, true), out _, out _), "trip3 refuses layout fields");
+
+        Check(!PalaceTripContext.TryParse(TripJson(4, false), out _, out _), "trip4 requires layout fields");
+
+    }
+    static PalacePaidEnvelope Bound(PalacePaidApplyResult r)
+    {
+        if (r.Outcome != PalacePaidOutcome.Changed) throw new Exception(r.Error + ":" + r.Detail);
+        var parsed = PalacePaidCodec.Parse(r.CanonicalBytes);
+        if (!parsed.Ok) throw new Exception(parsed.Describe());
+        return parsed.Value;
+    }
+    static PalacePaidEnvelope Step(PalacePaidEnvelope e, PalacePaidRequest r) => Bound(PalacePaidJournal.Apply(e, e.SourceBytesSha256, r));
+
+    static void JournalChecks()
+    {
+        var owner = new PalacePaidScope("profile-a", Guid.Parse("11111111-2222-3333-4444-555555555555"), 0, 5, 7, 1750000000, 1);
+        var exp = new PalacePaidExpectation(owner);
+        var id = Guid.Parse("a0000000-0000-4000-8000-000000000001");
+        var anchor = new PalacePaidAnchor(10, .5f, -3, 10, 12, 1);
+
+        var begin = PalacePaidRequest.Begin(exp, id, 8, anchor, PalaceLayoutRecipe.Capital400);
+        var e = Bound(PalacePaidJournal.Apply(null, null, begin));
+
+        Check(e.Schema == 2 && ReferenceEquals(e.Current.DestinationLayout, PalaceLayoutRecipe.Capital400), "Begin durably binds Capital400");
+
+        try
+        {
+            PalacePaidRequest.Begin(exp, id, 8, anchor, null);
+            Check(false, "unknown Begin rejected");
+        }
+        catch (PalacePaidContractException)
+        {
+            Check(true, "unknown Begin rejected");
+        }
+        Check(PalacePaidJournal.Apply(e, e.SourceBytesSha256, PalacePaidRequest.Begin(exp, Guid.NewGuid(), 8, anchor, PalaceLayoutRecipe.Known44)).Outcome == PalacePaidOutcome.Rejected, "pending blocks second fee across layouts");
+
+        var cancelled = Step(e, PalacePaidRequest.Cancel(exp, id));
+
+        Check(ReferenceEquals(cancelled.Current.DestinationLayout, PalaceLayoutRecipe.Capital400), "Cancelled preserves known layout");
+
+        var unknown = Step(e, PalacePaidRequest.MarkUnknown(exp, id, "native-outcome-unknown"));
+
+        Check(ReferenceEquals(unknown.Current.DestinationLayout, PalaceLayoutRecipe.Capital400), "Unknown preserves known layout");
+
+        var repeated = PalacePaidJournal.Apply(cancelled, cancelled.SourceBytesSha256, PalacePaidRequest.Cancel(exp, id));
+
+        Check(repeated.Outcome == PalacePaidOutcome.NoChange && ReferenceEquals(repeated.Envelope.Current.DestinationLayout, PalaceLayoutRecipe.Capital400), "idempotent nochange preserves key");
+
+        var capture = new PalacePaidCaptureProof(1, owner, 8, "payer", new[] { 10, 0, 0, 0, 0, 0, 0, 0 }, new string('a', 64), true, true, true);
+
+        var file = new PalacePaidFileProof(new string('b', 64), owner, 8, "payer", new[] { 10, 0, 0, 0, 0, 0, 0, 0 }, new string('a', 64), 16, 72);
+
+        var requests = new[] { PalacePaidRequest.ObservePaid(exp, id), PalacePaidRequest.ObserveSettlement(exp, id), PalacePaidRequest.Capture(exp, id, capture), PalacePaidRequest.Resolve(exp, id, file), PalacePaidRequest.ClaimDeparture(exp, id), PalacePaidRequest.MarkEntered(exp, id), PalacePaidRequest.MarkReturned(exp, id), PalacePaidRequest.CommitVisit(exp, id) };
+
+        foreach (var request in requests)
+        {
+            e = Step(e, request);
+            Check(e.Schema == 2 && ReferenceEquals(e.Current.DestinationLayout, PalaceLayoutRecipe.Capital400), "stage preserves key " + e.Current.Stage);
+        }
+        var another = new PalacePaidRecord(e.Current.TripId, e.Current.Revision, e.Current.Stage, owner, 8, 12, anchor, true, true, capture, file, null, PalaceLayoutRecipe.Known44);
+
+        Check(!another.ContentEquals(e.Current), "ContentEquals distinguishes layout");
+
+        var next = Step(e, PalacePaidRequest.Begin(exp, Guid.NewGuid(), 8, anchor, PalaceLayoutRecipe.Known44));
+        Check(ReferenceEquals(next.History[0].DestinationLayout, PalaceLayoutRecipe.Capital400), "history does not inherit next layout");
+
+        var old = PalacePaidCodec.Parse(Encoding.UTF8.GetBytes("{\"schema\":1,\"current\":" + Record + ",\"history\":[]}")).Value;
+
+        var oldPaid = Step(old, PalacePaidRequest.ObservePaid(exp, id));
+        Check(oldPaid.Schema == 1 && oldPaid.Current.DestinationLayout == null, "old pending transition stays schema1 unknown");
+
+        var cancel = Step(old, PalacePaidRequest.Cancel(exp, id));
+        var mixed = Step(cancel, PalacePaidRequest.Begin(exp, Guid.NewGuid(), 8, anchor, PalaceLayoutRecipe.Capital400));
+        Check(mixed.History[0].DestinationLayout == null && mixed.Schema == 2, "mixed history retains legacy unknown");
+
+        Check(Encoding.UTF8.GetString(PalacePaidCodec.Serialize(mixed)).Contains("\"destinationLayoutId\":null,\"destinationLayoutVersion\":null"), "legacy history exact null pair");
+
+        var legacyResumable = new PalacePaidRecord(id, 5, PalacePaidStage.Resumable, owner, 8, 12, anchor, true, true, capture, file, null);
+        var oldReady = PalacePaidCodec.Parse(PalacePaidCodec.Serialize(new PalacePaidEnvelope(legacyResumable))).Value;
+
+        Check(PalacePaidJournal.Apply(oldReady, oldReady.SourceBytesSha256, PalacePaidRequest.ClaimDeparture(exp, id)).Outcome == PalacePaidOutcome.Rejected, "old unknown pending cannot depart");
+
+        Check(oldReady.Schema == 1 && oldReady.Current.Stage == PalacePaidStage.Resumable && oldReady.Current.DestinationLayout == null, "old refusal leaves responsibility intact");
+
+        var legacyEntered = new PalacePaidRecord(id, 7, PalacePaidStage.Entered, owner, 8, 12, anchor, true, true, capture, file, null);
+        var oldIn = PalacePaidCodec.Parse(PalacePaidCodec.Serialize(new PalacePaidEnvelope(legacyEntered))).Value;
+        var oldReturned = Step(oldIn, PalacePaidRequest.MarkReturned(exp, id));
+        Check(oldReturned.Schema == 1 && oldReturned.Current.Stage == PalacePaidStage.Returned, "old entered return stays schema1");
+
+        string root = "{\"schema\":2,\"current\":" + NewRecord + ",\"history\":[]}";
+
+        foreach (var bad in new[] { root.Replace(",\"destinationLayoutVersion\":1", ""), root.Replace("\"destinationLayoutVersion\":1", "\"destinationLayoutVersion\":2"), root.Replace("palace-capital400-r1", "unknown"), root.Replace("\"destinationLayoutId\":\"palace-capital400-r1\"", "\"destinationLayoutId\":null"), root.Replace("\"destinationLayoutVersion\":1", "\"destinationLayoutVersion\":null"), root.Replace("\"destinationLayoutVersion\":1", "\"destinationLayoutVersion\":1,\"destinationLayoutVersion\":1"), root.Replace("\"destinationLayoutVersion\":1", "\"destinationLayoutVersion\":1,\"extra\":0") }) Check(!Parses(bad), "strict schema2 malformed layout rejected");
+
+        string nullPair = Record.Insert(Record.Length - 1, ",\"destinationLayoutId\":null,\"destinationLayoutVersion\":null");
+
+        Check(!Parses("{\"schema\":1,\"current\":" + nullPair + ",\"history\":[]}"), "schema1 rejects even null layout fields");
+
+        Check(!Parses("{\"schema\":2,\"current\":" + nullPair + ",\"history\":[]}"), "schema2 current rejects unknown null pair");
+
+        string legacyJson = "{\"schema\":1,\"current\":" + Record + ",\"history\":[]}";
+
+        Check(Encoding.UTF8.GetString(PalacePaidCodec.Serialize(PalacePaidCodec.Parse(Encoding.UTF8.GetBytes(legacyJson)).Value)) == legacyJson, "canonical schema1 wire unchanged");
+
+        var decoded = PalacePaidCodec.Parse(Encoding.UTF8.GetBytes(root)).Value;
+        Check(decoded.ContentEquals(PalacePaidCodec.Parse(PalacePaidCodec.Serialize(decoded)).Value), "schema2 canonical roundtrip");
+
+        Check(decoded.SourceBytesSha256 == PalacePaidCodec.Sha256Hex(Encoding.UTF8.GetBytes(root)), "raw bytes SHA bound");
+
+        Check(PalacePaidJournal.Apply(decoded, new string('f', 64), PalacePaidRequest.Cancel(exp, id)).Outcome == PalacePaidOutcome.Rejected, "stale CAS refused");
+
+        string folder = Path.Combine(AppContext.BaseDirectory, "ohmymods-journal-test-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(folder);
+        try
+        {
+            var store = new PalacePaidJournalStore(folder);
+            var applied = store.TryApply(null, begin);
+            Check(applied.Status == PalacePaidStoreApplyStatus.Changed, "store commits known layout: " + applied.Status + ":" + applied.Error + ":" + applied.Detail);
+            var read = store.Read(owner);
+            Check(read.Status == PalacePaidStoreReadStatus.Valid && read.Envelope.Current.ContentEquals(applied.Envelope.Current), "store physical readback retains key");
+            Check(store.TryApply(null, begin).Status == PalacePaidStoreApplyStatus.Rejected, "store absent CAS cannot double begin");
+        }
+        finally
+        {
+            Directory.Delete(folder, true);
+        }
+    }
+    static void MoreTripChecks()
+    {
+        string json = TripJson(4, true);
+        PalaceTripContext.TryParse(json, out var a, out _);
+        PalaceTripContext.TryParse(json.Replace("palace-capital400-r1", "palace-owned44-r1"), out var b, out _);
+        Check(!PalaceTripContext.TupleEquals(a, b), "trip4 key changes tuple");
+        Check(ReferenceEquals(a.DestinationLayout, PalaceLayoutRecipe.Capital400), "trip4 resolves canonical recipe");
+        a.DestinationLayoutId = "unknown";
+        Check(!PalaceTripContext.TupleEquals(a, a), "unknown v4 never equals a usable tuple");
+        a.DestinationLayoutId = "palace-capital400-r1";
+
+        foreach (var bad in new[] { json.Replace("palace-capital400-r1", "unknown"), json.Replace("\"destinationLayoutVersion\":1", "\"destinationLayoutVersion\":null"), json.Replace("\"destinationLayoutVersion\":1", "\"destinationLayoutVersion\":2"), json.Replace("\"destinationLayoutVersion\":1", "\"destinationLayoutVersion\":1,\"destinationLayoutId\":\"palace-capital400-r1\""), json.Replace("\"sourceLand\":8", "\"sourceLand\":7"), json.Replace("\"standX\":12", "\"standX\":10") }) Check(!PalaceTripContext.TryParse(bad, out _, out _), "strict trip4 malformed layout/anchor/receipt rejected");
+
+        var serialized = JsonSerializer.Serialize(a);
+        Check(PalaceTripContext.TryParse(serialized, out var round, out _) && PalaceTripContext.TupleEquals(a, round), "trip4 fifteen-key stable roundtrip");
+
+        PalaceTripContext.TryParse(TripJson(3, false), out var old, out _);
+        Check(old.DestinationLayout == null && !JsonSerializer.Serialize(old).Contains("destinationLayout"), "trip3 serialization omits new keys");
+        old.DestinationLayoutId = "palace-owned44-r1";
+        old.DestinationLayoutVersion = 1;
+        Check(old.DestinationLayout == null && !PalaceTripContext.Validate(old, out _), "legacy DTO never exposes a destination recipe");
+
+        string v2 = TripJson(3, false);
+        using (var doc = JsonDocument.Parse(v2))
+        {
+            var map = new System.Collections.Generic.Dictionary<string, object>();
+            foreach (var q in doc.RootElement.EnumerateObject()) if (q.Name != "sourceClockReceipt") map[q.Name] = q.Name == "version" ? (object)2 : q.Value.Clone();
+            Check(PalaceTripContext.TryParse(JsonSerializer.Serialize(map), out _, out _), "legacy trip2 preserved");
+            map.Remove("sourceEntryAnchor");
+            map["version"] = 1;
+            Check(PalaceTripContext.TryParse(JsonSerializer.Serialize(map), out _, out _), "legacy trip1 preserved");
+        }
+    }
+    static int Main()
+    {
+        TripChecks();
+        MoreTripChecks();
+        JournalChecks();
+
+        Check(Parses("{\"schema\":1,\"current\":" + Record + ",\"history\":[]}"), "legacy schema1 remains readable");
+
+        Check(Parses("{\"schema\":2,\"current\":" + NewRecord + ",\"history\":[]}"), "new schema2 known400 accepted");
+
+        Check(Parses("{\"current\":" + NewRecord + ",\"history\":[],\"schema\":2}"), "schema last accepted");
+
+        Check(!Parses("{\"schema\":1,\"current\":" + NewRecord + ",\"history\":[]}"), "schema1 refuses new fields");
+
+        Console.WriteLine("checks=" + checks + " failures=" + failures);
+        return failures == 0 ? 0 : 1;
+
+    }
+}

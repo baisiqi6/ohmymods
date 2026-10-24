@@ -1,0 +1,13 @@
+using KingdomEnhancedMod;
+int checks=0;
+void Check(bool v,string n){checks++;if(!v)throw new System.Exception(n);}
+var layer=Managers.Inst.world.gameLayer;
+for(int i=0;i<100;i++)layer.children.Add(new Transform{gameObject=new GameObject{tile=new Tile{left=-200+4*i}}});
+var left=new Transform{localPosition=new Vector3{x=-192.6875f},gameObject=new GameObject{beach=new Beach()}};
+var right=new Transform{localPosition=new Vector3{x=192.6875f},localScale=new Vector3{x=-1,y=1,z=1},gameObject=new GameObject{beach=new Beach()}};
+layer.children.Add(left);layer.children.Add(right);
+Check(NewCoverage.TryLiveTileCoverage(-200,200,true,PalaceLayoutRecipe.Capital400,out var reason),"actual production adapter100 failed: "+reason);
+left.localPosition.x=-14.6875f;Check(!NewCoverage.TryLiveTileCoverage(-200,200,true,PalaceLayoutRecipe.Capital400,out _),"oldBeach must fail");left.localPosition.x=-192.6875f;
+layer.children[0].lossyScale.x=2;Check(!NewCoverage.TryLiveTileCoverage(-200,200,true,PalaceLayoutRecipe.Capital400,out _),"scaled Tile must fail");layer.children[0].lossyScale.x=1;
+layer.children.RemoveAt(0);Check(!NewCoverage.TryLiveTileCoverage(-200,200,true,PalaceLayoutRecipe.Capital400,out _),"99 Tile must fail");
+System.Console.WriteLine("PASS "+checks+" extracted actual CourtArea livecoverage adapter checks; Unity/native behavior unverified");

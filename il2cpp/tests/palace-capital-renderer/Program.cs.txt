@@ -1,0 +1,1154 @@
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
+using System.Linq;
+using System.Text;
+using KingdomEnhancedMod;
+using UnityEngine;
+
+internal static class Program
+{
+    private const double GroundY=0.885d;
+    private const double WaterY=-0.125d;
+    private const int SceneHandle=777;
+    private const string SpritePrefix="palace-capital-";
+
+    private static int _checks;
+    private static Dictionary<string,byte[]> _files;
+    private static string _registryText;
+    private static string _layoutText;
+    private static PalaceCapitalPackage _package;
+    private static PalaceProductionSource _source;
+    private static PalaceCapitalScenePlan _plan;
+    private static Dictionary<string,double> _depth;
+    private static Dictionary<string,string> _clips;
+    private static HashSet<string> _expectedSpriteKeys;
+    private static int _expectedSpriteCount;
+
+    private struct Counters
+    {
+        internal int CreatedObjects;
+        internal int CreatedTextures;
+        internal int CreatedSprites;
+        internal int CreatedGameObjects;
+        internal int LoadCalls;
+        internal int SpriteCreates;
+        internal int SpriteWrites;
+        internal int MaterialWrites;
+        internal int LocalScaleWrites;
+        internal int PositionWrites;
+        internal int SharedMaterialGets;
+        internal int AddComponentCalls;
+        internal int ActivateCalls;
+        internal int DestroyCalls;
+        internal int DestroyedTextures;
+        internal int DestroyedSprites;
+        internal int DestroyedGameObjects;
+    }
+
+    private static Counters Snap()
+        =>new Counters
+        {
+            CreatedObjects=UnityEngine.Object.CreatedObjects,
+            CreatedTextures=Texture2D.CreatedTextures,
+            CreatedSprites=Sprite.CreateCalls,
+            CreatedGameObjects=GameObject.CreatedGameObjects,
+            LoadCalls=ImageConversion.LoadCalls,
+            SpriteCreates=Sprite.CreateCalls,
+            SpriteWrites=SpriteRenderer.SpriteWrites,
+            MaterialWrites=SpriteRenderer.MaterialWrites,
+            LocalScaleWrites=Transform.LocalScaleWrites,
+            PositionWrites=Transform.PositionWrites,
+            SharedMaterialGets=SpriteRenderer.SharedMaterialGets,
+            AddComponentCalls=GameObject.AddComponentCalls,
+            ActivateCalls=GameObject.ActivateCalls,
+            DestroyCalls=UnityEngine.Object.DestroyCalls,
+            DestroyedTextures=UnityEngine.Object.DestroyedTextures,
+            DestroyedSprites=UnityEngine.Object.DestroyedSprites,
+            DestroyedGameObjects=UnityEngine.Object.DestroyedGameObjects,
+        };
+
+    private static void Check(bool value,string name)
+    {
+        _checks++;
+        if(!value)throw new Exception("FAIL: "+name);
+    }
+
+    private static void Close(double actual,double expected,string name,double tolerance=1e-6d)
+    {
+        _checks++;
+        if(Math.Abs(actual-expected)>tolerance)
+            throw new Exception("FAIL: "+name+" actual="+actual.ToString("R",CultureInfo.InvariantCulture)
+                +" expected="+expected.ToString("R",CultureInfo.InvariantCulture));
+    }
+
+    private static List<T> CreatedAfter<T>(int createdBefore) where T:class
+        =>UnityEngine.Object.Created.Skip(createdBefore).OfType<T>().ToList();
+
+    private static void NoWrites(Counters before,Counters after,string name)
+    {
+        Check(after.SpriteWrites==before.SpriteWrites,name+" sprite writes");
+        Check(after.PositionWrites==before.PositionWrites,name+" position writes");
+        Check(after.LocalScaleWrites==before.LocalScaleWrites,name+" scale writes");
+        Check(after.MaterialWrites==before.MaterialWrites,name+" material writes");
+    }
+
+    private static void NoAllocation(Counters before,Counters after,string name)
+    {
+        Check(after.CreatedObjects==before.CreatedObjects,name+" object allocation");
+        Check(after.CreatedTextures==before.CreatedTextures,name+" texture allocation");
+        Check(after.SpriteCreates==before.SpriteCreates,name+" sprite allocation");
+        Check(after.CreatedGameObjects==before.CreatedGameObjects,name+" gameobject allocation");
+        Check(after.LoadCalls==before.LoadCalls,name+" image load");
+        Check(after.AddComponentCalls==before.AddComponentCalls,name+" component allocation");
+    }
+
+    private static CourtBinding NewBinding(out GameObject parentGo,out SpriteRenderer reference,out Material material)
+    {
+        parentGo=new GameObject("host-parent");
+        parentGo.scene.handle=SceneHandle;
+        parentGo.transform.position=new Vector3(100f,200f,5f);
+        var referenceGo=new GameObject("host-reference");
+        referenceGo.scene.handle=SceneHandle;
+        referenceGo.layer=7;
+        reference=referenceGo.AddComponent<SpriteRenderer>();
+        reference.sortingLayerID=42;
+        material=new Material();
+        reference.sharedMaterial=material;
+        return new CourtBinding{Parent=parentGo.transform,Reference=reference,Material=material};
+    }
+
+    private static void LoadPackage(string packageRoot)
+    {
+        string root=Path.GetFullPath(packageRoot);
+        _files=Directory.GetFiles(root,"*",SearchOption.AllDirectories)
+            .ToDictionary(p=>Path.GetRelativePath(root,p).Replace('\\','/'),File.ReadAllBytes,StringComparer.Ordinal);
+        var names=_files.Keys.Select(k=>PalaceCapitalResources.Prefix+k).ToList();
+        bool loaded=PalaceCapitalResources.TryLoad(logicalName=>
+        {
+            if(!logicalName.StartsWith(PalaceCapitalResources.Prefix,StringComparison.Ordinal))
+                throw new InvalidOperationException("unexpected logical name: "+logicalName);
+            string key=logicalName.Substring(PalaceCapitalResources.Prefix.Length);
+            if(!_files.TryGetValue(key,out byte[] bytes))throw new FileNotFoundException(key);
+            return new MemoryStream(bytes,writable:false);
+        },names,out _package,out string reason);
+        Check(loaded,"actual package loads: "+reason);
+        Check(_package!=null&&_package.Source!=null,"package source");
+        Check(_package.ImageCount==86,"package image count");
+        _registryText=Encoding.UTF8.GetString(_files["registry.json"]);
+        _layoutText=Encoding.UTF8.GetString(_files["layout.json"]);
+        _source=_package.Source;
+    }
+
+    private static PalaceCapitalScenePlan BuildPlan(PalaceProductionSource source,IReadOnlyDictionary<string,double> ratios)
+    {
+        var descriptor=new PalaceScrollDescriptor(PalaceLayoutRecipe.Capital400,12840,252,224,0,0,12840,252);
+        var calibration=new PalaceScrollCalibration(descriptor,1d/32d,0d,GroundY);
+        var scales=new Dictionary<string,double>(StringComparer.Ordinal);
+        foreach(var asset in source.Assets)
+            if(asset.Kind==PalaceProductionSource.AssetKinds.ActorAtlas)scales.Add(asset.Id,1d);
+        bool created=PalaceCapitalScenePlan.TryCreate(source,calibration,WaterY,scales,ratios,
+            out PalaceCapitalScenePlan plan,out string reason);
+        Check(created,"actual S1 plan: "+reason);
+        return plan;
+    }
+
+    private static Dictionary<string,double> DefaultRatios(PalaceProductionSource source)
+    {
+        var groups=new HashSet<string>(StringComparer.Ordinal);
+        foreach(var placement in source.Placements)
+            if(source.TryGetAsset(placement.AssetId,out var asset)
+                &&asset.Kind==PalaceProductionSource.AssetKinds.BackgroundCompound)
+                groups.Add(placement.MotionGroup);
+        var map=new Dictionary<string,double>(StringComparer.Ordinal);
+        foreach(string group in groups)map.Add(group,0.25d);
+        return map;
+    }
+
+    private static Dictionary<string,double> ZeroRatios(PalaceProductionSource source)
+    {
+        var map=DefaultRatios(source);
+        foreach(string key in map.Keys.ToArray())map[key]=0d;
+        return map;
+    }
+
+    private static List<PalaceProductionSource.Placement> CanonicalPlacements()
+    {
+        var roles=new List<KeyValuePair<string,int>>(_source.RelativeDrawOrderHints);
+        roles.Sort((a,b)=>a.Value.CompareTo(b.Value));
+        var result=new List<PalaceProductionSource.Placement>(_source.Placements.Count);
+        foreach(var role in roles)
+            foreach(var placement in _source.Placements)
+                if(placement.DrawRole==role.Key)result.Add(placement);
+        Check(result.Count==452,"canonical depth order covers 452 placements");
+        return result;
+    }
+
+    private static Dictionary<string,double> GoodDepth()
+    {
+        var map=new Dictionary<string,double>(StringComparer.Ordinal);
+        float z=1000f;
+        foreach(var placement in CanonicalPlacements()){map.Add(placement.Id,z);z-=1f;}
+        return map;
+    }
+
+    private static Dictionary<string,string> GoodClips()
+    {
+        var map=new Dictionary<string,string>(StringComparer.Ordinal);
+        foreach(var asset in _source.Assets)
+        {
+            if(asset.Frames.Count==0)continue;
+            string clipId=asset.Id=="court-dancer"?"bow":
+                asset.Kind==PalaceProductionSource.AssetKinds.LocalEnvironmentMotionAtlas?"calm":"idle";
+            bool found=asset.Clips.Any(c=>c.Id==clipId);
+            Check(found,"actual clip exists: "+asset.Id+":"+clipId);
+            map.Add(asset.Id,clipId);
+        }
+        return map;
+    }
+
+    private static string SpriteKey(string assetId,int sourceX,int sourceY,int width,int height,float pivotX,float pivotY)
+        =>assetId+"|"+sourceX.ToString(CultureInfo.InvariantCulture)+"|"+sourceY.ToString(CultureInfo.InvariantCulture)
+        +"|"+width.ToString(CultureInfo.InvariantCulture)+"|"+height.ToString(CultureInfo.InvariantCulture)
+        +"|"+pivotX.ToString("R",CultureInfo.InvariantCulture)
+        +"|"+pivotY.ToString("R",CultureInfo.InvariantCulture);
+
+    private static HashSet<string> ExpectedSpriteKeys(out int count)
+    {
+        var keys=new HashSet<string>(StringComparer.Ordinal);
+        foreach(var asset in _source.Assets)
+        {
+            if(asset.Frames.Count==0)
+            {
+                keys.Add(SpriteKey(asset.Id,0,0,asset.Width,asset.Height,0f,0f));
+                continue;
+            }
+            var node=_plan.Nodes.First(n=>ReferenceEquals(n.Asset,asset)&&n.Clips.Count>0);
+            foreach(var clip in asset.Clips)
+            {
+                var resolved=node.Clips[clip.Id];
+                for(int k=0;k<resolved.Frames.Count;k++)
+                {
+                    double elapsed=k==0?0d:resolved.BoundariesSeconds[k-1];
+                    bool ok=PalaceCapitalScenePlan.TryFrameAt(node,clip.Id,elapsed,0d,
+                        out PalaceFrame frame,out PalaceCapitalScenePose pose,out string reason);
+                    Check(ok,"expected frame: "+asset.Id+":"+clip.Id+":"+reason);
+                    keys.Add(SpriteKey(asset.Id,frame.SourceRectTopLeft.X,frame.SourceRectTopLeft.Y,
+                        frame.SourceRectTopLeft.Width,frame.SourceRectTopLeft.Height,
+                        (float)pose.SpritePivotNormalizedX,(float)pose.SpritePivotNormalizedY));
+                }
+            }
+        }
+        count=keys.Count;
+        return keys;
+    }
+
+    private static void CheckData()
+    {
+        Check(_source.Assets.Count==86,"86 assets");
+        Check(_source.Placements.Count==452,"452 placements");
+        Check(_plan.Nodes.Count==452,"452 plan nodes");
+        int background=0,water=0,actors=0,timed=0,staticNodes=0;
+        var timedAssets=new HashSet<string>(StringComparer.Ordinal);
+        foreach(var node in _plan.Nodes)
+        {
+            if(node.IsBackgroundCompound)background++;
+            if(node.Placement.ReferencePlane=="native-water")water++;
+            if(node.Asset.Kind==PalaceProductionSource.AssetKinds.ActorAtlas)actors++;
+            if(node.Clips.Count>0){timed++;timedAssets.Add(node.Asset.Id);}
+            else staticNodes++;
+        }
+        Check(background==123,"123 background placements");
+        Check(water==48,"48 water placements");
+        Check(actors==10,"10 actor placements");
+        Check(timed==56,"56 timed placements");
+        Check(staticNodes==396,"396 static placements");
+        Check(timedAssets.Count==14,"14 timed assets");
+        Check(_source.Assets.Count(a=>a.Frames.Count==0)==72,"72 static assets");
+        Check(timedAssets.Sum(id=>_source.Assets.First(a=>a.Id==id).Frames.Count)==358,"358 temporal frames");
+        Check(_clips.Count==14,"explicit clip map has 14 timed assets");
+        Check(_depth.Count==452,"depth map has 452 placements");
+        Check(_depth.Values.Select(v=>(float)v).Distinct().Count()==452,"depth map narrows to 452 distinct floats");
+        var gateNodes=_plan.Nodes.Where(n=>n.Asset.Id=="central-palace-gate").ToList();
+        Check(gateNodes.Count==1,"unique central-palace-gate node");
+        Check(gateNodes[0].Asset.InteractionAnchor!=null
+            &&gateNodes[0].Asset.InteractionAnchor.Id==PalaceProductionSource.RequiredInteractionId,
+            "gate uses the reviewed interaction anchor");
+        _expectedSpriteKeys=ExpectedSpriteKeys(out _expectedSpriteCount);
+        Check(_expectedSpriteCount==425,"actual unique physical sprite count is 425");
+    }
+
+    private static PalaceCapitalScene CreateOk(CourtBinding binding,PalaceCapitalScenePlan plan,
+        IReadOnlyDictionary<string,double> depth,IReadOnlyDictionary<string,string> clips)
+    {
+        bool ok=PalaceCapitalScene.Create(binding,_package,plan,depth,clips,
+            out PalaceCapitalScene scene,out string reason);
+        Check(ok,"create: "+reason);
+        Check(scene!=null,"scene published");
+        Check(string.IsNullOrEmpty(reason),"create reason empty");
+        return scene;
+    }
+
+    private static void CreateFailNoAllocation(CourtBinding binding,PalaceCapitalPackage package,
+        PalaceCapitalScenePlan plan,IReadOnlyDictionary<string,double> depth,
+        IReadOnlyDictionary<string,string> clips,string label)
+    {
+        Counters before=Snap();
+        bool ok=PalaceCapitalScene.Create(binding,package,plan,depth,clips,
+            out PalaceCapitalScene scene,out string reason);
+        Check(!ok,label+" accepted");
+        Check(scene==null,label+" scene is null");
+        Check(!string.IsNullOrEmpty(reason),label+" reason");
+        NoAllocation(before,Snap(),label);
+    }
+
+    private static SpriteRenderer RendererFor(List<SpriteRenderer> renderers,string placementId)
+    {
+        foreach(var renderer in renderers)
+            if(renderer.gameObject.name==SpritePrefix+placementId)return renderer;
+        throw new Exception("missing renderer: "+placementId);
+    }
+
+    private static void CheckSprite(Sprite sprite,PalaceProductionSource.Asset asset,PalaceFrame frame,
+        PalaceCapitalScenePose pose,string label)
+    {
+        Check(sprite!=null,label+" sprite");
+        Check(sprite.texture.width==asset.Width&&sprite.texture.height==asset.Height,label+" texture size");
+        Check(sprite.pixelsPerUnit==32f,label+" ppu32");
+        Check(sprite.meshType==SpriteMeshType.FullRect,label+" full rect mesh");
+        if(frame==null)
+        {
+            Close(sprite.rect.x,0d,label+" static rect x");
+            Close(sprite.rect.y,0d,label+" static rect y");
+            Close(sprite.rect.width,asset.Width,label+" static rect width");
+            Close(sprite.rect.height,asset.Height,label+" static rect height");
+            Close(sprite.pivot.x,0d,label+" static pivot x");
+            Close(sprite.pivot.y,0d,label+" static pivot y");
+        }
+        else
+        {
+            var rect=frame.SourceRectTopLeft;
+            Close(sprite.rect.x,rect.X,label+" bottom-left rect x");
+            Close(sprite.rect.y,asset.Height-rect.Y-rect.Height,label+" bottom-left rect y");
+            Close(sprite.rect.width,rect.Width,label+" rect width");
+            Close(sprite.rect.height,rect.Height,label+" rect height");
+            Close(sprite.pivot.x,pose.SpritePivotNormalizedX,label+" pivot x");
+            Close(sprite.pivot.y,pose.SpritePivotNormalizedY,label+" pivot y");
+        }
+    }
+
+    private static void CheckRendererFrame(List<SpriteRenderer> renderers,string placementId,string clipId,double elapsed)
+    {
+        var node=_plan.Nodes.First(n=>n.Placement.Id==placementId);
+        bool resolved=PalaceCapitalScenePlan.TryFrameAt(node,clipId,elapsed,0d,
+            out PalaceFrame frame,out PalaceCapitalScenePose pose,out string reason);
+        Check(resolved,"expected renderer frame "+placementId+": "+reason);
+        var renderer=RendererFor(renderers,placementId);
+        CheckSprite(renderer.sprite,node.Asset,frame,pose,placementId+" frame t="+elapsed);
+    }
+
+    private static void CheckCreateAndInitial()
+    {
+        var binding=NewBinding(out GameObject parent,out SpriteRenderer reference,out Material material);
+        int createdBefore=UnityEngine.Object.Created.Count;
+        Counters before=Snap();
+        var scene=CreateOk(binding,_plan,_depth,_clips);
+        var afterCreate=Snap();
+        Check(scene.RootObject!=null,"owned root");
+        Check(!scene.RootObject.activeSelf,"root inactive after Create");
+        Check(ReferenceEquals(scene.RootObject.transform.parent,parent.transform),"root parent is binding.Parent");
+        Check(scene.RootObject.layer==reference.gameObject.layer,"root borrows reference layer");
+        Check(scene.PlacedSprites==452,"452 placed renderers");
+        Check(scene.UniqueTextures==86,"86 owned textures");
+        Check(scene.Sprites==_expectedSpriteCount,"dynamic unique sprite count");
+        Check(afterCreate.CreatedTextures-before.CreatedTextures==86,"86 Texture2D allocations");
+        Check(afterCreate.SpriteCreates-before.SpriteCreates==_expectedSpriteCount,"sprite allocation count");
+        Check(afterCreate.LoadCalls-before.LoadCalls==86,"86 LoadImage calls");
+        Check(afterCreate.AddComponentCalls-before.AddComponentCalls==452,"452 SpriteRenderer components");
+
+        var renderers=CreatedAfter<SpriteRenderer>(createdBefore);
+        var textures=CreatedAfter<Texture2D>(createdBefore);
+        var sprites=CreatedAfter<Sprite>(createdBefore);
+        var gameObjects=CreatedAfter<GameObject>(createdBefore);
+        Check(renderers.Count==452,"452 renderer objects");
+        Check(textures.Count==86,"86 texture objects");
+        Check(sprites.Count==_expectedSpriteCount,"425 physical sprite objects");
+        Check(gameObjects.Count==454,"root + gate + 452 renderer GameObjects");
+        Check(new HashSet<Texture2D>(textures).Count==86,"textures are unique objects");
+        Check(new HashSet<Sprite>(sprites).Count==_expectedSpriteCount,"sprites are unique objects");
+
+        var textureNames=new HashSet<string>(textures.Select(t=>t.name),StringComparer.Ordinal);
+        Check(textureNames.Count==86,"unique texture names");
+        foreach(var asset in _source.Assets)
+        {
+            string name=SpritePrefix+asset.Id;
+            Check(textureNames.Contains(name),"texture name "+asset.Id);
+            var texture=textures.First(t=>t.name==name);
+            Check(texture.width==asset.Width&&texture.height==asset.Height,"texture size "+asset.Id);
+            Check(texture.filterMode==FilterMode.Point,"point filter "+asset.Id);
+            Check(texture.wrapMode==TextureWrapMode.Clamp,"clamp wrap "+asset.Id);
+            Check(texture.anisoLevel==0,"no anisotropy "+asset.Id);
+        }
+
+        var expectedTextures=new HashSet<Texture2D>(textures);
+        var actualSpriteKeys=new HashSet<string>(StringComparer.Ordinal);
+        foreach(var sprite in sprites)
+        {
+            Check(sprite.texture!=null&&expectedTextures.Contains(sprite.texture),"sprite texture ownership");
+            Check(sprite.pixelsPerUnit==32f,"sprite ppu32");
+            Check(sprite.meshType==SpriteMeshType.FullRect,"sprite full rect");
+            Check(sprite.rect.width>0f&&sprite.rect.height>0f,"sprite rect positive");
+            Check(sprite.rect.x>=0f&&sprite.rect.y>=0f
+                &&sprite.rect.x+sprite.rect.width<=sprite.texture.width
+                &&sprite.rect.y+sprite.rect.height<=sprite.texture.height,"sprite rect inside texture");
+            string assetId=sprite.texture.name.Substring(SpritePrefix.Length);
+            int sourceY=sprite.texture.height-(int)sprite.rect.y-(int)sprite.rect.height;
+            actualSpriteKeys.Add(SpriteKey(assetId,(int)sprite.rect.x,sourceY,
+                (int)sprite.rect.width,(int)sprite.rect.height,sprite.pivot.x,sprite.pivot.y));
+        }
+        Check(actualSpriteKeys.SetEquals(_expectedSpriteKeys),"sprite cache keys match every S1 frame");
+
+        var spriteSet=new HashSet<Sprite>(sprites);
+        var textureSet=new HashSet<Texture2D>(textures);
+        for(int i=0;i<_plan.Nodes.Count;i++)
+        {
+            var node=_plan.Nodes[i];
+            var renderer=renderers[i];
+            Check(renderer.gameObject.name==SpritePrefix+node.Placement.Id,"renderer order "+node.Placement.Id);
+            Check(renderer.gameObject.layer==reference.gameObject.layer,"renderer layer "+node.Placement.Id);
+            Check(ReferenceEquals(renderer.gameObject.transform.parent,scene.RootObject.transform),"renderer parent "+node.Placement.Id);
+            Check(renderer.sortingOrder==0,"sortingOrder 0 "+node.Placement.Id);
+            Check(renderer.sortingLayerID==reference.sortingLayerID,"borrowed sorting layer "+node.Placement.Id);
+            Check(ReferenceEquals(renderer.sharedMaterial,material),"borrowed sharedMaterial "+node.Placement.Id);
+            Check(renderer.sprite!=null&&spriteSet.Contains(renderer.sprite),"renderer sprite owned "+node.Placement.Id);
+            Check(textureSet.Contains(renderer.sprite.texture),"renderer texture owned "+node.Placement.Id);
+
+            bool timed=node.Clips.Count>0;
+            string clipId=timed?_clips[node.Asset.Id]:null;
+            bool resolved=PalaceCapitalScenePlan.TryFrameAt(node,clipId,0d,0d,
+                out PalaceFrame frame,out PalaceCapitalScenePose pose,out string reason);
+            Check(resolved,"initial pose "+node.Placement.Id+": "+reason);
+            var position=renderer.transform.position;
+            Close(position.x,pose.WorldX,"initial world x "+node.Placement.Id);
+            Close(position.y,pose.WorldY,"initial world y "+node.Placement.Id);
+            Close(position.z,_depth[node.Placement.Id],"explicit world z "+node.Placement.Id);
+            Check(position.x!=pose.WorldX+100d,"parent position not double-added "+node.Placement.Id);
+            Close(renderer.transform.localScale.x,1d,"x scale stays 1 "+node.Placement.Id);
+            Close(renderer.transform.localScale.y,pose.ScaleY,"y scale from plan "+node.Placement.Id);
+            CheckSprite(renderer.sprite,node.Asset,frame,pose,node.Placement.Id);
+        }
+
+        CheckGate(scene,binding);
+
+        Check(!scene.Tick(0d,_plan.AnchorWorldX,out string tickReason),"tick before Activate refused");
+        Check(tickReason=="inactive","tick before Activate reason: "+tickReason);
+        Check(scene.Activate(out string activateReason),"activate: "+activateReason);
+        Check(scene.RootObject.activeSelf,"root active after Activate");
+        Check(scene.Activate(out activateReason),"second Activate is idempotent");
+
+        Counters beforeZero=Snap();
+        Check(scene.Tick(0d,_plan.AnchorWorldX,out tickReason),"zero tick: "+tickReason);
+        NoWrites(beforeZero,Snap(),"zero tick");
+        NoAllocation(beforeZero,Snap(),"zero tick");
+
+        var backgroundNodes=_plan.Nodes.Where(n=>n.IsBackgroundCompound).ToList();
+        Check(backgroundNodes.Count==123,"123 background nodes");
+        var backgroundRenderers=backgroundNodes.Select(n=>RendererFor(renderers,n.Placement.Id)).ToList();
+        var beforeCamera=backgroundRenderers.Select(r=>r.transform.position).ToList();
+        var cargoBefore=RendererFor(renderers,"cargo-granary").transform.position;
+        var dancerBefore=RendererFor(renderers,"court-dancer").transform.position;
+        Counters beforeCameraTick=Snap();
+        Check(scene.Tick(0d,10d,out tickReason),"camera tick: "+tickReason);
+        var afterCameraTick=Snap();
+        Check(afterCameraTick.SpriteWrites==beforeCameraTick.SpriteWrites,"camera-only tick keeps sprites");
+        Check(afterCameraTick.PositionWrites-beforeCameraTick.PositionWrites==123,"camera tick writes 123 background x");
+        for(int i=0;i<backgroundNodes.Count;i++)
+        {
+            var node=backgroundNodes[i];
+            Close(backgroundRenderers[i].transform.position.x,node.StaticWorldX+10d*node.CameraFollowRatio,
+                "background x "+node.Placement.Id);
+            Close(backgroundRenderers[i].transform.position.y,node.StaticWorldY,"background y "+node.Placement.Id);
+        }
+        Close(RendererFor(renderers,"cargo-granary").transform.position.x,cargoBefore.x,"non-background x fixed");
+        Close(RendererFor(renderers,"court-dancer").transform.position.x,dancerBefore.x,"timed x fixed");
+
+        Counters beforeClock=Snap();
+        Check(scene.Tick(0.5d,10d,out tickReason),"clock tick: "+tickReason);
+        var afterClock=Snap();
+        Check(afterClock.PositionWrites==beforeClock.PositionWrites,"timed pivot keeps position");
+        Check(afterClock.SpriteWrites>beforeClock.SpriteWrites,"clock tick changes frames");
+        NoAllocation(beforeClock,afterClock,"clock tick");
+        CheckRendererFrame(renderers,"court-dancer","bow",0.5d);
+        CheckRendererFrame(renderers,"patrol-guard-lance","idle",0.5d);
+
+        Counters beforePause=Snap();
+        Check(scene.Tick(0.5d,10d,out tickReason),"paused tick: "+tickReason);
+        NoWrites(beforePause,Snap(),"paused same elapsed/camera");
+        Counters beforeSameFrame=Snap();
+        Check(scene.Tick(0.51d,10d,out tickReason),"same-frame tick: "+tickReason);
+        Check(Snap().SpriteWrites==beforeSameFrame.SpriteWrites,"same frame does not rewrite sprites");
+        Check(Snap().PositionWrites==beforeSameFrame.PositionWrites,"same frame does not rewrite positions");
+
+        Check(scene.Tick(1.55d,10d,out tickReason),"loop tick: "+tickReason);
+        CheckRendererFrame(renderers,"patrol-guard-lance","idle",1.55d);
+        Check(scene.Tick(2.219d,10d,out tickReason),"one-shot last boundary: "+tickReason);
+        CheckRendererFrame(renderers,"court-dancer","bow",2.219d);
+        var dancerLast=RendererFor(renderers,"court-dancer").sprite;
+        Check(scene.Tick(9.0d,10d,out tickReason),"one-shot past period: "+tickReason);
+        Check(ReferenceEquals(RendererFor(renderers,"court-dancer").sprite,dancerLast),"one-shot keeps last frame");
+        CheckRendererFrame(renderers,"court-dancer","bow",9.0d);
+
+        Counters beforeBackwards=Snap();
+        Check(!scene.Tick(1.0d,10d,out tickReason),"backwards elapsed refused");
+        Check(tickReason=="elapsed-backwards","backwards reason: "+tickReason);
+        Check(!scene.Tick(5.0d,10d,out tickReason),"backwards tick did not move the applied clock");
+        NoWrites(beforeBackwards,Snap(),"backwards tick");
+        Check(scene.Tick(9.1d,10d,out tickReason),"elapsed rollback did not advance state");
+
+        foreach(double bad in new[]{double.NaN,-1d,double.PositiveInfinity,double.NegativeInfinity})
+        {
+            Counters beforeBad=Snap();
+            Check(!scene.Tick(bad,10d,out tickReason),"bad elapsed refused: "+bad);
+            NoWrites(beforeBad,Snap(),"bad elapsed "+bad);
+            Check(scene.Tick(9.1d,10d,out tickReason),"valid elapsed after bad elapsed");
+        }
+        foreach(double badCamera in new[]{double.NaN,double.PositiveInfinity,double.NegativeInfinity,1e300d})
+        {
+            Counters beforeBad=Snap();
+            Check(!scene.Tick(100d,badCamera,out tickReason),"bad camera refused: "+badCamera);
+            NoWrites(beforeBad,Snap(),"bad camera "+badCamera);
+            Check(scene.Tick(9.1d,10d,out tickReason),"bad camera did not advance elapsed");
+        }
+
+        CheckClearAndOwnership(scene,binding,createdBefore,renderers,textures,sprites,parent,reference,material);
+    }
+
+    private static void CheckGate(PalaceCapitalScene scene,CourtBinding binding)
+    {
+        var gateNode=_plan.Nodes.Single(n=>n.Asset.Id=="central-palace-gate");
+        var anchor=gateNode.Asset.InteractionAnchor;
+        double expectedX=gateNode.SupportWorldX
+            -(gateNode.Placement.SupportLocalPixel.X-anchor.Point.X)/32d;
+        double expectedY=gateNode.ReferencePlaneWorldY+gateNode.LayoutOffsetYUnits
+            +gateNode.ScaleY*(gateNode.Placement.SupportLocalPixel.Y-anchor.Point.Y)/32d;
+        Check(expectedX==0d,"gate world x is the reviewed centre");
+        Close(expectedY,GroundY+0.0625d,"gate world y comes from support/local point",1e-9d);
+        var gate=scene.GateAnchor;
+        Check(gate!=null,"gate anchor published");
+        Check(gate.gameObject.name==SpritePrefix+"gate-anchor","gate anchor name");
+        Check(ReferenceEquals(gate.parent,scene.RootObject.transform),"gate anchor parent");
+        Close(gate.position.x,expectedX,"gate anchor x");
+        Close(gate.position.y,expectedY,"gate anchor y");
+        Close(gate.position.z,_depth[gateNode.Placement.Id],"gate anchor z");
+        Check(scene.RootObject.activeSelf==false,"gate anchor inactive with root");
+        Check(binding.Parent.gameObject.name=="host-parent","borrowed parent untouched");
+    }
+
+    private static void CheckClearAndOwnership(PalaceCapitalScene scene,CourtBinding binding,int createdBefore,
+        List<SpriteRenderer> renderers,List<Texture2D> textures,List<Sprite> sprites,
+        GameObject parent,SpriteRenderer reference,Material material)
+    {
+        var root=scene.RootObject;
+        var gate=scene.GateAnchor;
+        Counters before=Snap();
+        Check(scene.TryClear(out string reason),"clear: "+reason);
+        Check(scene.GateAnchor==null,"gate anchor cleared");
+        Check(scene.RootObject==null,"root reference cleared");
+        Check(scene.PlacedSprites==0&&scene.UniqueTextures==0&&scene.Sprites==0,"counters cleared");
+        var after=Snap();
+        Check(after.DestroyedTextures-before.DestroyedTextures==86,"clear destroys 86 textures");
+        Check(after.DestroyedSprites-before.DestroyedSprites==_expectedSpriteCount,"clear destroys 425 sprites");
+        Check(after.DestroyedGameObjects-before.DestroyedGameObjects==1,"clear destroys one owned root");
+        foreach(var texture in textures)
+        {
+            Check(texture.Destroyed,"texture destroyed "+texture.name);
+            Check(UnityEngine.Object.DestroyCallsByObject[texture]==1,"texture destroyed exactly once");
+        }
+        foreach(var sprite in sprites)
+        {
+            Check(sprite.Destroyed,"sprite destroyed");
+            Check(UnityEngine.Object.DestroyCallsByObject[sprite]==1,"sprite destroyed exactly once");
+        }
+        Check(root.Destroyed,"root destroyed");
+        Check(UnityEngine.Object.DestroyCallsByObject[root]==1,"root destroyed exactly once");
+        Check(!reference.Destroyed&&!material.Destroyed&&!parent.Destroyed&&!binding.Parent.gameObject.Destroyed,
+            "borrowed reference/material/parent not destroyed");
+        Counters afterClear=Snap();
+        Check(scene.TryClear(out reason),"second clear is idempotent");
+        Check(Snap().DestroyCalls==afterClear.DestroyCalls,"second clear destroys nothing");
+    }
+
+    private static void CheckMaterialDead()
+    {
+        var binding=NewBinding(out _,out SpriteRenderer reference,out Material material);
+        var scene=CreateOk(binding,_plan,_depth,_clips);
+        Check(scene.Activate(out string reason),"activate: "+reason);
+        var replacement=new Material();
+        reference.sharedMaterial=replacement;
+        Counters before=Snap();
+        Check(!scene.Tick(10d,10d,out reason),"replaced material refused");
+        Check(reason=="material-replaced","material replaced reason: "+reason);
+        NoWrites(before,Snap(),"material replaced tick");
+        Counters afterFault=Snap();
+        Check(!scene.Tick(11d,10d,out reason),"faulted tick refused");
+        Check(reason=="faulted","fault latch reason: "+reason);
+        NoWrites(afterFault,Snap(),"faulted tick");
+        Check(!scene.Activate(out reason),"activate after fault refused");
+        Check(scene.TryClear(out reason),"clear after material fault: "+reason);
+        Check(!replacement.Destroyed&&!material.Destroyed,"materials are borrowed/not destroyed");
+    }
+
+    private static void CheckReferenceDead()
+    {
+        var binding=NewBinding(out _,out SpriteRenderer reference,out _);
+        var scene=CreateOk(binding,_plan,_depth,_clips);
+        Check(scene.Activate(out string reason),"activate: "+reason);
+        reference.Pointer=IntPtr.Zero;
+        Counters before=Snap();
+        Check(!scene.Tick(1d,10d,out reason),"dead reference refused");
+        Check(reason=="reference-dead-or-replaced","dead reference reason: "+reason);
+        NoWrites(before,Snap(),"dead reference tick");
+        Check(scene.TryClear(out reason),"clear after reference fault: "+reason);
+    }
+
+    private static void CheckMaterialNull()
+    {
+        var binding=NewBinding(out _,out SpriteRenderer reference,out _);
+        var scene=CreateOk(binding,_plan,_depth,_clips);
+        Check(scene.Activate(out string reason),"activate: "+reason);
+        reference.sharedMaterial=null;
+        Counters before=Snap();
+        Check(!scene.Tick(1d,10d,out reason),"null material refused");
+        Check(reason=="material-dead","null material reason: "+reason);
+        NoWrites(before,Snap(),"null material tick");
+        Check(scene.TryClear(out reason),"clear after null material: "+reason);
+    }
+
+    private static void CheckMaterialGetterFault()
+    {
+        var binding=NewBinding(out _,out _,out _);
+        var scene=CreateOk(binding,_plan,_depth,_clips);
+        Check(scene.Activate(out string reason),"activate: "+reason);
+        SpriteRenderer.SharedMaterialFaultAtCall=SpriteRenderer.SharedMaterialGets+1;
+        Counters before=Snap();
+        Check(!scene.Tick(1d,10d,out reason),"material getter fault refused");
+        SpriteRenderer.SharedMaterialFaultAtCall=0;
+        Check(reason.StartsWith("material-read:",StringComparison.Ordinal),"material getter reason: "+reason);
+        NoWrites(before,Snap(),"material getter fault");
+        Check(scene.TryClear(out reason),"clear after material getter fault: "+reason);
+    }
+
+    private static void CheckWriteFault()
+    {
+        var binding=NewBinding(out _,out _,out _);
+        var scene=CreateOk(binding,_plan,_depth,_clips);
+        Check(scene.Activate(out string reason),"activate: "+reason);
+        Counters before=Snap();
+        Transform.ThrowOnPositionWriteAtCall=Transform.PositionWrites+1;
+        Check(!scene.Tick(1d,10d,out reason),"write fault returns false");
+        Transform.ThrowOnPositionWriteAtCall=0;
+        Check(reason.StartsWith("write-fault:",StringComparison.Ordinal),"write fault reason: "+reason);
+        Check(Transform.PositionWrites==before.PositionWrites+1,"write fault happened on the first native write");
+        Counters afterFault=Snap();
+        Check(!scene.Tick(2d,10d,out reason),"tick after write fault refused");
+        Check(reason=="faulted","write fault latch reason: "+reason);
+        NoWrites(afterFault,Snap(),"tick after write fault");
+        Check(!scene.Activate(out reason),"activate after write fault refused");
+        Check(scene.TryClear(out reason),"clear after write fault: "+reason);
+    }
+
+    private static void CheckRollbackKnown()
+    {
+        var binding=NewBinding(out _,out _,out _);
+        int createdBefore=UnityEngine.Object.Created.Count;
+        Counters before=Snap();
+        ImageConversion.LoadFaultAtCall=ImageConversion.LoadCalls+10;
+        bool ok=PalaceCapitalScene.Create(binding,_package,_plan,_depth,_clips,
+            out PalaceCapitalScene scene,out string reason);
+        ImageConversion.LoadFaultAtCall=0;
+        Check(!ok,"load fault create refused");
+        Check(scene==null,"known rollback publishes null scene");
+        Check(reason.StartsWith("create-fault:",StringComparison.Ordinal),"load fault reason: "+reason);
+        Check(ImageConversion.LoadCalls-before.LoadCalls==10,"load fault on the tenth texture");
+        var textures=CreatedAfter<Texture2D>(createdBefore);
+        var sprites=CreatedAfter<Sprite>(createdBefore);
+        var root=CreatedAfter<GameObject>(createdBefore).FirstOrDefault(g=>g.name==SpritePrefix+"scene");
+        Check(textures.Count==10,"ten textures allocated before failure");
+        Check(sprites.Count>0,"sprites allocated before failure");
+        Check(root!=null&&root.Destroyed,"known rollback destroyed the owned root");
+        Check(root!=null&&UnityEngine.Object.DestroyCallsByObject[root]==1,"known rollback root exactly once");
+        foreach(var texture in textures)
+            Check(texture.Destroyed&&UnityEngine.Object.DestroyCallsByObject[texture]==1,"rollback texture destroyed exactly once");
+        foreach(var sprite in sprites)
+            Check(sprite.Destroyed&&UnityEngine.Object.DestroyCallsByObject[sprite]==1,"rollback sprite destroyed exactly once");
+    }
+
+    private static void CheckRollbackRetained()
+    {
+        var binding=NewBinding(out _,out _,out _);
+        int createdBefore=UnityEngine.Object.Created.Count;
+        Counters before=Snap();
+        ImageConversion.LoadFaultAtCall=ImageConversion.LoadCalls+10;
+        UnityEngine.Object.DestroyFaultAtCall=UnityEngine.Object.DestroyCalls+1;
+        bool ok=PalaceCapitalScene.Create(binding,_package,_plan,_depth,_clips,
+            out PalaceCapitalScene scene,out string reason);
+        ImageConversion.LoadFaultAtCall=0;
+        UnityEngine.Object.DestroyFaultAtCall=0;
+        Check(!ok,"retained rollback create refused");
+        Check(scene!=null,"incomplete rollback retains the scene");
+        Check(scene.RootObject!=null,"retained scene keeps its root");
+        Check(!scene.RootObject.activeSelf,"retained clear left the root inactive");
+        Check(reason.Contains("retained",StringComparison.Ordinal),"retained reason: "+reason);
+        Check(scene.PlacedSprites==0,"failure happened before renderer placement");
+        Check(scene.UniqueTextures==10,"retained texture count");
+        Check(scene.Sprites>0,"retained sprite count");
+        var textures=CreatedAfter<Texture2D>(createdBefore);
+        var sprites=CreatedAfter<Sprite>(createdBefore);
+        Check(scene.TryClear(out string clearReason),"retained clear: "+clearReason);
+        foreach(var texture in textures)
+        {
+            Check(texture.Destroyed,"retained texture destroyed");
+            Check(UnityEngine.Object.DestroyCallsByObject[texture]==1,"retained texture once");
+        }
+        foreach(var sprite in sprites)
+        {
+            Check(sprite.Destroyed,"retained sprite destroyed");
+            Check(UnityEngine.Object.DestroyCallsByObject[sprite]>=1,"retained sprite destroyed");
+        }
+        Check(sprites.Count(s=>UnityEngine.Object.DestroyCallsByObject[s]>1)==1,"only the faulted destroy is retried");
+        Check(scene.RootObject==null,"retained root cleared");
+    }
+
+    private static bool SettledByOwner(GameObject gameObject)
+    {
+        for(Transform transform=gameObject.transform;transform!=null;transform=transform.parent)
+        {
+            if(transform.gameObject==null)return false;
+            if(transform.gameObject.Destroyed)return true;
+        }
+        return false;
+    }
+
+    private static int DestroyAttempts(UnityEngine.Object obj)
+    {
+        UnityEngine.Object.DestroyCallsByObject.TryGetValue(obj,out int calls);
+        return calls;
+    }
+
+    // A completed rollback must leave every created object either directly destroyed or owned by a
+    // destroyed root (Unity cascades transform children). The fake host does not cascade, so the
+    // parent chain is the ownership statement, not Native destruction evidence.
+    private static void CheckRolledBackSettled(int createdBefore,string label)
+    {
+        string bad=null;
+        foreach(var texture in CreatedAfter<Texture2D>(createdBefore))
+            if(!texture.Destroyed||DestroyAttempts(texture)!=1){bad=texture.name;break;}
+        Check(bad==null,label+" textures destroyed exactly once"+(bad==null?"":" ("+bad+")"));
+        bad=null;
+        foreach(var sprite in CreatedAfter<Sprite>(createdBefore))
+            if(!sprite.Destroyed||DestroyAttempts(sprite)!=1){bad=sprite.name;break;}
+        Check(bad==null,label+" sprites destroyed exactly once"+(bad==null?"":" ("+bad+")"));
+        bad=null;
+        foreach(var gameObject in CreatedAfter<GameObject>(createdBefore))
+            if(gameObject.name.StartsWith(SpritePrefix,StringComparison.Ordinal)&&!SettledByOwner(gameObject))
+            {bad=gameObject.name;break;}
+        Check(bad==null,label+" no unowned orphan"+(bad==null?"":" ("+bad+")"));
+        bad=null;
+        foreach(var created in UnityEngine.Object.Created.Skip(createdBefore))
+            if(DestroyAttempts(created)>1)
+            {bad=created.GetType().Name+" "+created.name;break;}
+        Check(bad==null,label+" no double destroy"+(bad==null?"":" ("+bad+")"));
+    }
+
+    private static void CheckGateParentFault(bool afterMutation)
+    {
+        string label="gate-parent-"+(afterMutation?"after-mutation":"before-mutation");
+        var binding=NewBinding(out _,out _,out _);
+        int createdBefore=UnityEngine.Object.Created.Count;
+        Transform.SetParentFaultAfterMutation=afterMutation;
+        Transform.SetParentFaultAtCall=Transform.SetParentCalls+2;
+        bool ok=PalaceCapitalScene.Create(binding,_package,_plan,_depth,_clips,
+            out PalaceCapitalScene scene,out string reason);
+        Transform.SetParentFaultAtCall=0;
+        Transform.SetParentFaultAfterMutation=false;
+        Check(!ok,label+" create refused");
+        Check(scene==null,label+" known rollback returns null scene");
+        Check(reason.StartsWith("create-fault:",StringComparison.Ordinal)
+            &&reason.Contains("injected-parent",StringComparison.Ordinal)
+            &&reason.Contains("rolled back",StringComparison.Ordinal),label+" reason: "+reason);
+        var gameObjects=CreatedAfter<GameObject>(createdBefore);
+        Check(gameObjects.Count==2,label+" only root and gate allocated");
+        GameObject root=gameObjects[0],gate=gameObjects[1];
+        Check(root.name==SpritePrefix+"scene"&&gate.name==SpritePrefix+"gate-anchor",
+            label+" root/gate allocation order");
+        Check(ReferenceEquals(gate.transform.parent,afterMutation?root.transform:null),
+            label+" SetParent mutation state matches the injected point");
+        Check(gate.Destroyed&&DestroyAttempts(gate)==1,label+" pending gate destroyed exactly once");
+        Check(root.Destroyed&&DestroyAttempts(root)==1,label+" root destroyed exactly once");
+        Check(CreatedAfter<Texture2D>(createdBefore).Count==0,label+" no texture allocated");
+        Check(CreatedAfter<Sprite>(createdBefore).Count==0,label+" no sprite allocated");
+        CheckRolledBackSettled(createdBefore,label);
+    }
+
+    private static void CheckPlacementParentFault(bool afterMutation)
+    {
+        string label="placement-parent-"+(afterMutation?"after-mutation":"before-mutation");
+        var binding=NewBinding(out _,out _,out _);
+        int createdBefore=UnityEngine.Object.Created.Count;
+        Transform.SetParentFaultAfterMutation=afterMutation;
+        Transform.SetParentFaultAtCall=Transform.SetParentCalls+3;
+        bool ok=PalaceCapitalScene.Create(binding,_package,_plan,_depth,_clips,
+            out PalaceCapitalScene scene,out string reason);
+        Transform.SetParentFaultAtCall=0;
+        Transform.SetParentFaultAfterMutation=false;
+        Check(!ok,label+" create refused");
+        Check(scene==null,label+" known rollback returns null scene");
+        Check(reason.StartsWith("create-fault:",StringComparison.Ordinal)
+            &&reason.Contains("injected-parent",StringComparison.Ordinal)
+            &&reason.Contains("rolled back",StringComparison.Ordinal),label+" reason: "+reason);
+        var gameObjects=CreatedAfter<GameObject>(createdBefore);
+        Check(gameObjects.Count==3,label+" root, gate and first placement allocated");
+        GameObject root=gameObjects[0],gate=gameObjects[1],placement=gameObjects[2];
+        Check(root.name==SpritePrefix+"scene"&&gate.name==SpritePrefix+"gate-anchor"
+            &&placement.name.StartsWith(SpritePrefix,StringComparison.Ordinal),
+            label+" allocation order");
+        Check(ReferenceEquals(gate.transform.parent,root.transform),label+" gate attached before placement fault");
+        Check(!gate.Destroyed&&DestroyAttempts(gate)==0,
+            label+" attached gate is root-owned, not a pending destroy");
+        Check(ReferenceEquals(placement.transform.parent,afterMutation?root.transform:null),
+            label+" placement mutation state matches the injected point");
+        Check(placement.Destroyed&&DestroyAttempts(placement)==1,
+            label+" pending placement destroyed exactly once");
+        Check(root.Destroyed&&DestroyAttempts(root)==1,label+" root destroyed exactly once");
+        Check(CreatedAfter<Texture2D>(createdBefore).Count==86,label+" all textures allocated before placements");
+        Check(CreatedAfter<Sprite>(createdBefore).Count==_expectedSpriteCount,
+            label+" all sprites allocated before placements");
+        CheckRolledBackSettled(createdBefore,label);
+    }
+
+    private static void CheckSpriteNameFault()
+    {
+        const string label="sprite-name";
+        var binding=NewBinding(out _,out _,out _);
+        int createdBefore=UnityEngine.Object.Created.Count;
+        UnityEngine.Object.ThrowOnSpriteNameWrite=true;
+        bool ok=PalaceCapitalScene.Create(binding,_package,_plan,_depth,_clips,
+            out PalaceCapitalScene scene,out string reason);
+        UnityEngine.Object.ThrowOnSpriteNameWrite=false;
+        Check(!ok,label+" create refused");
+        Check(scene==null,label+" known rollback returns null scene");
+        Check(reason.StartsWith("create-fault:",StringComparison.Ordinal)
+            &&reason.Contains("injected-sprite-name",StringComparison.Ordinal)
+            &&reason.Contains("rolled back",StringComparison.Ordinal),label+" reason: "+reason);
+        var textures=CreatedAfter<Texture2D>(createdBefore);
+        var sprites=CreatedAfter<Sprite>(createdBefore);
+        Check(textures.Count==1,label+" fault occurs on the first texture");
+        Check(sprites.Count==1,label+" fault occurs after the first Sprite.Create");
+        Check(sprites[0].Destroyed&&DestroyAttempts(sprites[0])==1,
+            label+" sprite registered before the throwing name setter and destroyed once");
+        Check(textures[0].Destroyed&&DestroyAttempts(textures[0])==1,label+" its texture destroyed once");
+        var gameObjects=CreatedAfter<GameObject>(createdBefore);
+        Check(gameObjects.Count==2,label+" only root and gate allocated");
+        Check(gameObjects[0].Destroyed&&DestroyAttempts(gameObjects[0])==1,label+" root destroyed once");
+        Check(!gameObjects[1].Destroyed&&DestroyAttempts(gameObjects[1])==0,
+            label+" attached gate is root-owned");
+        CheckRolledBackSettled(createdBefore,label);
+    }
+
+    private static void CheckPlacementWriteFaultAfterParent()
+    {
+        const string label="placement-write-after-parent";
+        var binding=NewBinding(out _,out _,out _);
+        int createdBefore=UnityEngine.Object.Created.Count;
+        Transform.ThrowOnPositionWriteAtCall=Transform.PositionWrites+2;
+        bool ok=PalaceCapitalScene.Create(binding,_package,_plan,_depth,_clips,
+            out PalaceCapitalScene scene,out string reason);
+        Transform.ThrowOnPositionWriteAtCall=0;
+        Check(!ok,label+" create refused");
+        Check(scene==null,label+" known rollback returns null scene");
+        Check(reason.StartsWith("create-fault:",StringComparison.Ordinal)
+            &&reason.Contains("injected-position-write-fault",StringComparison.Ordinal)
+            &&reason.Contains("rolled back",StringComparison.Ordinal),label+" reason: "+reason);
+        var gameObjects=CreatedAfter<GameObject>(createdBefore);
+        Check(gameObjects.Count==3,label+" root, gate and first placement allocated");
+        GameObject root=gameObjects[0],gate=gameObjects[1],placement=gameObjects[2];
+        Check(ReferenceEquals(placement.transform.parent,root.transform),
+            label+" placement is attached before its position write throws");
+        Check(!placement.Destroyed&&DestroyAttempts(placement)==0,
+            label+" attached placement is root-owned, not a pending destroy");
+        Check(!gate.Destroyed&&DestroyAttempts(gate)==0,label+" attached gate is root-owned");
+        Check(root.Destroyed&&DestroyAttempts(root)==1,label+" root destroyed exactly once");
+        Check(SettledByOwner(placement)&&SettledByOwner(gate),
+            label+" attached children settled by the destroyed root");
+        Check(CreatedAfter<Texture2D>(createdBefore).Count==86,label+" all textures allocated");
+        Check(CreatedAfter<Sprite>(createdBefore).Count==_expectedSpriteCount,label+" all sprites allocated");
+        CheckRolledBackSettled(createdBefore,label);
+    }
+
+    private static void CheckGateFaultRetainAndResume()
+    {
+        const string label="gate-fault-retain";
+        var binding=NewBinding(out _,out _,out _);
+        int createdBefore=UnityEngine.Object.Created.Count;
+        Transform.SetParentFaultAtCall=Transform.SetParentCalls+2;
+        UnityEngine.Object.DestroyFaultAtCall=UnityEngine.Object.DestroyCalls+1;
+        bool ok=PalaceCapitalScene.Create(binding,_package,_plan,_depth,_clips,
+            out PalaceCapitalScene scene,out string reason);
+        Transform.SetParentFaultAtCall=0;
+        UnityEngine.Object.DestroyFaultAtCall=0;
+        Check(!ok,label+" create refused");
+        Check(scene!=null,label+" incomplete rollback retains the scene");
+        Check(reason.Contains("injected-parent",StringComparison.Ordinal)
+            &&reason.Contains("rollback-incomplete",StringComparison.Ordinal)
+            &&reason.Contains("owner retained",StringComparison.Ordinal),label+" reason: "+reason);
+        var gameObjects=CreatedAfter<GameObject>(createdBefore);
+        Check(gameObjects.Count==2,label+" only root and gate allocated");
+        GameObject root=gameObjects[0],gate=gameObjects[1];
+        Check(ReferenceEquals(scene.RootObject,root),label+" retained scene keeps its root");
+        Check(!root.activeSelf,label+" retained root inactive");
+        Check(scene.GateAnchor==null&&scene.PlacedSprites==0&&scene.UniqueTextures==0&&scene.Sprites==0,
+            label+" handles/counters before any asset work");
+        Check(!gate.Destroyed&&!root.Destroyed,label+" failed pending destroy retained gate and root");
+        Check(!gate.activeSelf,label+" pending gate deactivated before destroy");
+        Check(DestroyAttempts(gate)==1&&DestroyAttempts(root)==0,label+" only the pending destroy was attempted");
+        Check(gate.transform.parent==null,label+" before-mutation fault leaves the gate unparented");
+        Check(scene.TryClear(out string clearReason),"resume clear: "+clearReason);
+        Check(gate.Destroyed&&DestroyAttempts(gate)==2,label+" pending gate destroyed on retry");
+        Check(root.Destroyed&&DestroyAttempts(root)==1,label+" root destroyed on retry");
+        Check(scene.RootObject==null&&scene.GateAnchor==null,label+" handles cleared after resume");
+        Counters afterClear=Snap();
+        Check(scene.TryClear(out clearReason),"second clear is idempotent");
+        Check(Snap().DestroyCalls==afterClear.DestroyCalls,label+" second clear destroys nothing");
+    }
+
+    private static void CheckSpriteFaultRetainAndResume()
+    {
+        const string label="sprite-name-retain";
+        var binding=NewBinding(out _,out _,out _);
+        int createdBefore=UnityEngine.Object.Created.Count;
+        UnityEngine.Object.ThrowOnSpriteNameWrite=true;
+        UnityEngine.Object.DestroyFaultAtCall=UnityEngine.Object.DestroyCalls+1;
+        bool ok=PalaceCapitalScene.Create(binding,_package,_plan,_depth,_clips,
+            out PalaceCapitalScene scene,out string reason);
+        UnityEngine.Object.ThrowOnSpriteNameWrite=false;
+        UnityEngine.Object.DestroyFaultAtCall=0;
+        Check(!ok,label+" create refused");
+        Check(scene!=null,label+" incomplete rollback retains the scene");
+        Check(reason.Contains("injected-sprite-name",StringComparison.Ordinal)
+            &&reason.Contains("rollback-incomplete",StringComparison.Ordinal)
+            &&reason.Contains("owner retained",StringComparison.Ordinal),label+" reason: "+reason);
+        var sprites=CreatedAfter<Sprite>(createdBefore);
+        var textures=CreatedAfter<Texture2D>(createdBefore);
+        var gameObjects=CreatedAfter<GameObject>(createdBefore);
+        Check(sprites.Count==1&&textures.Count==1&&gameObjects.Count==2,label+" allocation window");
+        Sprite sprite=sprites[0];
+        Check(!sprite.Destroyed&&DestroyAttempts(sprite)==1,label+" failed sprite destroy retained ownership");
+        Check(scene.RootObject!=null&&!scene.RootObject.activeSelf,label+" retained root inactive");
+        Check(scene.Sprites==1&&scene.UniqueTextures==1&&scene.PlacedSprites==0,label+" retained counters");
+        Check(scene.TryClear(out string clearReason),"resume clear: "+clearReason);
+        Check(sprite.Destroyed&&DestroyAttempts(sprite)==2,label+" sprite destroyed on retry");
+        Check(textures[0].Destroyed&&DestroyAttempts(textures[0])==1,label+" texture destroyed on retry");
+        Check(gameObjects[0].Destroyed&&DestroyAttempts(gameObjects[0])==1,label+" root destroyed once");
+        Check(!gameObjects[1].Destroyed&&DestroyAttempts(gameObjects[1])==0,label+" attached gate root-owned");
+        Check(scene.RootObject==null&&scene.Sprites==0&&scene.UniqueTextures==0,label+" handles cleared");
+        Counters afterClear=Snap();
+        Check(scene.TryClear(out clearReason),"second clear is idempotent");
+        Check(Snap().DestroyCalls==afterClear.DestroyCalls,label+" second clear destroys nothing");
+    }
+
+    private static void CheckClearSkipsSucceededItems()
+    {
+        const string label="destroy-resume-skips-cleared";
+        var binding=NewBinding(out _,out _,out _);
+        int createdBefore=UnityEngine.Object.Created.Count;
+        ImageConversion.LoadFaultAtCall=ImageConversion.LoadCalls+10;
+        UnityEngine.Object.DestroyFaultAtCall=UnityEngine.Object.DestroyCalls+3;
+        bool ok=PalaceCapitalScene.Create(binding,_package,_plan,_depth,_clips,
+            out PalaceCapitalScene scene,out string reason);
+        ImageConversion.LoadFaultAtCall=0;
+        UnityEngine.Object.DestroyFaultAtCall=0;
+        Check(!ok,label+" create refused");
+        Check(scene!=null,label+" incomplete rollback retains the scene");
+        Check(reason.Contains("sprite-destroy:InvalidOperationException",StringComparison.Ordinal)
+            &&reason.Contains("rollback-incomplete",StringComparison.Ordinal),
+            label+" reason: "+reason);
+        var sprites=CreatedAfter<Sprite>(createdBefore);
+        var textures=CreatedAfter<Texture2D>(createdBefore);
+        var gameObjects=CreatedAfter<GameObject>(createdBefore);
+        Check(sprites.Count>=3,label+" enough sprites for a mid-list fault");
+        Check(gameObjects.Count==2,label+" no placement allocated before the load fault");
+        var cleared=sprites.Where(s=>s.Destroyed).ToList();
+        var attempted=sprites.Where(s=>!s.Destroyed&&DestroyAttempts(s)==1).ToList();
+        var untouched=sprites.Where(s=>!s.Destroyed&&DestroyAttempts(s)==0).ToList();
+        Check(cleared.Count==2,label+" two sprite destroys succeeded before the fault");
+        Check(cleared.All(s=>DestroyAttempts(s)==1),label+" successful destroys recorded once");
+        Check(attempted.Count==1,label+" exactly the faulted sprite was attempted once");
+        Check(untouched.Count==sprites.Count-3,label+" remaining sprites not attempted yet");
+        Check(textures.Count==10&&textures.All(t=>!t.Destroyed&&DestroyAttempts(t)==0),
+            label+" textures untouched before the sprite fault");
+        Check(scene.RootObject!=null&&!scene.RootObject.activeSelf,label+" retained root inactive");
+        Check(scene.Sprites==sprites.Count&&scene.UniqueTextures==10&&scene.PlacedSprites==0,
+            label+" counters retain all created objects until the clear completes");
+        Check(scene.TryClear(out string clearReason),"resume clear: "+clearReason);
+        Check(cleared.All(s=>DestroyAttempts(s)==1),label+" retry does not repeat cleared sprites");
+        Check(attempted[0].Destroyed&&DestroyAttempts(attempted[0])==2,label+" faulted sprite cleared on retry");
+        Check(untouched.All(s=>s.Destroyed&&DestroyAttempts(s)==1),label+" remaining sprites cleared once");
+        Check(sprites.All(s=>s.Destroyed),label+" all sprites cleared");
+        Check(textures.All(t=>t.Destroyed&&DestroyAttempts(t)==1),label+" textures cleared once");
+        Check(gameObjects[0].Destroyed&&DestroyAttempts(gameObjects[0])==1,label+" root destroyed once");
+        Check(!gameObjects[1].Destroyed&&DestroyAttempts(gameObjects[1])==0,label+" attached gate root-owned");
+        Check(scene.RootObject==null,label+" root handle cleared");
+    }
+
+    private static void CheckPartialCreateOwnership()
+    {
+        CheckGateParentFault(false);
+        CheckGateParentFault(true);
+        CheckPlacementParentFault(false);
+        CheckPlacementParentFault(true);
+        CheckSpriteNameFault();
+        CheckPlacementWriteFaultAfterParent();
+        CheckGateFaultRetainAndResume();
+        CheckSpriteFaultRetainAndResume();
+        CheckClearSkipsSucceededItems();
+    }
+
+    private static void CheckPreconditions()
+    {
+        var binding=NewBinding(out GameObject parent,out SpriteRenderer reference,out Material material);
+
+        var shortDepth=GoodDepth();
+        shortDepth.Remove(CanonicalPlacements()[451].Id);
+        CreateFailNoAllocation(binding,_package,_plan,shortDepth,_clips,"short depth count");
+        var extraDepth=GoodDepth();
+        extraDepth["not-a-placement"]=1d;
+        CreateFailNoAllocation(binding,_package,_plan,extraDepth,_clips,"extra depth key");
+        var missingDepth=GoodDepth();
+        missingDepth.Remove(CanonicalPlacements()[0].Id);
+        missingDepth["not-a-placement"]=1d;
+        CreateFailNoAllocation(binding,_package,_plan,missingDepth,_clips,"missing depth key");
+        var nanDepth=GoodDepth();
+        nanDepth[CanonicalPlacements()[0].Id]=double.NaN;
+        CreateFailNoAllocation(binding,_package,_plan,nanDepth,_clips,"NaN depth");
+        var infDepth=GoodDepth();
+        infDepth[CanonicalPlacements()[0].Id]=double.PositiveInfinity;
+        CreateFailNoAllocation(binding,_package,_plan,infDepth,_clips,"infinite depth");
+        var hugeDepth=GoodDepth();
+        hugeDepth[CanonicalPlacements()[0].Id]=1e300d;
+        CreateFailNoAllocation(binding,_package,_plan,hugeDepth,_clips,"non-float depth");
+        var tieDepth=GoodDepth();
+        var ordered=CanonicalPlacements();
+        tieDepth[ordered[0].Id]=1000d;
+        tieDepth[ordered[1].Id]=1000d;
+        CreateFailNoAllocation(binding,_package,_plan,tieDepth,_clips,"equal depth");
+        var floatTieDepth=GoodDepth();
+        floatTieDepth[ordered[0].Id]=0.1d;
+        floatTieDepth[ordered[1].Id]=0.100000001d;
+        CreateFailNoAllocation(binding,_package,_plan,floatTieDepth,_clips,"double-distinct float-equal depth");
+        var reversedDepth=GoodDepth();
+        double first=reversedDepth[ordered[0].Id];
+        reversedDepth[ordered[0].Id]=reversedDepth[ordered[1].Id];
+        reversedDepth[ordered[1].Id]=first;
+        CreateFailNoAllocation(binding,_package,_plan,reversedDepth,_clips,"reversed depth order");
+
+        var shortClips=new Dictionary<string,string>(_clips,StringComparer.Ordinal);
+        shortClips.Remove(shortClips.Keys.First());
+        CreateFailNoAllocation(binding,_package,_plan,_depth,shortClips,"short clip map");
+        var extraClips=new Dictionary<string,string>(_clips,StringComparer.Ordinal);
+        extraClips.Add("central-palace-gate","idle");
+        CreateFailNoAllocation(binding,_package,_plan,_depth,extraClips,"extra clip key");
+        var unknownClips=new Dictionary<string,string>(_clips,StringComparer.Ordinal);
+        unknownClips[unknownClips.Keys.First()]="no-such-clip";
+        CreateFailNoAllocation(binding,_package,_plan,_depth,unknownClips,"unknown clip");
+        var emptyClips=new Dictionary<string,string>(_clips,StringComparer.Ordinal);
+        emptyClips[emptyClips.Keys.First()]="";
+        CreateFailNoAllocation(binding,_package,_plan,_depth,emptyClips,"empty clip");
+        CreateFailNoAllocation(binding,_package,_plan,_depth,null,"null clip map");
+        CreateFailNoAllocation(binding,_package,_plan,null,_clips,"null depth map");
+
+        CreateFailNoAllocation(null,_package,_plan,_depth,_clips,"null binding");
+        CreateFailNoAllocation(binding,null,_plan,_depth,_clips,"null package");
+        CreateFailNoAllocation(binding,_package,null,_depth,_clips,"null plan");
+
+        var badParent=NewBinding(out _,out _,out _);
+        badParent.Parent=null;
+        CreateFailNoAllocation(badParent,_package,_plan,_depth,_clips,"null parent");
+        var badReference=NewBinding(out _,out _,out _);
+        badReference.Reference=null;
+        CreateFailNoAllocation(badReference,_package,_plan,_depth,_clips,"null reference");
+        var zeroReference=NewBinding(out _,out SpriteRenderer zeroRef,out _);
+        zeroRef.Pointer=IntPtr.Zero;
+        CreateFailNoAllocation(zeroReference,_package,_plan,_depth,_clips,"zero reference pointer");
+        var nullReferenceGo=NewBinding(out _,out SpriteRenderer refGo,out _);
+        refGo.gameObject=null;
+        CreateFailNoAllocation(nullReferenceGo,_package,_plan,_depth,_clips,"null reference gameobject");
+        var nullParentGo=NewBinding(out GameObject parentGo,out _,out _);
+        parentGo.transform.gameObject=null;
+        CreateFailNoAllocation(nullParentGo,_package,_plan,_depth,_clips,"null parent gameobject");
+        var sceneMismatch=NewBinding(out _,out SpriteRenderer mismatchRef,out _);
+        mismatchRef.gameObject.scene.handle=SceneHandle+1;
+        CreateFailNoAllocation(sceneMismatch,_package,_plan,_depth,_clips,"binding scene mismatch");
+        var nullMaterial=NewBinding(out _,out SpriteRenderer nullMatRef,out _);
+        nullMatRef.sharedMaterial=null;
+        CreateFailNoAllocation(nullMaterial,_package,_plan,_depth,_clips,"null reference sharedMaterial");
+        var replacementMaterial=NewBinding(out _,out _,out _);
+        replacementMaterial.Material=new Material();
+        CreateFailNoAllocation(replacementMaterial,_package,_plan,_depth,_clips,"binding material mismatch");
+
+        Check(PalaceProductionSource.TryParse(_registryText,_layoutText,
+            out PalaceProductionSource otherSource,out string parseReason),"second source parse: "+parseReason);
+        var otherPlan=BuildPlan(otherSource,DefaultRatios(otherSource));
+        CreateFailNoAllocation(binding,_package,otherPlan,_depth,_clips,"plan/source identity");
+
+        // Keep the deliberately mutated bindings alive so their ownership is never ambiguous.
+        Check(parent!=null&&reference!=null&&material!=null,"binding host objects retained");
+    }
+
+    private static void CheckZeroRatio()
+    {
+        var zeroPlan=BuildPlan(_source,ZeroRatios(_source));
+        var binding=NewBinding(out _,out _,out _);
+        int createdBefore=UnityEngine.Object.Created.Count;
+        var scene=CreateOk(binding,zeroPlan,_depth,_clips);
+        Check(scene.Activate(out string reason),"zero-ratio activate: "+reason);
+        var renderers=CreatedAfter<SpriteRenderer>(createdBefore);
+        var backgrounds=_plan.Nodes.Where(n=>n.IsBackgroundCompound).ToList();
+        var before=backgrounds.Select(n=>RendererFor(renderers,n.Placement.Id).transform.position.x).ToList();
+        Counters countersBefore=Snap();
+        Check(scene.Tick(1d,500d,out reason),"zero-ratio tick: "+reason);
+        for(int i=0;i<backgrounds.Count;i++)
+            Close(RendererFor(renderers,backgrounds[i].Placement.Id).transform.position.x,before[i],
+                "zero ratio keeps x "+backgrounds[i].Placement.Id);
+        Check(Snap().PositionWrites==countersBefore.PositionWrites,"zero ratio writes no x");
+        Check(scene.TryClear(out reason),"zero-ratio clear: "+reason);
+    }
+
+    private static int Main(string[] args)
+    {
+        if(args.Length!=1)
+        {
+            Console.Error.WriteLine("usage: PalaceCapitalRenderer.Tests.dll <capital-package-dir>");
+            return 2;
+        }
+        LoadPackage(args[0]);
+        _plan=BuildPlan(_source,DefaultRatios(_source));
+        _depth=GoodDepth();
+        _clips=GoodClips();
+        CheckData();
+        CheckCreateAndInitial();
+        CheckMaterialDead();
+        CheckReferenceDead();
+        CheckMaterialNull();
+        CheckMaterialGetterFault();
+        CheckWriteFault();
+        CheckRollbackKnown();
+        CheckRollbackRetained();
+        CheckPartialCreateOwnership();
+        CheckPreconditions();
+        CheckZeroRatio();
+        Console.WriteLine("PASS "+_checks+" PalaceCapitalScene host checks; actual package/S1 data, fake Unity lifecycle, "
+            +"rollback/retain/exactly-once/frame-cache/zero-write/fault-latch; no Native/engine evidence");
+        return 0;
+    }
+}

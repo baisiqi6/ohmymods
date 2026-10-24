@@ -1,0 +1,42 @@
+using System;
+namespace Il2CppInterop.Runtime.InteropTypes { public class Il2CppObjectBase { public IntPtr Pointer; public T TryCast<T>()where T:class=>this as T; } }
+namespace UnityEngine {
+ public struct Vector3 { public float x,y,z;public Vector3(float a,float b,float c){x=a;y=b;z=c;} }
+ public struct Vector2 { public float x,y;public Vector2(float a,float b){x=a;y=b;} }
+ public struct Scene { public int handle; }
+ public class GameObject {public bool activeInHierarchy=true;public Scene scene=new(){handle=1};}
+ public class Transform {private Vector3 pos;public int Writes;public Vector3 position {get=>pos;set{pos=value;Writes++;}}public void Seed(Vector3 p){pos=p;Writes=0;} }
+ public struct Bounds {public Vector3 min,max;}
+ public class BoxCollider2D:Il2CppInterop.Runtime.InteropTypes.Il2CppObjectBase {public bool enabled=true,isTrigger=false;public GameObject gameObject=new();public Bounds bounds=new(){min=new(-200,0,0),max=new(200,.88f,0)};public Vector2 ClosestPoint(Vector2 p)=>new(p.x,.88f);}
+}
+namespace HarmonyLib {public class Harmony{public void Patch(object m,HarmonyMethod prefix=null,HarmonyMethod postfix=null,HarmonyMethod finalizer=null){}}public class HarmonyMethod {public HarmonyMethod(Type t,string n){}}public static class AccessTools {public static System.Reflection.MethodInfo Method(Type t,string n,Type[]args)=>null;}}
+namespace KingdomEnhancedMod {
+ using UnityEngine;using Il2CppInterop.Runtime.InteropTypes;
+ internal class Game:Il2CppObjectBase {internal enum State{Loading,Playing}internal State state=State.Loading;internal int currentLand=12;}
+ internal class Player:Il2CppObjectBase {internal Transform transform=new();}
+ internal class Boat{}
+ internal class WreckPlaceholder{internal Transform transform=new();}
+ internal class Campfire{internal GameObject gameObject=new();internal Transform transform=new();}
+ internal class Kingdom:Il2CppObjectBase {internal Player playerOne;internal Campfire campfire=new();}
+ internal class Level{internal BoxCollider2D GroundCollider=new(){Pointer=(IntPtr)55};}
+ internal class World {internal Layer gameLayer=new();}internal class Layer {internal GameObject gameObject=new();}
+ internal class Managers{internal static Managers Inst;internal Game game;internal Kingdom kingdom;internal Level level=new();internal World world=new();}
+ internal class CampaignSaveData:Il2CppObjectBase{internal static CampaignSaveData current;internal int CurrentLand=12;}
+ internal class GlobalSaveData:Il2CppObjectBase{internal static GlobalSaveData loaded;internal bool InChallenge=false;internal CampaignSaveData GetCurrentCampaign()=>CampaignSaveData.current;}
+ internal class BiomeHolder {internal static BiomeHolder Inst=new();internal int BiomeIndex=5;internal const int GreeceBiomeIndex=5;}
+ internal static class NetworkBigBoss{internal static bool IsOnline=false;}
+ internal static class ExtensionIslandRuntime{internal static bool TryScope(out CampaignSaveData c){c=CampaignSaveData.current;return c!=null;}}
+ internal static class PalaceLand12Runtime{internal const int LandIndex=12;internal static bool Enabled=>true;}
+ internal static class PalaceRuntimeProfile{internal static bool Capability(string s)=>true;}
+ internal sealed class PalaceCourtLayoutView{internal PalaceLayoutRecipe Recipe;internal float GateWorldX=>Recipe.GateWorldX;}
+ internal static class PalaceCourtArea{internal static bool Enabled=true,DedicatedWholeEnabled=true,Available;internal static PalaceCourtLayoutView View=new(){Recipe=PalaceLayoutRecipe.Capital400};internal static bool TryGetSpan(Level l,out float left,out float right,out string r){left=View.Recipe.Left;right=View.Recipe.Right;r="host";return Available;}internal static float RenderAxis(float l,float r)=>View.GateWorldX;internal static bool TryGetLayout(Level l,out PalaceCourtLayoutView v,out string r){v=View;r="host";return Available;}}
+ internal class PalaceEntryAnchorData{internal float EntryX=44,StandX=42;}
+ internal class PalaceTripRecord{internal int Version=4,Phase=1,SourceLand=8;internal string TripId="trip400";internal PalaceEntryAnchorData SourceEntryAnchor;internal PalaceLayoutRecipe DestinationLayout=PalaceLayoutRecipe.Capital400;}
+ internal static class PalaceTripContext{internal enum ReadStatus{Ok,Missing}internal const int PhasePalaceSelected=1,PhaseReturnSelected=2;internal static PalaceTripRecord Trip=new();internal static ReadStatus Read(GlobalSaveData g,out PalaceTripRecord r,out string reason){r=Trip;reason="";return ReadStatus.Ok;}internal static bool TryBinding(GlobalSaveData g,CampaignSaveData c,out string guid,out int slot,out string reason){guid="owner";slot=0;reason="";return true;}internal static bool RecordMatches(CampaignSaveData c,string g,int s,PalaceTripRecord t,out string r){r="";return true;}}
+ internal static class PalaceIslandTravel{internal static bool ReturnAnchorEnabled=true,Entering=true;internal static string CurrentTripId=>PalaceTripContext.Trip.TripId;internal static PalaceLayoutRecipe ActiveLayout=PalaceLayoutRecipe.Capital400;internal static bool IsEnteringArrivalGame(Game g,string t)=>Entering;internal static bool TryGetReturningArrivalAnchor(Game g,string t,out PalaceEntryAnchorData a){a=PalaceTripContext.Trip.SourceEntryAnchor;return a!=null;}internal static bool SameAnchor(PalaceEntryAnchorData a,PalaceEntryAnchorData b)=>a!=null&&b!=null&&a.EntryX==b.EntryX&&a.StandX==b.StandX;internal static bool TryGetActiveArrivalLayout(Game g,string t,out PalaceLayoutRecipe r){r=ActiveLayout;return r!=null;}}
+ internal static class PalaceReturnAnchor{internal static bool TryValidateDestination(Game g,Kingdom k,PalaceEntryAnchorData a,float y,out string r){r="ok";return true;}}
+ internal static class PalaceReturnGate{internal static void ArmArrivalRelease(Game g,Kingdom k,Player p){}}
+ internal static class Filer{internal class DotNetAgent:Il2CppObjectBase{}internal static object agent=new DotNetAgent{Pointer=(IntPtr)33};}
+ internal static class PalaceSaveBindingSource{internal static bool AgentMatchesCurrent(Filer.DotNetAgent a,out string r){r="";return true;}}
+ internal static class PalaceVisibleEntry{internal static void Log(string s){}}
+}

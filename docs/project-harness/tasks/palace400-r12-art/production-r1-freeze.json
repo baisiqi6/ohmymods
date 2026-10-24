@@ -1,0 +1,16 @@
+{
+  "frozenUTC": "2026-10-23T12:04:09.330158+00:00",
+  "directory": "/Users/Admin/projects/ohmymods/.local/tasks/ming-imperial-palace-20261002/palace-scroll-composition-20261007-r1/revisions/capital-400u-r12-production-20261023/delivery/palace400-r12-production-r1",
+  "registrySHA256": "1263122e48ac98a5a9717cfce5c76c261c7b3d3675e0bd2c8f1843298cefaae2",
+  "layoutSHA256": "ff18f6c45ae620c248c88f99d393d370c3330dc06b6c6afb30220e6d7a0a6a7d",
+  "indexSHA256": "2b9c2cfcd6395930c4db608cdfb163dbcdaf92a86281b5c1562ad2569be66380",
+  "zipSHA256": "647ecbbf09122a3eb29bbfcc0e0ce15049469ccff9cd511251c62009d0955c7a",
+  "zipBytes": 1516432,
+  "files": 92,
+  "PNGs": 86,
+  "placements": 452,
+  "actorTemporalFrames": 294,
+  "lotusTemporalFrames": 64,
+  "readyForIsolatedIntegration": true,
+  "nativeAccepted": false
+}

@@ -1,0 +1,19 @@
+{
+  "assets": 86,
+  "countsByKind": {
+    "environment-entity": 54,
+    "background-compound": 13,
+    "ground-module": 5,
+    "actor-atlas": 10,
+    "local-environment-motion-atlas": 4
+  },
+  "fileHashesChecked": 91,
+  "framesReadBack": 358,
+  "dancerTemporalFrames": 26,
+  "dancerPhysicalCells": 21,
+  "placements": 452,
+  "backgroundLayersNonempty": 4,
+  "offlineReviewPending": [],
+  "readyForIsolatedIntegration": true,
+  "nativeAccepted": false
+}

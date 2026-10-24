@@ -1,0 +1,465 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using KingdomEnhancedMod;
+using UnityEngine;
+
+internal static class SceneProgram
+{
+    private const int SceneHandle = 77;
+    private static int _checks;
+    private static Dictionary<string, byte[]> _files;
+    private static List<string> _names;
+
+    private static void Check(bool value, string name)
+    {
+        _checks++;
+        if (!value) throw new Exception("FAIL: " + name);
+    }
+
+    private static int Main(string[] args)
+    {
+        if (args.Length != 2)
+        {
+            Console.Error.WriteLine("usage: PalaceCapitalRuntimeScene.Stub.dll <package-dir> <mode>");
+            return 2;
+        }
+        string mode = args[1];
+        LoadDirectory(args[0]);
+        try
+        {
+            Check(PalaceCapitalRuntime.WarmOnce(OpenAll, _names, out string warmReason), "warm: " + warmReason);
+            switch (mode)
+            {
+                case "success": Success(); break;
+                case "unit-zero": UnitZero(); break;
+                case "camera": CameraDrift(); break;
+                case "camera-forward": CameraForwardDrift(); break;
+                case "camera-clip": CameraClipDrift(); break;
+                case "camera-near": CameraNearDrift(); break;
+                case "ref-inactive": ReferenceInactive(); break;
+                case "ref-disabled": ReferenceDisabled(); break;
+                case "ref-route": ReferenceRouteChanged(); break;
+                case "ref-parent": ReferenceParentChanged(); break;
+                case "level-replaced": LevelReplaced(); break;
+                case "world-replaced": WorldReplaced(); break;
+                case "campaign-replaced": CampaignReplaced(); break;
+                case "outer-success": OuterRootSuccess(); break;
+                case "outer-deactivate": OuterRootDeactivateFault(); break;
+                case "outer-destroy": OuterRootDestroyFault(); break;
+                case "outer-already": OuterRootAlreadyDestroyed(); break;
+                case "rollback": CompleteRollback(); break;
+                case "retain": RetainedFailure(); break;
+                default: throw new Exception("unknown mode: " + mode);
+            }
+            Console.WriteLine("PASS scene-" + mode + " checks=" + _checks);
+            return 0;
+        }
+        catch (Exception e)
+        {
+            Console.Error.WriteLine("FAIL scene-" + mode + ": " + e);
+            return 1;
+        }
+    }
+
+    private sealed class Owner
+    {
+        internal Game Game;
+        internal Kingdom Kingdom;
+        internal Player Player;
+        internal Level Level;
+        internal World World;
+        internal CampaignSaveData Campaign;
+        internal Transform Layer;
+        internal CourtBinding Binding;
+        internal PalaceCourtLayoutView View;
+        internal PalaceScrollCalibration Calibration;
+        internal SpriteRenderer Reference;
+        internal Material Material;
+        internal Camera Camera;
+        internal GameObject CameraGo;
+        internal GameObject Root;
+        internal GameObject LayerGo;
+        internal GameObject ReferenceGo;
+    }
+
+    private static Owner Setup(float unitZ = 2.75f, float cameraFar = 1000f)
+    {
+        var layerGo = new GameObject("layer");
+        layerGo.scene.handle = SceneHandle;
+        layerGo.layer = 5;
+        var playerGo = new GameObject("player");
+        playerGo.scene.handle = SceneHandle;
+        playerGo.layer = 5;
+        var player = new Player { Pointer = (IntPtr)0x500, gameObject = playerGo };
+        var kingdom = new Kingdom { Pointer = (IntPtr)0x600, playerOne = player };
+        var game = new Game { Pointer = (IntPtr)0x700, currentLand = 12, state = Game.State.Playing };
+        var level = new Level { Pointer = (IntPtr)0xB00 };
+        var world = new World { Pointer = (IntPtr)0xC00, gameLayer = layerGo.transform };
+        Managers.Inst = new Managers
+        {
+            Pointer = (IntPtr)0x800,
+            game = game,
+            kingdom = kingdom,
+            level = level,
+            world = world,
+        };
+        var campaign = new CampaignSaveData { Pointer = (IntPtr)0xD00, CurrentLand = 12 };
+        CampaignSaveData.current = campaign;
+        var cameraGo = new GameObject("camera");
+        cameraGo.scene.handle = SceneHandle;
+        var camera = cameraGo.AddComponent<Camera>();
+        camera.transform.position = new Vector3(0f, 0f, -10f);
+        camera.nearClipPlane = 0.3f;
+        camera.farClipPlane = cameraFar;
+        var main = new MainCamera
+        {
+            Pointer = (IntPtr)0x900,
+            _camera = camera,
+            cameraTargets = new[] { playerGo },
+        };
+        CameraMarshaller.Inst = new CameraMarshaller
+        {
+            Pointer = (IntPtr)0xA00,
+            cameraRefs = new[] { main },
+        };
+        var referenceGo = new GameObject("reference");
+        referenceGo.scene.handle = SceneHandle;
+        referenceGo.layer = 5;
+        referenceGo.transform.SetParent(layerGo.transform, false);
+        var reference = referenceGo.AddComponent<SpriteRenderer>();
+        reference.sortingLayerID = 3;
+        reference.sortingOrder = 0;
+        reference.sprite = new Sprite();
+        var material = new Material();
+        reference.sharedMaterial = material;
+        reference.transform.position = new Vector3(0f, 0f, unitZ);
+        player._riderRenderer = reference;
+        var root = new GameObject("KEM_PalaceCourt");
+        root.scene.handle = SceneHandle;
+        root.layer = 5;
+        root.transform.SetParent(layerGo.transform, false);
+        var binding = new CourtBinding
+        {
+            Parent = root.transform,
+            Reference = reference,
+            Material = material,
+        };
+        var view = new PalaceCourtLayoutView
+        {
+            Recipe = PalaceLayoutRecipe.Capital400,
+            LevelPointer = (ulong)level.Pointer.ToInt64(),
+            WorldLayerPointer = (ulong)layerGo.transform.Pointer.ToInt64(),
+            GamePointer = (ulong)game.Pointer.ToInt64(),
+            CampaignPointer = (ulong)campaign.Pointer.ToInt64(),
+        };
+        var calibration = new PalaceScrollCalibration(PalaceCapitalRuntime.CapitalDescriptor,
+            1d / 32d, 0d, 0.5d);
+        return new Owner
+        {
+            Game = game,
+            Kingdom = kingdom,
+            Player = player,
+            Level = level,
+            World = world,
+            Campaign = campaign,
+            Layer = layerGo.transform,
+            Binding = binding,
+            View = view,
+            Calibration = calibration,
+            Reference = reference,
+            Material = material,
+            Camera = camera,
+            CameraGo = cameraGo,
+            Root = root,
+            LayerGo = layerGo,
+            ReferenceGo = referenceGo,
+        };
+    }
+
+    private static void Success()
+    {
+        Owner owner = Setup();
+        bool created = PalaceCapitalRuntimeScene.TryCreate(owner.Kingdom, owner.Layer, owner.Binding,
+            owner.View, owner.Calibration, owner.Reference, out var scene, out string reason);
+        Check(created, "create succeeds: " + reason);
+        Check(scene != null, "scene present");
+        Check(scene.GateAnchor != null, "gate present after activation");
+        Check(scene.PlacedSprites == 452, "452 sprites");
+        Check(scene.UniqueTextures == 86, "86 textures");
+
+        owner.Game.state = Game.State.Menu;
+        Check(scene.Tick(owner.Game, 5d, out string menuReason), "menu tick: " + menuReason);
+        Check(scene.Elapsed == 0d, "menu freezes elapsed");
+        owner.Game.state = Game.State.Playing;
+        Check(scene.Tick(owner.Game, 0.25d, out string playReason), "playing tick: " + playReason);
+        Check(scene.Elapsed == 0.25d, "playing advances scaled delta");
+
+        owner.Reference.sortingOrder = 1;
+        Check(!scene.Tick(owner.Game, 0.1d, out string driftReason), "reference drift stops tick");
+        Check(driftReason.Contains("reference-sort", StringComparison.Ordinal), "drift reason=" + driftReason);
+        Check(scene.TryClear(out string clearReason), "clear after drift: " + clearReason);
+        Check(scene.GateAnchor == null, "gate cleared");
+        Check(!UnityEngine.Object.DestroyedObjects.Contains(owner.Reference), "borrowed reference retained");
+        Check(!UnityEngine.Object.DestroyedObjects.Contains(owner.Material), "borrowed material retained");
+        Check(!UnityEngine.Object.DestroyedObjects.Contains(owner.CameraGo), "borrowed camera retained");
+        Check(!UnityEngine.Object.DestroyedObjects.Contains(owner.Root), "outer root retained by caller");
+    }
+
+    private static void UnitZero()
+    {
+        PlayerWallet.Writes = 0; PaidJournal.Writes = 0; Player.PositionWrites = 0;
+        Owner owner = Setup(0f, 100f);
+        bool created = PalaceCapitalRuntimeScene.TryCreate(owner.Kingdom, owner.Layer, owner.Binding,
+            owner.View, owner.Calibration, owner.Reference, out var scene, out string reason);
+        Check(created, "unit-zero create: " + reason);
+        Check(scene.Tick(owner.Game, 0d, out string firstTick), "unit-zero first tick: " + firstTick);
+        owner.Game.state = Game.State.Menu;
+        Check(scene.Tick(owner.Game, 5d, out string menuReason), "unit-zero menu tick: " + menuReason);
+        Check(scene.Elapsed == 0d, "unit-zero menu freeze");
+        owner.Game.state = Game.State.Playing;
+        Check(scene.Tick(owner.Game, 0.25d, out string playReason), "unit-zero playing tick: " + playReason);
+        Check(scene.Elapsed == 0.25d, "unit-zero elapsed");
+        Check(PlayerWallet.Writes == 0, "no wallet write");
+        Check(PaidJournal.Writes == 0, "no paid journal write");
+        Check(Player.PositionWrites == 0, "no player position write");
+        Check(scene.TryClear(out string clearReason), "unit-zero clear: " + clearReason);
+    }
+
+    private static void CameraDrift()
+    {
+        Owner owner = Setup();
+        bool created = PalaceCapitalRuntimeScene.TryCreate(owner.Kingdom, owner.Layer, owner.Binding,
+            owner.View, owner.Calibration, owner.Reference, out var scene, out string reason);
+        Check(created, "create succeeds: " + reason);
+        owner.Camera.transform.position = new Vector3(0f, 0f, 100f);
+        Check(!scene.Tick(owner.Game, 0.1d, out string driftReason), "camera z drift stops tick");
+        Check(driftReason.Contains("camera-z-drift", StringComparison.Ordinal), "drift reason=" + driftReason);
+        Check(scene.Elapsed == 0d, "camera drift does not advance elapsed");
+        Check(scene.TryClear(out string clearReason), "clear after camera drift: " + clearReason);
+        Check(!UnityEngine.Object.DestroyedObjects.Contains(owner.CameraGo), "camera borrowed, not destroyed");
+        Check(!UnityEngine.Object.DestroyedObjects.Contains(owner.Reference), "reference borrowed, not destroyed");
+    }
+
+    private static void CameraForwardDrift()
+    {
+        Owner owner = Setup();
+        bool created = PalaceCapitalRuntimeScene.TryCreate(owner.Kingdom, owner.Layer, owner.Binding,
+            owner.View, owner.Calibration, owner.Reference, out var scene, out string reason);
+        Check(created, "create succeeds: " + reason);
+        owner.Camera.transform.forward = new Vector3(0f, 0f, -1f);
+        Check(!scene.Tick(owner.Game, 0.1d, out string driftReason), "camera forward drift stops tick");
+        Check(driftReason.Contains("camera-forward-drift", StringComparison.Ordinal), "drift reason=" + driftReason);
+        Check(scene.TryClear(out _), "clear after forward drift");
+    }
+
+    private static void CameraClipDrift()
+    {
+        Owner owner = Setup();
+        bool created = PalaceCapitalRuntimeScene.TryCreate(owner.Kingdom, owner.Layer, owner.Binding,
+            owner.View, owner.Calibration, owner.Reference, out var scene, out string reason);
+        Check(created, "create succeeds: " + reason);
+        owner.Camera.farClipPlane = 2000f;
+        Check(!scene.Tick(owner.Game, 0.1d, out string driftReason), "camera clip drift stops tick");
+        Check(driftReason.Contains("camera-clip-drift", StringComparison.Ordinal), "drift reason=" + driftReason);
+        Check(scene.TryClear(out _), "clear after clip drift");
+    }
+
+    private static void CameraNearDrift()
+    {
+        Owner owner = Setup();
+        bool created = PalaceCapitalRuntimeScene.TryCreate(owner.Kingdom, owner.Layer, owner.Binding,
+            owner.View, owner.Calibration, owner.Reference, out var scene, out string reason);
+        Check(created, "create succeeds: " + reason);
+        owner.Camera.nearClipPlane = 0.4f;
+        Check(!scene.Tick(owner.Game, 0.1d, out string driftReason), "camera near drift stops tick");
+        Check(driftReason.Contains("camera-clip-drift", StringComparison.Ordinal), "drift reason=" + driftReason);
+        Check(scene.TryClear(out _), "clear after near drift");
+    }
+
+    private static void ReferenceInactive()
+    {
+        Owner owner = Setup();
+        bool created = PalaceCapitalRuntimeScene.TryCreate(owner.Kingdom, owner.Layer, owner.Binding,
+            owner.View, owner.Calibration, owner.Reference, out var scene, out string reason);
+        Check(created, "create succeeds: " + reason);
+        owner.Reference.gameObject.SetActive(false);
+        Check(!scene.Tick(owner.Game, 0.1d, out string driftReason), "inactive reference stops tick");
+        Check(driftReason.Contains("reference-scene-layer", StringComparison.Ordinal), "drift reason=" + driftReason);
+        Check(scene.TryClear(out _), "clear after inactive reference");
+        Check(!UnityEngine.Object.DestroyedObjects.Contains(owner.Reference), "inactive reference not destroyed");
+    }
+
+    private static void ReferenceDisabled()
+    {
+        Owner owner = Setup();
+        bool created = PalaceCapitalRuntimeScene.TryCreate(owner.Kingdom, owner.Layer, owner.Binding,
+            owner.View, owner.Calibration, owner.Reference, out var scene, out string reason);
+        Check(created, "create succeeds: " + reason);
+        owner.Reference.enabled = false;
+        Check(!scene.Tick(owner.Game, 0.1d, out string driftReason), "disabled reference stops tick");
+        Check(driftReason.Contains("reference-disabled", StringComparison.Ordinal), "drift reason=" + driftReason);
+        Check(scene.TryClear(out _), "clear after disabled reference");
+    }
+
+    private static void ReferenceRouteChanged()
+    {
+        Owner owner = Setup();
+        bool created = PalaceCapitalRuntimeScene.TryCreate(owner.Kingdom, owner.Layer, owner.Binding,
+            owner.View, owner.Calibration, owner.Reference, out var scene, out string reason);
+        Check(created, "create succeeds: " + reason);
+        var replacement = new GameObject("replacement").AddComponent<SpriteRenderer>();
+        replacement.sprite = new Sprite();
+        owner.Player._riderRenderer = replacement;
+        Check(!scene.Tick(owner.Game, 0.1d, out string driftReason), "route replacement stops tick");
+        Check(driftReason.Contains("reference-route", StringComparison.Ordinal), "drift reason=" + driftReason);
+        Check(scene.TryClear(out _), "clear after route replacement");
+    }
+
+    private static void ReferenceParentChanged()
+    {
+        Owner owner = Setup();
+        bool created = PalaceCapitalRuntimeScene.TryCreate(owner.Kingdom, owner.Layer, owner.Binding,
+            owner.View, owner.Calibration, owner.Reference, out var scene, out string reason);
+        Check(created, "create succeeds: " + reason);
+        owner.ReferenceGo.transform.SetParent(owner.CameraGo.transform, false);
+        Check(!scene.Tick(owner.Game, 0.1d, out string driftReason), "reference parent drift stops tick");
+        Check(driftReason.Contains("reference-parent", StringComparison.Ordinal)
+            || driftReason.Contains("reference-hierarchy", StringComparison.Ordinal),
+            "drift reason=" + driftReason);
+        Check(scene.TryClear(out _), "clear after parent drift");
+    }
+
+    private static void LevelReplaced()
+    {
+        Owner owner = Setup();
+        bool created = PalaceCapitalRuntimeScene.TryCreate(owner.Kingdom, owner.Layer, owner.Binding,
+            owner.View, owner.Calibration, owner.Reference, out var scene, out string reason);
+        Check(created, "create succeeds: " + reason);
+        Managers.Inst.level = new Level { Pointer = (IntPtr)0xEEE };
+        Check(!scene.Tick(owner.Game, 0.1d, out string driftReason), "level replacement stops tick");
+        Check(driftReason.Contains("level-changed", StringComparison.Ordinal), "drift reason=" + driftReason);
+        Check(scene.TryClear(out _), "clear after level replacement");
+    }
+
+    private static void WorldReplaced()
+    {
+        Owner owner = Setup();
+        bool created = PalaceCapitalRuntimeScene.TryCreate(owner.Kingdom, owner.Layer, owner.Binding,
+            owner.View, owner.Calibration, owner.Reference, out var scene, out string reason);
+        Check(created, "create succeeds: " + reason);
+        Managers.Inst.world = new World { Pointer = (IntPtr)0xEFE, gameLayer = owner.Layer };
+        Check(!scene.Tick(owner.Game, 0.1d, out string driftReason), "world replacement stops tick");
+        Check(driftReason.Contains("world-layer-changed", StringComparison.Ordinal), "drift reason=" + driftReason);
+        Check(scene.TryClear(out _), "clear after world replacement");
+    }
+
+    private static void CampaignReplaced()
+    {
+        Owner owner = Setup();
+        bool created = PalaceCapitalRuntimeScene.TryCreate(owner.Kingdom, owner.Layer, owner.Binding,
+            owner.View, owner.Calibration, owner.Reference, out var scene, out string reason);
+        Check(created, "create succeeds: " + reason);
+        CampaignSaveData.current = new CampaignSaveData { Pointer = (IntPtr)0xDFE, CurrentLand = 12 };
+        Check(!scene.Tick(owner.Game, 0.1d, out string driftReason), "campaign replacement stops tick");
+        Check(driftReason.Contains("campaign-changed", StringComparison.Ordinal), "drift reason=" + driftReason);
+        Check(scene.TryClear(out _), "clear after campaign replacement");
+    }
+
+    private static void OuterRootSuccess()
+    {
+        var root = new GameObject("outer");
+        GameObject original = root;
+        Check(PalaceCapitalOuterRoot.TryClear(ref root, out string detail), "outer clear: " + detail);
+        Check(root == null, "outer field released");
+        Check(original.Destroyed, "outer destroyed once");
+    }
+
+    private static void OuterRootDeactivateFault()
+    {
+        var root = new GameObject("outer");
+        GameObject original = root;
+        UnityEngine.GameObject.SetActiveFaultAtCall = UnityEngine.GameObject.ActivateCalls + 1;
+        Check(!PalaceCapitalOuterRoot.TryClear(ref root, out string detail), "deactivate fault retained");
+        UnityEngine.GameObject.SetActiveFaultAtCall = 0;
+        Check(detail.Contains("deactivate", StringComparison.Ordinal), "deactivate detail=" + detail);
+        Check(root == original && !original.Destroyed, "root retained and not destroyed");
+        Check(PalaceCapitalOuterRoot.TryClear(ref root, out string retry), "explicit retry clear: " + retry);
+        Check(root == null && original.Destroyed, "retry destroys once");
+    }
+
+    private static void OuterRootDestroyFault()
+    {
+        var root = new GameObject("outer");
+        GameObject original = root;
+        UnityEngine.Object.DestroyFaultAtCall = UnityEngine.Object.DestroyCalls + 1;
+        Check(!PalaceCapitalOuterRoot.TryClear(ref root, out string detail), "destroy fault retained");
+        UnityEngine.Object.DestroyFaultAtCall = 0;
+        Check(detail.Contains("destroy", StringComparison.Ordinal), "destroy detail=" + detail);
+        Check(root == original && !original.Destroyed, "root retained after destroy fault");
+        Check(PalaceCapitalOuterRoot.TryClear(ref root, out string retry), "retry after destroy fault: " + retry);
+        Check(root == null && original.Destroyed, "retry destroys after fault");
+    }
+
+    private static void OuterRootAlreadyDestroyed()
+    {
+        var root = new GameObject("outer");
+        GameObject original = root;
+        UnityEngine.Object.Destroy(root);
+        int calls = UnityEngine.Object.DestroyCalls;
+        Check(PalaceCapitalOuterRoot.TryClear(ref root, out string detail), "already-destroyed clear: " + detail);
+        Check(root == null, "already-destroyed field released");
+        Check(detail.Contains("already-destroyed", StringComparison.Ordinal), "detail=" + detail);
+        Check(UnityEngine.Object.DestroyCalls == calls, "already-destroyed does not double destroy");
+    }
+
+    private static void CompleteRollback()
+    {
+        Owner owner = Setup();
+        UnityEngine.Object.ThrowOnSpriteNameWrite = true;
+        bool created = PalaceCapitalRuntimeScene.TryCreate(owner.Kingdom, owner.Layer, owner.Binding,
+            owner.View, owner.Calibration, owner.Reference, out var scene, out string reason);
+        UnityEngine.Object.ThrowOnSpriteNameWrite = false;
+        Check(!created, "create fails on sprite name");
+        Check(scene == null, "known rollback returns null scene; reason=" + reason);
+        Check(!UnityEngine.Object.DestroyedObjects.Contains(owner.Reference), "rollback keeps reference");
+        Check(!UnityEngine.Object.DestroyedObjects.Contains(owner.Material), "rollback keeps material");
+    }
+
+    private static void RetainedFailure()
+    {
+        Owner owner = Setup();
+        UnityEngine.Object.ThrowOnSpriteNameWrite = true;
+        UnityEngine.Object.DestroyFaultAtCall = 1;
+        bool created = PalaceCapitalRuntimeScene.TryCreate(owner.Kingdom, owner.Layer, owner.Binding,
+            owner.View, owner.Calibration, owner.Reference, out var scene, out string reason);
+        UnityEngine.Object.DestroyFaultAtCall = 0;
+        UnityEngine.Object.ThrowOnSpriteNameWrite = false;
+        Check(!created, "create fails with retained rollback");
+        Check(scene != null, "retained owner returned; reason=" + reason);
+        Check(!scene.Tick(owner.Game, 0d, out string faultReason), "retained owner is not tickable");
+        Check(faultReason == "faulted", "retained state=" + faultReason);
+        Check(scene.TryClear(out string clearReason), "retry clear: " + clearReason);
+        Check(!UnityEngine.Object.DestroyedObjects.Contains(owner.Reference), "retain keeps reference");
+        Check(!UnityEngine.Object.DestroyedObjects.Contains(owner.Material), "retain keeps material");
+        Check(!UnityEngine.Object.DestroyedObjects.Contains(owner.CameraGo), "retain keeps camera");
+    }
+
+    private static void LoadDirectory(string directory)
+    {
+        _files = new Dictionary<string, byte[]>(StringComparer.Ordinal);
+        _names = new List<string>();
+        foreach (string path in Directory.GetFiles(directory, "*", SearchOption.AllDirectories).OrderBy(p => p, StringComparer.Ordinal))
+        {
+            string relative = Path.GetRelativePath(directory, path).Replace(Path.DirectorySeparatorChar, '/');
+            string logical = PalaceCapitalResources.Prefix + relative;
+            _files.Add(logical, File.ReadAllBytes(path));
+            _names.Add(logical);
+        }
+        Check(_files.Count == 92, "92 package files");
+    }
+
+    private static Stream OpenAll(string name)
+        => _files.TryGetValue(name, out byte[] bytes) ? new MemoryStream(bytes, false) : null;
+}

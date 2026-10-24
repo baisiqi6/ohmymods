@@ -1,0 +1,283 @@
+// Minimal targeted Unity surface for the PalaceCapitalScene host suite. This is NOT Unity and
+// NOT Native evidence: it records allocation/destruction/write calls and injects faults so the
+// adapter's ownership, ordering and zero-write behaviour can be tested without an engine.
+using System;
+using System.Collections.Generic;
+
+namespace UnityEngine
+{
+    public class Object
+    {
+        private static long _nextPointer = 0x1000;
+        internal bool Destroyed;
+        public IntPtr Pointer;
+        private string _name;
+        internal static bool ThrowOnSpriteNameWrite;
+
+        public string name
+        {
+            get => _name;
+            set
+            {
+                if (ThrowOnSpriteNameWrite && this is Sprite)
+                    throw new InvalidOperationException("injected-sprite-name");
+                _name = value;
+            }
+        }
+
+        internal static int CreatedObjects;
+        internal static int DestroyCalls;
+        internal static int DestroyedTextures;
+        internal static int DestroyedSprites;
+        internal static int DestroyedGameObjects;
+        internal static int DestroyedMaterials;
+        internal static int DestroyFaultAtCall;
+        internal static readonly List<Object> Created = new List<Object>();
+        internal static readonly List<Object> DestroyedObjects = new List<Object>();
+        internal static readonly Dictionary<Object,int> DestroyCallsByObject = new Dictionary<Object,int>();
+
+        protected Object()
+        {
+            Pointer = (IntPtr)(++_nextPointer);
+            CreatedObjects++;
+            Created.Add(this);
+        }
+
+        public static implicit operator bool(Object obj)
+            => obj != null && !obj.Destroyed && obj.Pointer != IntPtr.Zero;
+
+        public static void Destroy(Object obj)
+        {
+            if (obj == null) throw new ArgumentNullException(nameof(obj));
+            DestroyCalls++;
+            DestroyCallsByObject.TryGetValue(obj, out int count);
+            DestroyCallsByObject[obj] = count + 1;
+            if (DestroyFaultAtCall == DestroyCalls)
+                throw new InvalidOperationException("injected-destroy-fault");
+            if (obj is Texture2D) DestroyedTextures++;
+            else if (obj is Sprite) DestroyedSprites++;
+            else if (obj is GameObject) DestroyedGameObjects++;
+            else if (obj is Material) DestroyedMaterials++;
+            obj.Destroyed = true;
+            obj.Pointer = IntPtr.Zero;
+            DestroyedObjects.Add(obj);
+        }
+    }
+
+    public struct Scene
+    {
+        public int handle;
+    }
+
+    public struct Vector2
+    {
+        public float x, y;
+        public Vector2(float x, float y) { this.x = x; this.y = y; }
+    }
+
+    public struct Vector3
+    {
+        public float x, y, z;
+        public Vector3(float x, float y, float z) { this.x = x; this.y = y; this.z = z; }
+        public static Vector3 zero => new Vector3(0f, 0f, 0f);
+        public static Vector3 one => new Vector3(1f, 1f, 1f);
+    }
+
+    public struct Rect
+    {
+        public float x, y, width, height;
+        public Rect(float x, float y, float width, float height)
+        { this.x = x; this.y = y; this.width = width; this.height = height; }
+    }
+
+    public enum FilterMode { Point, Bilinear, Trilinear }
+    public enum TextureWrapMode { Repeat, Clamp, Mirror, MirrorOnce }
+    public enum TextureFormat { RGBA32 }
+    public enum SpriteMeshType { FullRect, Tight }
+
+    public sealed class Material : Object
+    {
+    }
+
+    public sealed class Texture2D : Object
+    {
+        internal static int CreatedTextures;
+        public int width, height;
+        public FilterMode filterMode;
+        public TextureWrapMode wrapMode;
+        public int anisoLevel;
+
+        public Texture2D(int width, int height, TextureFormat format, bool mipChain)
+        {
+            this.width = width;
+            this.height = height;
+            CreatedTextures++;
+        }
+    }
+
+    public sealed class Sprite : Object
+    {
+        internal static int CreateCalls;
+        public Texture2D texture;
+        public Rect rect;
+        public Vector2 pivot;
+        public float pixelsPerUnit;
+        public SpriteMeshType meshType;
+
+        public static Sprite Create(Texture2D texture, Rect rect, Vector2 pivot,
+            float pixelsPerUnit, uint extrude, SpriteMeshType meshType)
+        {
+            CreateCalls++;
+            return new Sprite
+            {
+                texture = texture,
+                rect = rect,
+                pivot = pivot,
+                pixelsPerUnit = pixelsPerUnit,
+                meshType = meshType,
+            };
+        }
+    }
+
+    public class Component : Object
+    {
+        public GameObject gameObject;
+        public Transform transform => gameObject == null ? null : gameObject.transform;
+    }
+
+    public sealed class Transform : Object
+    {
+        internal static int PositionWrites;
+        internal static int LocalScaleWrites;
+        internal static int ThrowOnPositionWriteAtCall;
+        internal static int SetParentCalls;
+        internal static int SetParentFaultAtCall;
+        internal static bool SetParentFaultAfterMutation;
+        private Vector3 _position;
+        private Vector3 _localScale = Vector3.one;
+        public GameObject gameObject;
+        public Transform parent;
+        public Vector3 localPosition;
+
+        public Vector3 position
+        {
+            get => _position;
+            set
+            {
+                PositionWrites++;
+                if (ThrowOnPositionWriteAtCall == PositionWrites)
+                    throw new InvalidOperationException("injected-position-write-fault");
+                _position = value;
+            }
+        }
+
+        public Vector3 localScale
+        {
+            get => _localScale;
+            set { LocalScaleWrites++; _localScale = value; }
+        }
+
+        public void SetParent(Transform newParent, bool worldPositionStays)
+        {
+            SetParentCalls++;
+            bool fault = SetParentFaultAtCall == SetParentCalls;
+            if (fault && !SetParentFaultAfterMutation)
+                throw new InvalidOperationException("injected-parent");
+            parent = newParent;
+            if (fault)
+                throw new InvalidOperationException("injected-parent-after-mutation");
+        }
+    }
+
+    public sealed class GameObject : Object
+    {
+        internal static int CreatedGameObjects;
+        internal static int ActivateCalls;
+        internal static int AddComponentCalls;
+        public bool activeSelf = true;
+        public int layer;
+        public Scene scene;
+        public Transform transform;
+        internal readonly List<Component> components = new List<Component>();
+
+        public GameObject() : this("") { }
+
+        public GameObject(string name)
+        {
+            this.name = name;
+            CreatedGameObjects++;
+            transform = new Transform { gameObject = this };
+        }
+
+        public T AddComponent<T>() where T : Component, new()
+        {
+            AddComponentCalls++;
+            var component = new T { gameObject = this };
+            components.Add(component);
+            return component;
+        }
+
+        public void SetActive(bool value)
+        {
+            ActivateCalls++;
+            activeSelf = value;
+        }
+    }
+
+    public sealed class SpriteRenderer : Component
+    {
+        internal static int SpriteWrites;
+        internal static int MaterialWrites;
+        internal static int SharedMaterialGets;
+        internal static int SharedMaterialFaultAtCall;
+        private Sprite _sprite;
+        private Material _sharedMaterial;
+        public int sortingOrder;
+        public int sortingLayerID;
+
+        public Sprite sprite
+        {
+            get => _sprite;
+            set { SpriteWrites++; _sprite = value; }
+        }
+
+        public Material sharedMaterial
+        {
+            get
+            {
+                SharedMaterialGets++;
+                if (SharedMaterialFaultAtCall == SharedMaterialGets)
+                    throw new InvalidOperationException("injected-material-get-fault");
+                return _sharedMaterial;
+            }
+            set { MaterialWrites++; _sharedMaterial = value; }
+        }
+    }
+
+    public static class ImageConversion
+    {
+        internal static int LoadCalls;
+        internal static int LoadFaultAtCall;
+
+        public static bool LoadImage(Texture2D texture, byte[] bytes, bool markNonReadable)
+        {
+            LoadCalls++;
+            if (LoadFaultAtCall == LoadCalls) throw new InvalidOperationException("injected-load-fault");
+            if (!KingdomEnhancedMod.PalaceResourceBytes.TryReadPngSize(bytes, out int width, out int height, out _))
+                return false;
+            texture.width = width;
+            texture.height = height;
+            return true;
+        }
+    }
+}
+
+namespace KingdomEnhancedMod
+{
+    internal sealed class CourtBinding
+    {
+        internal UnityEngine.Transform Parent;
+        internal UnityEngine.SpriteRenderer Reference;
+        internal UnityEngine.Material Material;
+    }
+}

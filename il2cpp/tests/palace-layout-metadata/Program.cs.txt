@@ -1,0 +1,80 @@
+using System.Text.Json;
+using KingdomEnhancedMod;
+int checks=0;
+void Check(bool value,string name) { checks++; if(!value)throw new Exception("FAIL: "+name); }
+const string guid="12345678-1234-1234-1234-123456789abc";
+string Wire(int schema) => schema==1
+ ? """{"v":1,"kind":"palace-court-area","campaignGuid":"12345678-1234-1234-1234-123456789abc","campaignSlot":0,"reign":3,"nativeEdgesMin":-300,"nativeEdgesMax":300,"left":20,"right":68,"blockWidth":12,"addedBlocks":4}"""
+ : schema==2 ? """{"v":2,"kind":"palace-dedicated-island","campaignGuid":"12345678-1234-1234-1234-123456789abc","campaignSlot":0,"reign":3,"nativeEdgesMin":-22,"nativeEdgesMax":22,"left":-22,"right":22,"blockWidth":4,"addedBlocks":11}"""
+ : """{"v":3,"kind":"palace-dedicated-island","campaignGuid":"12345678-1234-1234-1234-123456789abc","campaignSlot":0,"reign":3,"nativeEdgesMin":-200,"nativeEdgesMax":200,"left":-200,"right":200,"blockWidth":4,"addedBlocks":100,"layoutId":"palace-capital400-r1","layoutVersion":1}""";
+void Reject(string json,string name)=>Check(!PalaceLayoutMetadata.TryParse(json,out _,out _),name);
+for(int schema=1;schema<=3;schema++)
+{
+ string json=Wire(schema);
+ Check(PalaceLayoutMetadata.TryParse(json,out var parsed,out var recipe,out var reason),"parse schema"+schema+":"+reason);
+ Check(schema==1?recipe==null:ReferenceEquals(recipe,schema==2?PalaceLayoutRecipe.Known44:PalaceLayoutRecipe.Capital400),"resolved recipe"+schema);
+ Check(PalaceLayoutMetadata.TrySerialize(parsed,out string emitted,out reason),"serialize"+schema);
+ Check(json==emitted,"old/new canonical wire bytes"+schema);
+ Check(PalaceLayoutMetadata.TryParse(emitted,out var again,out _)&&PalaceLayoutMetadata.ContentEquals(parsed,again),"roundtrip"+schema);
+ using var doc=JsonDocument.Parse(json);
+ var props=doc.RootElement.EnumerateObject().ToArray();
+ string last="{"+string.Join(",",props.Where(x=>x.Name!="v").Select(x=>x.ToString()))+",\"v\":"+schema+"}";
+ Check(PalaceLayoutMetadata.TryParse(last,out _,out _),"schema-last"+schema);
+ foreach(var prop in props)
+ {
+  Reject("{"+string.Join(",",props.Where(x=>x.Name!=prop.Name).Select(x=>x.ToString()))+"}","missing "+schema+":"+prop.Name);
+  Reject(json[..^1]+","+prop+"}","duplicate "+schema+":"+prop.Name);
+ }
+ Reject(json[..^1]+",\"extra\":0}","unknown"+schema);
+ Reject(json.Replace("\"campaignSlot\":0","\"campaignSlot\":\"0\""),"int-string"+schema);
+ Reject(json.Replace("\"campaignSlot\":0","\"campaignSlot\":0.5"),"fraction"+schema);
+ Reject(json.Replace("\"reign\":3","\"reign\":-1"),"negative-reign"+schema);
+ Reject(json.Replace(guid,Guid.Empty.ToString()),"empty-guid"+schema);
+ Reject(json.Replace("\"left\":"+(schema==1?"20":schema==2?"-22":"-200"),"\"left\":1e309"),"nonfinite"+schema);
+ Reject(json.Replace("\"kind\":\""+(schema==1?"palace-court-area":"palace-dedicated-island")+"\"","\"kind\":null"),"null-kind"+schema);
+}
+Reject(Wire(2).Replace("-22","-200").Replace(":22",":200").Replace(":11",":100"),"schema2 cannot reinterpret400");
+Reject(Wire(2)[..^1]+",\"layoutId\":null,\"layoutVersion\":null}","old schema rejects even null new keys");
+Reject(Wire(3).Replace("palace-capital400-r1","palace-owned44-r1"),"schema3 cannot alias44");
+Reject(Wire(3).Replace("\"layoutVersion\":1","\"layoutVersion\":2"),"unknown layout version");
+Reject(Wire(3).Replace("\"v\":3","\"v\":3.0"),"schema must integer token");
+Reject(Wire(3).Replace("\"v\":3","\"v\":9"),"unknown schema");
+Reject("[]","non-object");Reject(new string(' ',2049),"size bound");
+foreach(var recipe in new[]{PalaceLayoutRecipe.Known44,PalaceLayoutRecipe.Capital400})
+{
+ var spans=Enumerable.Range(0,recipe.TileCount).Select(i=>new PalaceTileSpan(recipe.TileLeft(i),recipe.TileLeft(i)+recipe.TileWidth)).ToList();
+ Check(PalaceLayoutCoverage.TryValidate(recipe,spans,recipe.TileCount,out _),"actual exact livecoverage "+recipe.LayoutId);
+ spans.Reverse();Check(PalaceLayoutCoverage.TryValidate(recipe,spans,recipe.TileCount,out _),"unordered traversal "+recipe.LayoutId);
+ Check(!PalaceLayoutCoverage.TryValidate(recipe,spans,recipe.TileCount+1,out _),"extra active tile rejected");
+ var missing=spans.Skip(1).ToArray();Check(!PalaceLayoutCoverage.TryValidate(recipe,missing,recipe.TileCount-1,out _),"missing active tile rejected");
+ spans[0]=spans[1];Check(!PalaceLayoutCoverage.TryValidate(recipe,spans,recipe.TileCount,out _),"duplicate tile span rejected");
+ spans[0]=new PalaceTileSpan(float.NaN,0);Check(!PalaceLayoutCoverage.TryValidate(recipe,spans,recipe.TileCount,out _),"nonfinite tile rejected");
+}
+string actual44=File.ReadAllText(Path.Combine(AppContext.BaseDirectory,"fixtures/native44-geometry.json"));
+Check(PalaceLayoutCoverage.TryValidateSavedGeometry(actual44,PalaceLayoutRecipe.Known44,out _),"synthetic fixture uses observed native44 GroundData/Tile schema");
+Check(!PalaceLayoutCoverage.TryValidateSavedGeometry(actual44,PalaceLayoutRecipe.Capital400,out _),"old44 saved data cannot claim400");
+string Saved400(int count=100, int colliderWidth=400, bool duplicate=false, bool noGround=false)
+{
+ var objects=new List<object>();
+ objects.Add(new { uniqueID="Ground-test",prefabPath="Prefabs/Environment/Ground",localPosition=new{x=0,y=0,z=0},localScale=new{x=1,y=1,z=1},
+  componentData2=new[]{new{name="Ground",type="GroundData",data=JsonSerializer.Serialize(new{colliderOffset=new{x=0,y=.4375},colliderSize=new{x=colliderWidth,y=.875}})}}});
+ for(int i=0;i<count;i++) objects.Add(new {uniqueID="Tile-test-"+(duplicate?0:i),prefabPath="Prefabs/Environment/Tile Big",localPosition=new{x=-200+4*i,y=0,z=.01},localScale=new{x=1,y=1,z=1},
+  componentData2=new[]{new{name="Tile",type="TileData",data=JsonSerializer.Serialize(new{noGround,noSnow=false,snow=new{linkedObjectID=""}})}}});
+ return JsonSerializer.Serialize(new { objects });
+}
+Check(PalaceLayoutCoverage.TryValidateSavedGeometry(Saved400(),PalaceLayoutRecipe.Capital400,out _),"saved400 explicit geometry and IDs");
+Check(!PalaceLayoutCoverage.TryValidateSavedGeometry(Saved400(99),PalaceLayoutRecipe.Capital400,out _),"saved99 tiles rejected");
+Check(!PalaceLayoutCoverage.TryValidateSavedGeometry(Saved400(101),PalaceLayoutRecipe.Capital400,out _),"saved101 tiles rejected");
+Check(!PalaceLayoutCoverage.TryValidateSavedGeometry(Saved400(colliderWidth:44),PalaceLayoutRecipe.Capital400,out _),"saved44 collider rejected");
+Check(!PalaceLayoutCoverage.TryValidateSavedGeometry(Saved400(duplicate:true),PalaceLayoutRecipe.Capital400,out _),"duplicate saved UID rejected");
+Check(!PalaceLayoutCoverage.TryValidateSavedGeometry(Saved400(noGround:true),PalaceLayoutRecipe.Capital400,out _),"saved noGround rejected");
+Check(!PalaceLayoutCoverage.TryValidateSavedGeometry(Saved400().Replace("-200","-199.999999999"),PalaceLayoutRecipe.Capital400,out _),"saved X cannot round to valid float");
+if(args.Length==1)
+{
+ using var compressed=File.OpenRead(args[0]);
+ using var gzip=new System.IO.Compression.GZipStream(compressed,System.IO.Compression.CompressionMode.Decompress);
+ using var native=JsonDocument.Parse(gzip);
+ string actualIsland=native.RootElement.GetProperty("campaigns")[0].GetProperty("_islands")[12].GetRawText();
+ Check(PalaceLayoutCoverage.TryValidateSavedGeometry(actualIsland,PalaceLayoutRecipe.Known44,out var actualReason),"full actual167 native object sample: "+actualReason);
+}
+Console.WriteLine("PASS "+checks+" production metadata/coverage checks");
