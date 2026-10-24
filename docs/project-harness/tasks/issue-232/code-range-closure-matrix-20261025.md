@@ -15,7 +15,7 @@
 | 职业激活 readiness（owners=133、四开关、钱包一致、BankInit） | ✅ native 事实 | r2/r3：`ANDROID_PROFESSION_COMBAT_REGISTERED owners=133`、PROFESSION 2/2/6/2/2、BANK 1/8/4 |
 | HeroArcher/Musketeer/HeavyShield 视觉与接入 | ✅ native 事实 | visual-family r3：HeroArcher visual=True/attach 2 次、零缺失 ICall；新候选 r5–r7 无 MissingICall |
 | 真实付费激活/付款、付费枪 park/unpark、画面验收 | ⏳ 未验证 | 需要商店 placement/付费输入场景或带 sidecar 的已保存世界（当前 fresh/fixture 世界均无付费正例） |
-| 原生保存/读档/换岛/池重建（身份往返） | ⏳ 未验证 | 当前 world-load 仅证明加载路径；保存写入需 UI/换岛动作或 sidecar 世界 |
+| 原生保存/读档/换岛/池重建（身份往返） | 🟡 写入已证/回读待验 | r9：零输入自然保存写出新 global-v35 `e6e6e81d…` + 4 个 ModSave 身份 sidecar（`save-write-run-20261025.md`）；读档回读 load-run、换岛/池重建仍未验证 |
 | 手机/平板/多人/长跑 | 🚫 玩家实机单列 | 不阻塞代码范围 |
 
 ## Issue #262（经济/8 助手/9 类自动补货）
@@ -30,7 +30,7 @@
 | 经济 UI 子页/配置保存 | ✅ 代码+host tests（未跑真实手势） | `android/Patch_EconomyAutoRestockMenu.cs`；菜单/动作 host tests 绿 |
 | 真实补货扣款正例 | 🟡 部分 | 3 角色真实扣款：工人 price=6/native3（r5）、农夫 price=8/native4（r6/r7）、投石车油桶 price=10/native5（r6/r7），均零 Root 输入、postflight `paid-purchase-observed` |
 | 其余 6 类补货正例 | 🟡 部分/inconclusive | 狂战士 对象池/订单；村民 无目标；火塔罐 世界无火塔；火枪手 r7 火铳铺已放置但 `火枪人数或身份尚未确认`（fixture 世界无 identity baseline/sidecar，属世界前提，不判失败） |
-| 保存/读档/换岛/池重建（银行账本往返） | ⏳ 未验证 | 需要保存写入/换岛动作或带 sidecar 世界 |
+| 保存/读档/换岛/池重建（银行账本往返） | 🟡 写入已证/回读待验 | r9 零输入自然保存写出新 global-v35（含 prefs 键）与 ModSave sidecar；读档回读 load-run 待做 |
 | 手机/平板/多人/长跑 | 🚫 玩家实机单列 | 不阻塞代码范围 |
 
 ## 已知测试基建限制（非产品失败）

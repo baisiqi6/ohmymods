@@ -1,6 +1,6 @@
 {
-  "case": "controlled-candidate136-loader-restock7-isolated-20261025-r7-single1",
-  "objective": "economy-restock7-probe",
+  "case": "controlled-candidate136-save-watch2-isolated-20261025-r9-single1",
+  "objective": "save-watch2-probe",
   "serial": "emulator-5582",
   "avd": "ohmymods_android35_inprocess",
   "emulator": "/opt/homebrew/share/android-commandlinetools/emulator/emulator",
@@ -118,9 +118,9 @@
     "bootSecondsMax": 90.0,
     "prepareSecondsMax": 60.0,
     "worldSecondsMax": 360.0,
-    "totalSecondsMax": 720.0,
+    "totalSecondsMax": 1200.0,
     "cleanupSecondsMax": 30.0,
-    "windowMinRemainingSeconds": 750.0,
+    "windowMinRemainingSeconds": 1230.0,
     "leaseMarginMinutes": 15
   },
   "targetFiles": {
@@ -135,9 +135,9 @@
     "launchActivity": "eagle.simple.sdks.manage.FakeActivity",
     "probe": "/sdcard/Android/data/com.rawfury.kingdom2crowns/files/MelonLoader/Mods/OhMyMods.NativeSceneControlProbe.dll"
   },
-  "gateSHA256": "0253b186d3eed12a0b3f5d2e6eb975ca70b0f05a5bd47527ebee53d407cdeac7",
-  "sourceReviewSHA256": "9f9eaf3e2322c5ecdf5c1721d1ebf2ab0bf1364870b5531f5c2ed1e1045799c4",
-  "resourceWindowSHA256": "dad4da9a769edb783f139617eb55d2c596d7e9bc45e3879d356ae47a80ca9107",
+  "gateSHA256": "5df102733292db6f8ff07c4359c27cd8a4bfeea420b8603d6aae9c453486ad19",
+  "sourceReviewSHA256": "2908661ed90a8c32cc9c99fdcb93f2c1aedda2cc8a94c91ac073655be818f5bd",
+  "resourceWindowSHA256": "11c7df4cf381c8b9fd5dcea33248e98edea7f8d45ed9f39bd90e3ed5700c569a",
   "taskIdentity": {
     "issue": 232,
     "owner": "mac-dsh-ohmymods-android-operator",

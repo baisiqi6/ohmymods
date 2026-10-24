@@ -367,3 +367,9 @@ Root 在旧实现得到5条失败、新实现19/0生命周期检查，覆盖 ina
 
 - r6（`6cbd2a19…`）：`农夫 补货成功 price=8`、`投石车油桶 补货成功 price=10` 两次真实扣款；狂战士/村民/火塔罐/火枪手 分别为对象池/订单/无目标/火铳铺 gate 的 world-precondition 记录。
 - r7（`1a3070ea…`）：`[MusketeerShop] ready price=4` 放置成功、cfg gate 消失；火枪手自动采购 inconclusive（`火枪人数或身份尚未确认`，无 purchase/created 行）；同 run 再次取得农夫/投石车油桶两次扣款。
+
+
+## 2026-10-25 追加：原生保存写入（save-watch r9）
+
+- r9（plan `9ffb0dba…`，零 Root 输入，609e 观察 + 有界 save-watch）在 Android 实机取得首次原生保存写入：`Release/global-v35` 由 fixture `35faea07…`（260,337B）变为 `e6e6e81d…`（263,366B），并在 stop 前捕获 4 个 ModSave 身份 sidecar（hero-identities.v1、musketeer-identities.v2、musketeer-pair-global-v35 及其 .bak）；postflight `saveClassification=observed-captured`、`MissingIl2CppInternalCallException` 0、资源交还通过。
+- 该证据证明保存写入路径与 mod 保存钩子执行；银行/助手等 prefs 键位于该 global-v35 内，但**读档回读**尚未验证（load-run 待做），不能据此宣称保存/读档往返或银行账本往返通过。

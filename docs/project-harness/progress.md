@@ -1,3 +1,10 @@
+## 2026-10-25 — 首次 Android 原生保存写入证据（save-watch r9）；r8 工具故障如实保留
+
+- 新增 `tasks/issue-232/save-write-run-20261025.md`（Worker J host-only 派生 + Operator 执行）。
+- **r8**（plan `9c847ad2…`，gate 已消费）：save-watch 在 baseline 后 0.22s abort（`state=aborted/reason=not-run/error=ADB command failed/unknown`），无 capture；观察/资源链正常。根因：`case.shell()` 的 `shlex.join` 把 `&&` 引用成字面量（设备 `stat: '&&': No such file`）→ `check=True` 在 fallback 前抛错，且 fallback 未 latch statOnly → 循环再探再抛。属工具失败，不据此得产品结论，证据只读保留。
+- **r9**（plan **`9ffb0dba…`**，旧 `9c847ad2…` 正常 revise；gate 消费一次；零 Root 输入；observer STOP 后 game 继续运行、有界 save-watch 600s）：probe 改为单条正确引用 `adb shell -T "stat … && sha256sum …"` + `check=False`、stat-only latch、单次失败 bounded inconclusive 不 abort。结果 `saveWatch=completed/observed/reason=file-changed/watchSeconds=134.6/sampleMode=stat+sha`；**`Release/global-v35` 由 fixture `35faea07…`（260,337B）变为 `e6e6e81d…`（263,366B）**，在 owned stop 前捕获该文件与 `ModSave/{hero-identities.v1.json, hero-identities.v1.json.bak, musketeer-identities.v2.json, musketeer-pair-global-v35.json}`（inventory `d96b9750…`）；同段再次取得农夫/投石车油桶两次扣款；`MissingIl2CppInternalCallException` 0、零 Root/PNG、postflight `saveClassification=observed-captured`、资源/原盘交还通过。
+- 边界：证明**保存写入 + mod 保存钩子执行**，不是读档回读/同进程 reload/池重建/换岛；load-run（用 captured global-v35 + ModSave seed 作输入）已派生待执行，之后才能宣称保存-读档往返。r9 前还修正了派生链 old-plan 常量笔误（r8 的 66 字符 typo），修正后 packet/review/pins 重建，canonical 未被污染。
+
 ## 2026-10-25 — 代码范围收口矩阵：可达引擎缺口归零、全量 managed 全绿、P6–P8 决策记录
 
 - 全量 managed 回归在当前 HEAD（产品 `9c81e63`）复跑全绿：heavy-shield 1144/6、hero-arrow 177(+13 missing)、crossbowman 34/311(+34 missing)、musketeer 121/122、wall-engineers 260/297、auto-restock 159、counts 86、coin-courier 33、bank-teleport 17、teleport-fx 15、greek-bank 73、bank-atlas 37、banker-fixed 31、hero-native-visuals 161/164、hero-scarf 41/49、cloth-view 38，另 greek xunit 88/85（此前的 missing-mode 与 xunit 仍有效）。
