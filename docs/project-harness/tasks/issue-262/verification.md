@@ -379,3 +379,5 @@ Root 在旧实现得到5条失败、新实现19/0生命周期检查，覆盖 ina
 
 - r9 零输入自然保存写出新 `global-v35`（`e6e6e81d…`/263,366B）+ 4 个 ModSave sidecar；r12 把该存档与 sidecar 作为输入（seed 安装 byte-verified，hero v1 replaced-expected-baseline 352a864c→9d90a109）正常 boot 读档：首 READY/观察末/stop 设备 sha 均等于输入存档、`autosaveDuringWindow=false`、零 MissingICall、`[HeroRecruitment] loaded:paid:ctx/epoch` 与 `[Musketeer] loaded:records=12:bound=10` token 匹配、postflight `loaded-identity-matched`、cleanup 经 reap 证明。
 - 边界：两运行证据（非同进程 Game.Reload）；银行/助手 prefs 位于该 `global-v35` 内，但**内容级回读**仍需后续 probe v2；换岛/池重建未验，不能据此关闭 #262。
+
+- r12 读档同段观测到 `[AndroidPoolLifecycle] native InitPools returned … count=109` 后 `[Roles] Registered synced pool for char:Archer`、`[BankAssistants] Authority spawned deterministic 8-assistant pool`、`[Crossbowman] registered synced pool for KEM_CrossbowBolt`：**读档后池重注册已观测**；换岛触发池重建未验。

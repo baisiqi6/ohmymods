@@ -27,3 +27,11 @@
 - r9 save：result `adddbc90…19c97c`、observed `9f2bfede…e0add19b`、postflight `b4dfdda9…23ac744`、spent gate `5df10273…486ad19`、captured global-v35 `e6e6e81d…c61cd61`、inventory `d96b9750…40356572`。
 - r12 load：result `4ccbd554…732c81a`、observed `c2099b10…5253f44`、postflight `2231162f…b43ad5`、spent gate `546810e9…10eb2a`、canonical readback `b81da11b…494582`。
 - 输入 manifest v2 `c978dc03…`；计划链 r9 `9ffb0dba…` → r10 `b80f5893…`（tool abort）→ r11 `b119b26b…`（load facts/cleanup 误判）→ r12 `89a36c64…`（clean pass）。
+
+## 读档后的池重注册（r12 同段观测，非换岛）
+
+r12 读档 boot 日志同段可见：
+- `[AndroidPoolLifecycle] native InitPools returned pm=0x6FE9065DE0 count=109 active=True`（读档完成、world 建立后 InitPools 被重新调用）；
+- 随后 `[Roles] Registered synced pool for char:Archer (syncID=30000)`、`[BankAssistants] Authority spawned deterministic 8-assistant pool`；
+- 观察窗内 `[Crossbowman] registered synced pool for KEM_CrossbowBolt (syncID=31000)`。
+- 这证明**读档路径上 InitPools + 既有 Android 池重注册钩子被真实执行**（含跨 biome Archer 池与 8 助手池），是本任务“读档后池重建”范围的可观测证据；但**不是换岛**（island switch/pool rebuild after island transition）证据，换岛仍需新的输入/存档前提，仍未验证。

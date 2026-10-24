@@ -15,7 +15,7 @@
 | 职业激活 readiness（owners=133、四开关、钱包一致、BankInit） | ✅ native 事实 | r2/r3：`ANDROID_PROFESSION_COMBAT_REGISTERED owners=133`、PROFESSION 2/2/6/2/2、BANK 1/8/4 |
 | HeroArcher/Musketeer/HeavyShield 视觉与接入 | ✅ native 事实 | visual-family r3：HeroArcher visual=True/attach 2 次、零缺失 ICall；新候选 r5–r7 无 MissingICall |
 | 真实付费激活/付款、付费枪 park/unpark、画面验收 | ⏳ 未验证 | 需要商店 placement/付费输入场景或带 sidecar 的已保存世界（当前 fresh/fixture 世界均无付费正例） |
-| 原生保存/读档/换岛/池重建（身份往返） | 🟢 保存+读档两run已验 / 换岛·池重建未验 | r9 自然保存写出新 global-v35 `e6e6e81d…`+4 sidecar；r12 以该存档+sidecar 为输入读档：首 READY/观察末/stop sha 一致、`[HeroRecruitment] loaded:paid:ctx/epoch` 与 `[Musketeer] loaded:records=12` token 匹配、postflight `loaded-identity-matched`、cleanup 经 reap 证明（`save-load-roundtrip-20261025.md`）。不是同进程 reload；换岛/池重建未验 |
+| 原生保存/读档/换岛/池重建（身份往返） | 🟢 保存+读档两run已验 / 换岛·池重建未验 | r9 自然保存写出新 global-v35 `e6e6e81d…`+4 sidecar；r12 以该存档+sidecar 为输入读档：首 READY/观察末/stop sha 一致、`[HeroRecruitment] loaded:paid:ctx/epoch` 与 `[Musketeer] loaded:records=12` token 匹配、postflight `loaded-identity-matched`、cleanup 经 reap 证明（`save-load-roundtrip-20261025.md`）。不是同进程 reload；**读档后 InitPools+Archer/助手/CrossbowBolt 池重注册已在 r12 同段观测**；换岛触发的池重建仍未验 |
 | 手机/平板/多人/长跑 | 🚫 玩家实机单列 | 不阻塞代码范围 |
 
 ## Issue #262（经济/8 助手/9 类自动补货）
