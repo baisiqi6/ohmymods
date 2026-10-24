@@ -1,3 +1,7 @@
+## 2026-10-25 — #232/#262 代码范围收口：PR #263 合并后记录关闭依据
+
+PR #263 已于 2026-10-24T20:40:27Z 合并（merge commit `e15d872…`，base `release/v9.5.13`）；base 合并后 Android 候选 `d6113730…` 与已验证 `6b14879d…` IL 方法体完全一致（5880 methods 0 diff）。新增 `tasks/issue-232/closeout-20261025.md`：汇总可达引擎缺口=0（P1–P5 修复复扫归零、P6–P8 不可达决策）、构建/全量测试/审查、真实补货扣款（工人/农夫/投石车油桶）、保存写入、保存→读档两运行往返、prefs 内容级回读（CoinCourier/SharedBank/HeroRights 一致，MusketeerRights 为 load ConfirmBaseline 设计内重确认）、读档后 InitPools+池重注册；并如实 pending 换岛池重建、其余补货角色、付费职业/枪、手机/多人/长期玩法与已知语义差。按 issue 原文“范围 PR 合并 + 必要代码验证后关闭代码 Issue，不预付实机”，准备在 checklist 走 review/mark-done 并关闭 #232/#262 代码范围。
+
 ## 2026-10-25 — 追上 release/v9.5.13：冲突解决、Android IL 等价确认、PR #263 可合并
 
 PR #263 原与 base `release/v9.5.13`（`98259af`）分叉 16/59 commits、mergeable=dirty；已将 base 合入分支（merge commit `9e7dda6`）。冲突三处：`il2cpp/CoinCourierPersistence.Hooks.cs`（保留 Palace palace capture 于 `#if !ANDROID` 内，Android bank `SharedBankNative.BeginSave/EndSave/Marker` 保持在条件外=与原 Android 行为一致）、`android/tests/Program.cs`（冻结 hash 表按合并后源码更新：MapWidthTerrain=`2b562fb4…`、ModPanelControls=`803ebedb…`）、`docs/project-harness/progress.md`（双方条目按日期保留）。合并后 Android 候选 `d611373097fa53772e98f0028b2858830bd19df9513280181f890b69f222e30e`（208/176/25、2,281,472B、noDeployment）；与合并前候选 `6b14879d…` 做 IL 方法体对比：**5880 methods，0 added/removed/different**（base 改动全部为 `#if !ANDROID`/palace 条件或元数据输入差异），因此既有 Android native 证据仍适用。合并树复跑全量 managed：22 组全绿（含 capture/recovery 5/5、5/5）+ missing 模式 13/34 + greek xunit 88/85。PR #263 现 mergeable=clean，准备合并。
