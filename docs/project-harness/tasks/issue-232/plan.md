@@ -1,6 +1,6 @@
 {
-  "case": "controlled-candidate136-save-load3-isolated-20261025-r12-single1",
-  "objective": "save-load3-probe",
+  "case": "controlled-candidate136-save-load4-isolated-20261025-r13-single1",
+  "objective": "save-load4-probe",
   "serial": "emulator-5582",
   "avd": "ohmymods_android35_inprocess",
   "emulator": "/opt/homebrew/share/android-commandlinetools/emulator/emulator",
@@ -36,8 +36,8 @@
     "preferenceKeys": 58
   },
   "addon": {
-    "path": "/Users/Admin/projects/ohmymods/.local/tasks/android-profession-archery-20261014/g19-s1-runtime-preparation-20261018/resume-20261019/loader-control-probe-worker/root-build/bin/OhMyMods.NativeSceneControlProbe.dll",
-    "sha256": "609efed2b058d398f3333c06d39d2c8318a72bbc827f0b68fa781927932b74f8",
+    "path": "/Users/Admin/projects/ohmymods/.local/tasks/android-profession-archery-20261014/g19-s1-runtime-preparation-20261018/prefs-probe-v2/root-build/bin/OhMyMods.NativeSceneControlProbe.dll",
+    "sha256": "9339efaafe3d5bf0ccb82b81c546ed64161b2071051afc41f00be0ddf5e01c12",
     "dest": "/sdcard/Android/data/com.rawfury.kingdom2crowns/files/MelonLoader/Mods/OhMyMods.NativeSceneControlProbe.dll",
     "assembly": "OhMyMods.NativeSceneControlProbe"
   },
@@ -172,9 +172,9 @@
     "launchActivity": "eagle.simple.sdks.manage.FakeActivity",
     "probe": "/sdcard/Android/data/com.rawfury.kingdom2crowns/files/MelonLoader/Mods/OhMyMods.NativeSceneControlProbe.dll"
   },
-  "gateSHA256": "546810e993bf4f690e168e47f2bc5f771dd4e8deaaa98d9db922f52de310eb2a",
-  "sourceReviewSHA256": "93f7cea3c4c2c0102b8f2290087c75fbef33dac75dd8ed56b1d0e79a0663035e",
-  "resourceWindowSHA256": "7bd4c532b5ff2384105575345dad836e421d6b15f0651824c2b8b729681154e4",
+  "gateSHA256": "465e2db9a0124f4bf3626ac663256c64b2ec8f60be644ed90b801062847ac5fe",
+  "sourceReviewSHA256": "df40dc8b8f00704e15e98aec20d9ad5f81a48212356d3b15fc9a2a53a6d098e3",
+  "resourceWindowSHA256": "cb510b5dc0b037852e07e1949fb47af38d7c57b1fc2268fb5015797d7e336fba",
   "taskIdentity": {
     "issue": 232,
     "owner": "mac-dsh-ohmymods-android-operator",

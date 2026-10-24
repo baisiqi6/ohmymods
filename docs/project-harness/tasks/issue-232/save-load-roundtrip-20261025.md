@@ -35,3 +35,15 @@ r12 读档 boot 日志同段可见：
 - 随后 `[Roles] Registered synced pool for char:Archer (syncID=30000)`、`[BankAssistants] Authority spawned deterministic 8-assistant pool`；
 - 观察窗内 `[Crossbowman] registered synced pool for KEM_CrossbowBolt (syncID=31000)`。
 - 这证明**读档路径上 InitPools + 既有 Android 池重注册钩子被真实执行**（含跨 biome Archer 池与 8 助手池），是本任务“读档后池重建”范围的可观测证据；但**不是换岛**（island switch/pool rebuild after island transition）证据，换岛仍需新的输入/存档前提，仍未验证。
+
+## r13：native prefs 内容级回读（probe v0.0.2）
+
+- 新 probe `native-scene-control-0.0.2`（零 Harmony、零写、只调用 `GlobalSaveData.loaded→prefs→contents` getter；DLL `9339efaa…`，receipt `c79bd6ac…`，review `590cdcd1…`）。load-run r13（plan **`4d8caf33…`**，旧 r12 plan `89a36c64…` 正常 revise；零 Root；30min）仍加载 r9 捕获存档+sidecar；load 结果同 r12：`evidenceReportable=true`、`loadClassification=loaded-identity-matched`、首 READY sha=`e6e6e81d…`、cleanup 经 reap 证明。
+- host codec 解码 r9 捕获 `global-v35`（gzip+UTF-8 JSON v16，`prefs.srzEntries`）得到对照 manifest `ebc19fd8…`。probe 在 READY 后输出 4 行 `PREFS key=… present/len/sha256`：
+  - **`KEM.CoinCourier.Campaigns.v1` 158B `7b28c96c…` = manifest ✓**
+  - **`MyMod_SharedBankNative_v1` 71B `5691a131…` = manifest ✓**
+  - **`KingdomEnhancedMod_HeroRights_v1` 15690B `62a0f6a3…` = manifest ✓**
+  - `KingdomEnhancedMod_MusketeerRights_v1` 68642B `dab3fae8…` ≠ manifest `cd66c3c1…`（长度相同、内容不同）→ `prefs-negative`（1 key）。
+- 对 musketeer 差异的源码核因：`MusketeerPersistence.LoadCapture.End(true)` 在成功读档时调用 `Commit(State, disk => disk.Archive.ConfirmBaseline(...), Hash)`；`Commit` 经 `MusketeerNativeSave.Stage` 更新内存中的 archive/prefs（源码注释明确“本方法也被 load 栈（ConfirmBaseline）调用”）。即**读档成功后产品会按设计重新确认 musketeer baseline**，内存 prefs 内容随之变化；这是 PC 共享的 load 逻辑，不是 Android 特有失败。r13 的差异发生在我方 probe 于 READY 后读取之前，属于预期 load-time 规范化。
+- 结论：**native save→load 的内容级回读对 CoinCourier/SharedBank/HeroRights 三 key 完全一致**（含银行账本与金币哥布林状态、英雄权利），MusketeerRights 为已解释的 load-time baseline 重确认（非失败）；load 判定仍为 loaded-identity-matched、cleanup/evidenceReportable 通过。未验：换岛/池重建、玩家实机/手机/多人/长跑。
+- 证据：r13 result `b758474c…bcabf6`、observed `a0e47727…278b5d`、postflight `354fa163…070cee`、spent gate `465e2db9…ac5fe`、readback `04bcead4…f374e`；prefs manifest `ebc19fd8…`。

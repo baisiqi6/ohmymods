@@ -381,3 +381,5 @@ Root 在旧实现得到5条失败、新实现19/0生命周期检查，覆盖 ina
 - 边界：两运行证据（非同进程 Game.Reload）；银行/助手 prefs 位于该 `global-v35` 内，但**内容级回读**仍需后续 probe v2；换岛/池重建未验，不能据此关闭 #262。
 
 - r12 读档同段观测到 `[AndroidPoolLifecycle] native InitPools returned … count=109` 后 `[Roles] Registered synced pool for char:Archer`、`[BankAssistants] Authority spawned deterministic 8-assistant pool`、`[Crossbowman] registered synced pool for KEM_CrossbowBolt`：**读档后池重注册已观测**；换岛触发池重建未验。
+
+- r13 probe v0.0.2 内容级回读（plan `4d8caf33…`，零 Root）：`KEM.CoinCourier.Campaigns.v1`、`MyMod_SharedBankNative_v1`、`KingdomEnhancedMod_HeroRights_v1` 三 key 与解码 manifest 完全一致（sha/len 逐项）；`KingdomEnhancedMod_MusketeerRights_v1` 差异经源码核因为读档成功后 `LoadCapture.End→Commit→ConfirmBaseline→MusketeerNativeSave.Stage` 的设计内 baseline 重确认（PC 共享 load 逻辑），非 Android 失败。load 判定 loaded-identity-matched、cleanup/evidenceReportable 通过。换岛/池重建（换岛触发）与玩家实机仍未验证。

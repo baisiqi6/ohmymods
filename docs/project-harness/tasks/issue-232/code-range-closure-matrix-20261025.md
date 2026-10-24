@@ -30,7 +30,7 @@
 | 经济 UI 子页/配置保存 | ✅ 代码+host tests（未跑真实手势） | `android/Patch_EconomyAutoRestockMenu.cs`；菜单/动作 host tests 绿 |
 | 真实补货扣款正例 | 🟡 部分 | 3 角色真实扣款：工人 price=6/native3（r5）、农夫 price=8/native4（r6/r7）、投石车油桶 price=10/native5（r6/r7），均零 Root 输入、postflight `paid-purchase-observed` |
 | 其余 6 类补货正例 | 🟡 部分/inconclusive | 狂战士 对象池/订单；村民 无目标；火塔罐 世界无火塔；火枪手 r7 火铳铺已放置但 `火枪人数或身份尚未确认`（fixture 世界无 identity baseline/sidecar，属世界前提，不判失败） |
-| 保存/读档/换岛/池重建（银行账本往返） | 🟡 native 存档往返已验 / 账本内容级未验 | r9 保存 + r12 读档（输入=回读 sha 一致、身份 sidecar token 匹配）；银行 prefs 的内容级回读仍需 probe v2；换岛/池重建未验 |
+| 保存/读档/换岛/池重建（银行账本往返） | 🟢 native 存档+prefs 内容级已验 / 换岛·池重建未验 | r9 保存 + r12 读档（输入=回读 sha 一致）；r13 probe v0.0.2 内容级回读：CoinCourier `7b28c96c…`、SharedBank `5691a131…`、HeroRights `62a0f6a3…` 与解码 manifest 完全一致；MusketeerRights 差异经源码核因为 load 时 `ConfirmBaseline` 设计内重确认（非失败）。读档后 InitPools+池重注册已观测；换岛仍缺输入/世界前提 |
 | 手机/平板/多人/长跑 | 🚫 玩家实机单列 | 不阻塞代码范围 |
 
 ## 已知测试基建限制（非产品失败）
