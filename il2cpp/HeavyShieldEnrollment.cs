@@ -47,10 +47,16 @@ internal static class HeavyShieldEnrollment
     // describe a real island, so only an exact slot==land match counts. The bound
     // is checked before any enumeration.
     internal static bool TryCurrentSlot(CampaignSaveData campaign, IslandSaveData current, out int slot)
+        => TryUniqueSlot(campaign, current, out slot)
+           && current != null && slot == current.land;
+
+    // Bounded identity read only: the exact native member must appear once in
+    // the campaign table. The land field is deliberately not consulted; a
+    // verified generation target may still carry the raw placeholder 0.
+    internal static bool TryUniqueSlot(CampaignSaveData campaign, IslandSaveData current, out int slot)
     {
         slot = -1;
-        if (campaign == null || current == null || current.land < 0
-            || current.Pointer == IntPtr.Zero) return false;
+        if (campaign == null || current == null || current.Pointer == IntPtr.Zero) return false;
         try
         {
             var islands = campaign._islands;
@@ -64,7 +70,7 @@ internal static class HeavyShieldEnrollment
                     && entry.Pointer == current.Pointer) { seen++; slot = index; }
                 index++;
             }
-            return seen == 1 && slot == current.land;
+            return seen == 1;
         }
         catch { slot = -1; return false; }
     }
@@ -75,7 +81,8 @@ internal static class HeavyShieldEnrollment
     // caller keeps the first purchase closed instead of falling through.
     internal static Outcome TryFreezeRows(CampaignSaveData campaign, IslandSaveData current,
         string campaignGuid, int challenge, HeavyShieldSavedCampaign[] copies,
-        out Candidate candidate, out string reason, bool allowUnpaidLegacyUpgrade = false)
+        out Candidate candidate, out string reason, bool allowUnpaidLegacyUpgrade = false,
+        int generationSlot = -1)
     {
         candidate = null;
         reason = null;
@@ -88,13 +95,26 @@ internal static class HeavyShieldEnrollment
             int count = islands.Count;
             if (count <= 0) { reason = "empty"; return Outcome.NoEnrollmentNeeded; }
             if (count > HeavyShieldSaveSchema.MaxIslands) { reason = "capacity"; return Outcome.Unavailable; }
-            if (!TryCurrentSlot(campaign, current, out _)) { reason = "current"; return Outcome.Unavailable; }
+            if (generationSlot >= 0)
+            {
+                // Only the explicitly verified generation target may use its
+                // unique slot as authority while the land field is still 0.
+                if (!TryUniqueSlot(campaign, current, out int authoritativeSlot)
+                    || authoritativeSlot != generationSlot
+                    || (current.land != 0 && current.land != generationSlot))
+                { reason = "current"; return Outcome.Unavailable; }
+            }
+            else if (!TryCurrentSlot(campaign, current, out _))
+            { reason = "current"; return Outcome.Unavailable; }
             var result = new Candidate();
             int index = 0;
             foreach (var entry in islands)
             {
                 int slot = index++;
                 if (entry == null || entry.Pointer == IntPtr.Zero) continue;
+                // The generation target is never pre-occupied; its pop consumes
+                // the snapshot this boundary would otherwise freeze.
+                if (generationSlot >= 0 && entry.Pointer == current.Pointer) continue;
                 // Placeholder/divergent slot: never a real island; never pre-occupied.
                 if (slot != entry.land || entry.land < 0) continue;
                 // Generation not complete: the existing generation boundary owns it.
