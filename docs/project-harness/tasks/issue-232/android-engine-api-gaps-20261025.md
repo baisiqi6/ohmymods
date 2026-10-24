@@ -32,3 +32,12 @@
 1. 集成 G/H → 构建新候选（G-only 已使候选 SHA 变为 `d5223bec…`；H 合并后再次变化）→ 全量受影响 managed 套件 + Android 编译闸 + 新候选的 MemberRef 缺口复扫。
 2. 候选变化后按既有链重建 gameplay addon binding / review / pins / case（不能只改单个常量），用新候选重跑 gameplay readiness 作为回归。
 3. 实机/玩法正例与画面验收仍单列；Issue #232/#262 保持 open，PR #263 保持 Draft。
+
+## 集成结果与候选复扫（2026-10-25，更新）
+
+- P1/P2 分支 `dsh/engine-api-gaps-wallpierce-20261025` @ `e90423f` 与 P3–P5 分支 `dsh/engine-api-gaps-physics-20261025` @ `5abf4ff` 已由 Operator 审查并以 `442faca`、`b78b03a`、`9c81e63` 集成到 `dsh/android-economy-262-20261023`（推送 `codex/android-economy-262`），HEAD `9c81e63`。
+- 集成后候选 `6b14879dee633f67a3e1853058579e1c7143310986bc866f7a4b040298a532b3`（2,281,472 B；208/176/25，noDeployment）。
+- Operator 复跑：heavy-shield PC 1144 / Android 6；hero-arrow-pierce 177（+ missing 13）；crossbowman-wallpierce 34 tests/311 assertions（+ missing 34）；musketeer PC 121 / Android 122；wall-engineers PC 260 / Android 297；greek-impact xunit 88；hero-archer/greek xunit 85；回归 coin-courier 33、bank-teleport 17、teleport-fx 15、greek-bank 73、hero-native-visuals 161/164、hero-scarf 41/49、cloth-view 38——全部通过。
+- 用同一 MemberRef sweeper 复扫新候选：`gaps.tsv` 仅剩 **P6–P8（当前 Android 安装集不可达）**；P1–P5 已从候选 IL 中归零，替代路径（数组 NonAlloc/数组 OverlapArea/Bounds.ClosestPoint/StringToHash+GetFloat(int)/own-ledger wall-pierce）均在候选中。
+- 新候选已用于 gameplay readiness r3 单次回归（见 `gameplay-profession-activation-run-20261025.md` r3 节）：evidenceReportable/controlValid 通过、零 MissingICall、PROFESSION/BANK markers 完整、资源交还通过。
+- 残余风险不变：P1 假设“本模块是唯一 IgnoreCollision 写者”（编译集内已审计；游戏原生侧静态不可完全排除）；P3 Android ≥1024 命中断段 fail-closed（真实不可达）；P4 ≥256 collider 保守 fail-closed；P5 AABB 近似 over-inclusive；P6–P8 待 DeadlandsPowers/采集面板移植决策再评估。

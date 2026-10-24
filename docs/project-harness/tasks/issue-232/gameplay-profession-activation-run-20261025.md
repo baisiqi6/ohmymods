@@ -58,3 +58,12 @@
 1. 集成 Worker G（P1/P2，`e90423f`）与 Worker H（P3–P5）修复，构建新候选（G-only 产物 `d5223bec…`），跑全量受影响 managed 套件与 Android 编译闸。
 2. 候选变化后按既有链重建 V3 addon binding / review / pins / gameplay case（不能只改单个常量），用新候选重跑本 readiness case 作为回归。
 3. 之后才是职业/银行玩法正例（付款、placement、读档/换岛）与视觉/手机/多人/长跑实机验收；Issue #232/#262 保持 open，PR #263 保持 Draft。
+
+## r3：集成 P1–P5 引擎缺口修复后的新候选回归（同场景，单次通过）
+
+- 产品集成：`442faca`（Worker G：P1 wall-pierce own-ledger / P2 Animator int-hash）、`b78b03a` + `9c81e63`（Worker H：P3–P5 数组 overload/Bounds.ClosestPoint + ANDROID-mode 测试）；已推送 `codex/android-economy-262` HEAD `9c81e63`。
+- 新候选 `6b14879dee633f67a3e1853058579e1c7143310986bc866f7a4b040298a532b3`（2,281,472 B；208 Compile/176/25，构建前后输入 held、`noDeployment=true`）；V3 observer 重新绑定该候选并重编 `6e3f55990e9f88b5219d06d525b6cd6d8d1e7f60f2fd57458d06ae84386f9a84`（51,200 B；receipt 更新）；cfg 仍 `16b686…`。
+- 新 case `controlled-candidate136-gameplay-profession-activation-isolated-20261025-r3-single1`；plan **`48b96012df3f6210a906f18d0f4023a151c0e99ee6972c4c68e8c02fbb4f8e51`**（canonical `plan.md` 已同步）；旧 plan `7d72dadf…` 正常 revise/approve；gate `40b543a7…eeefc` 消费一次；window `17:18:25–17:43:25Z`；lease `18:20:47Z` 覆盖 end+15min。
+- controller exit `0`、`state=evidence-observed`、`evidenceReportable=true`、`controlValid=true`（mainHash=candidate;app133=133;initContract=exact）、world/strictSurface 观测、`terminal=input-stop`、`elapsed 238.8s`；候选 hash 行 `6B14879D…A532B3` 实读 1 次；`MissingIl2CppInternalCallException`/`sig=` 0 次；marker 计数与 r2 相同（PROFESSION 2/2/6/2/2、BANK 1/8/4、app133=133、V3 contract/int/stop 各 1）；Root 一次 27s swipe 仍实际路由（x -76→-19.619、coins 0→13，`DISCRETE_SIDE_EFFECT_STOP`，pay 未发、无 retry）、Root PNG 0、controller PNG 1。
+- Root postflight（`ad080692…becf`）：protected8 同级、resources/ports/ADB 交还通过、`rootInputContractHeld=true`；边界与 r2 相同（非付款/placement/城堡/角色/存档/画面）。
+- 候选静态复扫（同一 MemberRef sweeper）：集成后仅剩 **P6–P8（当前不可达）** 三条 native 缺口；P1–P5 在候选 IL 中零引用。
