@@ -341,7 +341,10 @@ namespace ShoreArtTests
             int c0 = UnityEngine.Object.CreateCount, d0 = UnityEngine.Object.DestroyCount;
             bool ok1 = KingdomEnhancedMod.MapExtensionIslandArt.TryEnsure();
             int c1 = UnityEngine.Object.CreateCount, d1 = UnityEngine.Object.DestroyCount;
-            Check(ok1 && (c1 - c0) == 5 && (d1 - d0) == 1, "lifecycle/success-created5-destroyed1(raw) got c=" + (c1 - c0) + " d=" + (d1 - d0));
+            // Base shore (2 textures + 2 sprites) plus one cold decoration texture/sprite; both
+            // raw decode textures are destroyed immediately.
+            Check(ok1 && (c1 - c0) == 8 && (d1 - d0) == 2,
+                "lifecycle/success-created8-destroyed2(raw) got c=" + (c1 - c0) + " d=" + (d1 - d0));
             KingdomEnhancedMod.MapExtensionIslandArt.Reset();
             int c2, d2;
             bool ok2;
@@ -672,8 +675,71 @@ namespace ShoreArtTests
                     " restoredNative=" + CompareSpriteNative(imgSW._sprite, nativeSW));
             }
 
+            DecorationAssets();
+
             Console.WriteLine((_fails == 0 ? "ALL PASS" : "FAILURES") + " checks=" + _checks + " fails=" + _fails);
             return _fails == 0 ? 0 : 1;
+        }
+
+        private static void DecorationAssets()
+        {
+            foreach (int land in new[] { 11, 13 })
+            {
+                string tag = "decoration/" + land;
+                byte[] decoration = KingdomEnhancedMod.MapExtensionIslandArt.ReadDecorationResourceBytes(land);
+                Check(decoration != null, tag + " embedded resource");
+                if (decoration == null) continue;
+                Check(Sha(decoration) == (land == 11
+                        ? "8b0802c80dc98f1ebe2a5dbd1c4a1a6ec86951787f2eb83c8ca53a98656f48cd"
+                        : "bb9594e507c9c28458698a5761d8e0e329975002a120233b53460bcee4bc3d75"),
+                    tag + " reviewed asset file hash");
+                Png.DecodeBottomUp(decoration, out int width, out int height, out Color32[] pixels);
+                byte[] baseBytes = KingdomEnhancedMod.MapExtensionIslandArt.ReadResourceBytes(land);
+                Png.DecodeBottomUp(baseBytes, out int bw, out int bh, out Color32[] basePixels);
+                var basePrep = KingdomEnhancedMod.MapExtensionIslandArtVariant.Prepare(land, basePixels, bw, bh);
+                Check(basePrep != null, tag + " base prep available");
+                int landPixels, waterPixels;
+                Check(KingdomEnhancedMod.MapIslandDecorationArt.TryValidate(land, pixels, width, height,
+                        basePrep, out landPixels, out waterPixels) && landPixels > 0 && waterPixels > 0,
+                    tag + " geometry contract land=" + landPixels + " water=" + waterPixels);
+                Check(!KingdomEnhancedMod.MapIslandDecorationArt.TryValidate(land, pixels, width - 1, height,
+                        basePrep), tag + " wrong canvas rejected");
+                var bad = (Color32[])pixels.Clone();
+                int opaque = Array.FindIndex(bad, p => p.a != 0);
+                bad[opaque] = new Color32(227, 227, 227, 128);
+                Check(!KingdomEnhancedMod.MapIslandDecorationArt.TryValidate(land, bad, width, height, basePrep),
+                    tag + " non-binary alpha rejected");
+                bad = (Color32[])pixels.Clone();
+                opaque = Array.FindIndex(bad, p => p.a != 0);
+                bad[opaque] = new Color32(200, 200, 200, 255);
+                Check(!KingdomEnhancedMod.MapIslandDecorationArt.TryValidate(land, bad, width, height, basePrep),
+                    tag + " off-palette tone rejected");
+                bad = (Color32[])pixels.Clone();
+                bad[43 * width + 100] = new Color32(227, 227, 227, 255);   // top-y 40, outside both frames
+                Check(!KingdomEnhancedMod.MapIslandDecorationArt.TryValidate(land, bad, width, height, basePrep),
+                    tag + " land pixel outside reserved frames rejected");
+                var frames = new List<KingdomEnhancedMod.MapIconBox>(2);
+                KingdomEnhancedMod.MapExtensionIslandArtVariant.AppendDecorationBlockers(land,
+                    new KingdomEnhancedMod.MapIconBox(0f, 0f, width, height), frames);
+                float gap = KingdomEnhancedMod.MapExtensionIslandLayout.Gutter;
+                var frame = frames[0];
+                int fx0 = (int)Math.Round(frame.X0 + gap), fx1 = (int)Math.Round(frame.X1 - gap);
+                int fy0 = (int)Math.Round(frame.Y0 + gap), fy1 = (int)Math.Round(frame.Y1 - gap);
+                int rightX = fx1, rightY = -1, topX = -1, topY = fy1;
+                for (int y = fy0; y < fy1; y++)
+                    if (basePrep.PlacementMask[y * width + rightX]) { rightY = y; break; }
+                for (int x = fx0; x < fx1; x++)
+                    if (basePrep.PlacementMask[topY * width + x]) { topX = x; break; }
+                Check(rightY >= 0 && topX >= 0, tag + " real right/top adjacent pixels available");
+                bad = (Color32[])pixels.Clone();
+                bad[rightY * width + rightX] = new Color32(227, 227, 227, 255);
+                Check(!KingdomEnhancedMod.MapIslandDecorationArt.TryValidate(land, bad, width, height, basePrep),
+                    tag + " pixel just right of frame rejected");
+                bad = (Color32[])pixels.Clone();
+                bad[topY * width + topX] = new Color32(227, 227, 227, 255);
+                Check(!KingdomEnhancedMod.MapIslandDecorationArt.TryValidate(land, bad, width, height, basePrep),
+                    tag + " pixel just above frame rejected");
+            }
         }
 
         private static bool CompareSpriteNative(Sprite a, Sprite b)

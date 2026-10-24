@@ -43,6 +43,28 @@ internal static class Program
         return bytes;
     }
 
+    private static byte[] Alpha(Color32[] values)
+    {
+        var bytes = new byte[values.Length];
+        for (int i = 0; i < values.Length; i++) bytes[i] = values[i].a;
+        return bytes;
+    }
+
+    private static byte[] MaskBytes(bool[] values)
+    {
+        var bytes = new byte[values.Length];
+        for (int i = 0; i < values.Length; i++) bytes[i] = values[i] ? (byte)1 : (byte)0;
+        return bytes;
+    }
+
+    private static Color32[] FlipVertical(Color32[] bottomUp, int width, int height)
+    {
+        var topDown = new Color32[bottomUp.Length];
+        for (int y = 0; y < height; y++)
+            Array.Copy(bottomUp, y * width, topDown, (height - 1 - y) * width, width);
+        return topDown;
+    }
+
     private static bool SamePixels(Color32[] left, Color32[] right)
         => left != null && right != null && Rgba(left).SequenceEqual(Rgba(right));
 
@@ -97,6 +119,17 @@ internal static class Program
         Check(expected.Mask.SequenceEqual(actual.Mask), "A alpha mask unchanged");
         Check(expected.PlacementMask.SequenceEqual(actual.PlacementMask) &&
             expected.PlacementPixels == actual.PlacementPixels, "A placement mask unchanged");
+        // Fixed geometry goldens from the reviewed source: the palette art worker may change RGB,
+        // never alpha/outline/PlacementMask. Compare prepared streams, not only Prepare-vs-BuildPrep.
+        Check(Sha(Alpha(actual.Shore)) == "011d2cc782c236742b615e43c7f9c5f47d24ffb4990c397861c061b729ff68ff",
+            "A prepared alpha matches baseline golden");
+        Check(Sha(Rgba(actual.Outline)) == "14874916f960a9b86401b34d67237c54a8bc7756b18fafe60e915fb164d6f018" &&
+            Sha(Alpha(actual.Outline)) == "103e8c439a1f734d6b26ea94a2cf28adbae0f5d4b64d6ff1c7466871d66ed368",
+            "A outline matches baseline golden");
+        Check(Sha(MaskBytes(actual.Mask)) == "3429318ae2fe419966af1f52b6528ec7337ee65b03bced2794cda79d1f7fb055",
+            "A shore mask matches baseline golden");
+        Check(Sha(MaskBytes(actual.PlacementMask)) == "ec1389ae7c847a3d9961bf26de5340ba21f6a5c9aefd90823128dab109c51f29",
+            "A placement mask matches baseline golden");
         Check(before.SequenceEqual(Rgba(raw)), "A source input never written");
     }
 
@@ -139,6 +172,15 @@ internal static class Program
         Check(ToneContract(actual.Shore, out primary),
             "B prepared palette primary 227 without 116/155 primary=" + primary);
         Check(actual.Mask.Count(value => value) == 10611 && actual.IslandPixels == 10611, "B alpha pixel count");
+        // Geometry goldens stay fixed when the art worker repaints RGB. The B RGBA hash below is the
+        // current reviewed artwork and is updated only after the Operator adopts a final candidate.
+        Check(Sha(Alpha(actual.Shore)) == "70b5e1c557f51360cb07b3c849b3269be83351c28e1803b079f9241ec4c26c1a",
+            "B prepared alpha matches baseline golden");
+        Check(Sha(Rgba(actual.Outline)) == "6b50512a40d94c950fcc7256b8c9c3bb7d6696fdc7688ca9ea80255bc52382f6" &&
+            Sha(Alpha(actual.Outline)) == "3d0bfb869b1bd307526900ce1dbc9e65b04fbbeaf75c7ae978c32ec3a34406d2",
+            "B outline matches baseline golden");
+        Check(Sha(MaskBytes(actual.Mask)) == "951e159372665ba4fe414b2c9764c8bd116c9269de87c7f59296204f44198b00",
+            "B shore mask matches baseline golden");
         Check(Sha(Rgba(actual.Shore)) == "0a2d3bb6c1f1617e2c63c8171466a90e2305f1fc345bb23552f254ce0048aeed",
             "B RGBA matches reviewed palette-remapped preparation");
         Check(actual.PlacementPixels == 5652 && actual.PlacementMask.Count(value => value) == 5652,
@@ -336,6 +378,12 @@ internal static class Program
             Sha(b) == "a056d1a3ff81ea13c5d9e065abc71d734e45226df2829184e1bd183606a79357", "reviewed raw asset bytes embedded");
         Png.DecodeBottomUp(a, out int aw, out int ah, out Color32[] ap);
         Png.DecodeBottomUp(b, out int bw, out int bh, out Color32[] bp);
+        Check(Sha(Alpha(FlipVertical(ap, aw, ah))) ==
+            "b2a5493130a20384b3f41af23b8c02eb24d47e616bce83dcc1b29e6d38fda149",
+            "A decoded source alpha matches reviewed baseline stream");
+        Check(Sha(Alpha(FlipVertical(bp, bw, bh))) ==
+            "281f1cf55624a14bb5a7697f652579a6b1b8e0940226080b30f97d37f195f191",
+            "B decoded source alpha matches reviewed baseline stream");
         TestA(ap, aw, ah); TestB(bp, bw, bh); TestAnchors(); TestInvalid(); TestCachesAndSharedLeases();
         Console.WriteLine("Map art variant checks=" + _checks + " failures=" + _failures);
         return _failures == 0 ? 0 : 1;

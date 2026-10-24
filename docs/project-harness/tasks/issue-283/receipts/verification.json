@@ -1,0 +1,128 @@
+{
+  "baseline": "98259aff338bb9e5ee1b666e4f5c67da24eed6fe",
+  "sourceSHA256": {
+    "il2cpp/MapExtensionIslandArt.cs": "de3a10215467b692764b82e63cd126237f16ee82c7e6d957f51854c98a81f993",
+    "il2cpp/MapMountIcons.cs": "f72b016481c67dcc7cebe62facbcce4a547e08be535525b46c4a9eae2e28573d",
+    "il2cpp/MapIslandDecorationArt.cs": "ff08daa1e903081091bc0f47b7cf1577b5e1ec8e7ec19b3f8ea1a45ae5a46501",
+    "il2cpp/Patch_MountIslandArtVariant.cs": "08c25684906544b5c2424222387542f9b27128624b0e910165b6389eaae46e00",
+    "il2cpp/ExtensionIslandMapPlan.cs": "7564d2c99f5c8d2a9bbcccacdc27bf2d548537fd889b5399b7a7f6bda5e34e93",
+    "il2cpp/EmbeddedAssets.props": "0763a6bf7d7bbc8abbe04585f578a6082056b8df09a67c471e64f5d5fa4af358"
+  },
+  "pureCompile": {
+    "NoDeploy": true,
+    "gameStarted": false,
+    "officialInputClosure": true,
+    "compiledCS": 344,
+    "embeddedResources": 277,
+    "wrapperBuildNotOfficialProductionBuild": true,
+    "win243PrivateAliasPR250": "4543a79a556f532a1b9919121f2f6b69ad00d6a8",
+    "profiles": [
+      {
+        "profile": "mac240",
+        "resourceCount": 277,
+        "allHashesMatch": true,
+        "dllSHA256": "824c55cefcc35bdb36766743049dffc57229e400e529a4827316d42de41ba9f9",
+        "decoration": {
+          "KingdomEnhancedMod.KEM_MapIslandDecorPrimary.png": "8b0802c80dc98f1ebe2a5dbd1c4a1a6ec86951787f2eb83c8ca53a98656f48cd",
+          "KingdomEnhancedMod.KEM_MapIslandDecorCrescent.png": "bb9594e507c9c28458698a5761d8e0e329975002a120233b53460bcee4bc3d75"
+        },
+        "warnings": 0,
+        "errors": 0
+      },
+      {
+        "profile": "win240",
+        "resourceCount": 277,
+        "allHashesMatch": true,
+        "dllSHA256": "27f4b95b6587cd4dde02fb1f83f29ccbd61b0c08bb0ada11ad547cdd6a0f4f92",
+        "decoration": {
+          "KingdomEnhancedMod.KEM_MapIslandDecorPrimary.png": "8b0802c80dc98f1ebe2a5dbd1c4a1a6ec86951787f2eb83c8ca53a98656f48cd",
+          "KingdomEnhancedMod.KEM_MapIslandDecorCrescent.png": "bb9594e507c9c28458698a5761d8e0e329975002a120233b53460bcee4bc3d75"
+        },
+        "warnings": 0,
+        "errors": 0
+      },
+      {
+        "profile": "win243",
+        "resourceCount": 277,
+        "allHashesMatch": true,
+        "dllSHA256": "7bcc7761c55f4ae5df9889eddda44afc37d432f5d46e4010604083e8a0998712",
+        "decoration": {
+          "KingdomEnhancedMod.KEM_MapIslandDecorPrimary.png": "8b0802c80dc98f1ebe2a5dbd1c4a1a6ec86951787f2eb83c8ca53a98656f48cd",
+          "KingdomEnhancedMod.KEM_MapIslandDecorCrescent.png": "bb9594e507c9c28458698a5761d8e0e329975002a120233b53460bcee4bc3d75"
+        },
+        "warnings": 0,
+        "errors": 0
+      }
+    ]
+  },
+  "tests": {
+    "variantRuntime": {
+      "checks": 647,
+      "failures": 0
+    },
+    "shoreArt": {
+      "checks": 123,
+      "failures": 0
+    },
+    "artVariants": {
+      "checks": 105,
+      "failures": 0,
+      "reusedAfterFinalLeaseOnlyDelta": true
+    },
+    "missingBOptional": {
+      "checks": 3,
+      "failures": 0
+    },
+    "independentDecorationEntries": {
+      "checks": 198,
+      "failures": 0,
+      "bothCallRemovalNegativeTestsEffective": true
+    },
+    "cloneExactMethodBodyHost": {
+      "checks": 31,
+      "failures": 0,
+      "buildWarnings": 1,
+      "buildErrors": 0,
+      "warning": "CS0169 existing Unity stub unused field",
+      "methodBodySHA256": "604cad2352c71208db55c91e22c9b63d30581702d60ac184241ea10dd0e323bc",
+      "removeDecorationNameNegativeTestEffective": true
+    },
+    "legacyRuntimeWholeSuite": {
+      "baselineCommit": "98259aff338bb9e5ee1b666e4f5c67da24eed6fe",
+      "baselineChecks": 1040,
+      "currentChecks": 1040,
+      "baselineFailures": 39,
+      "currentFailures": 39,
+      "exactFailureSequenceEqual": true,
+      "baselineLogSHA256": "74e7936af9817c89f4e857c449f9a76346e8aae39d79e8b858253dd546368ad3",
+      "currentLogSHA256": "74e7936af9817c89f4e857c449f9a76346e8aae39d79e8b858253dd546368ad3",
+      "newFailures": []
+    }
+  },
+  "review": {
+    "decision": {
+      "model": "zhipu-coding-plan/glm-5.3",
+      "thinking": "max",
+      "verdict": "approved independent display-layer delta; earlier alpha-hit assumption explicitly withdrawn"
+    },
+    "worker": {
+      "model": "deepseek/deepseek-flash",
+      "thinking": "max"
+    },
+    "independentCodeReview": {
+      "surface": "builtin Astra",
+      "verdict": "approved after bounded lifecycle fixes",
+      "hashBound": true
+    },
+    "operator": "source diff, art at 1x/zoom, resource metadata, baseline comparison reviewed"
+  },
+  "installation": false,
+  "nativeAcceptance": false,
+  "pending": [
+    "Native map appearance/color states/clipping",
+    "Native button/selection input",
+    "Native Instantiate/deferred destruction",
+    "draw-call/FPS and Windows native gameplay"
+  ],
+  "canonicalChecklistModified": false
+}

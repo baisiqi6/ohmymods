@@ -120,7 +120,8 @@ namespace KingdomEnhancedMod
         /// 再被 GetComponentsInChildren 拾取）。
         /// </summary>
         internal static bool IsSelfGeneratedNode(string name)
-            => name == "KEM_MapResourceIcons" || name == "KEM_MapIconSources";
+            => name == "KEM_MapResourceIcons" || name == "KEM_MapIconSources" ||
+                name == "KEM_MapIslandDecoration";
 
         private static bool Contains(string value, string token)
             => !string.IsNullOrEmpty(value) && value.IndexOf(token, StringComparison.OrdinalIgnoreCase) >= 0;

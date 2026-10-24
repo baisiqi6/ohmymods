@@ -29,6 +29,9 @@ namespace KingdomEnhancedMod
     internal static class MapExtensionIslandArt
     {
         internal const string ResourceName = "KingdomEnhancedMod.KEM_MapExtensionIsland.png";
+        internal const string DecorationNodeName = "KEM_MapIslandDecoration";
+        private const string DecorationResourceA = "KingdomEnhancedMod.KEM_MapIslandDecorPrimary.png";
+        private const string DecorationResourceB = "KingdomEnhancedMod.KEM_MapIslandDecorCrescent.png";
         private const long MaxResourceBytes = 8L * 1024 * 1024;
         private const float PixelsPerUnit = 32f;
         internal const int TargetLogicalWidth = 224;
@@ -336,6 +339,9 @@ namespace KingdomEnhancedMod
         {
             internal Texture2D ShoreTexture, OutlineTexture;
             internal Sprite Shore, Outline;
+            internal Texture2D DecorationTexture;
+            internal Sprite Decoration;
+            internal bool DecorationAttempted;
             internal bool Attempted;
             internal ShorePrep Prep;
             internal bool Ready => Shore != null && Outline != null;
@@ -351,7 +357,11 @@ namespace KingdomEnhancedMod
         internal static Sprite Outline => Primary.Outline;
         internal static Sprite ShoreFor(int physicalLand) => CacheFor(physicalLand)?.Shore;
         internal static Sprite OutlineFor(int physicalLand) => CacheFor(physicalLand)?.Outline;
+        internal static Sprite DecorationFor(int physicalLand) => CacheFor(physicalLand)?.Decoration;
         internal static ShorePrep PrepFor(int physicalLand) => CacheFor(physicalLand)?.Prep;
+
+        internal static string DecorationResourceNameFor(int physicalLand)
+            => physicalLand == 11 ? DecorationResourceA : physicalLand == 13 ? DecorationResourceB : null;
 
         /// <summary>冷启动一次：解码 PNG → BuildPrep → 建 shore/outline Sprite（同画布/pivot/PPU）。</summary>
         internal static bool TryEnsure() => TryEnsure(11);
@@ -360,7 +370,11 @@ namespace KingdomEnhancedMod
         {
             ArtCache cache = CacheFor(physicalLand);
             if (cache == null) return false;
-            if (cache.Ready) return true;
+            if (cache.Ready)
+            {
+                EnsureDecorationSpriteQuiet(cache, physicalLand);
+                return true;
+            }
             if (cache.Attempted) return false;
             cache.Attempted = true;
             Texture2D rawTex = null;
@@ -422,6 +436,7 @@ namespace KingdomEnhancedMod
                      prep.BboxHeight + " aspect=" + prep.Aspect.ToString("0.###") +
                      " levels=" + prep.LevelsUsed + " island=" + prep.IslandPixels +
                      " placement=" + prep.PlacementPixels + " comps=" + prep.ComponentCount);
+                EnsureDecorationSpriteQuiet(cache, physicalLand);
                 return true;
             }
             catch (Exception e)
@@ -440,6 +455,80 @@ namespace KingdomEnhancedMod
                     DestroyQuietly(shoreTex);
                 }
             }
+        }
+
+        /// <summary>
+        /// Optional decoration decode: one bounded attempt per cache generation. A missing or
+        /// invalid overlay leaves the base shore cache untouched and logs at most one warning.
+        /// </summary>
+        private static void EnsureDecorationSpriteQuiet(ArtCache cache, int physicalLand)
+        {
+            try { EnsureDecorationSprite(cache, physicalLand); }
+            catch (Exception e) { Warn("decoration escaped land=" + physicalLand + " " + e.GetType().Name); }
+        }
+
+        private static void EnsureDecorationSprite(ArtCache cache, int physicalLand)
+        {
+            if (cache == null || cache.DecorationAttempted) return;
+            cache.DecorationAttempted = true;
+            Texture2D temp = null;
+            Sprite sprite = null;
+            try
+            {
+                ShorePrep prep = cache.Prep;
+                if (prep == null) return;
+                byte[] bytes = ReadResource(DecorationResourceNameFor(physicalLand));
+                if (bytes == null) return;
+                temp = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+                if (!ImageConversion.LoadImage(temp, bytes, false))
+                {
+                    Warn("decoration LoadImage failed land=" + physicalLand);
+                    return;
+                }
+                int width = temp.width, height = temp.height;
+                Color32[] raw;
+                try { raw = temp.GetPixels32(); }
+                finally { DestroyQuietly(temp); temp = null; }
+                if (!MapIslandDecorationArt.TryValidate(physicalLand, raw, width, height, prep))
+                {
+                    Warn("decoration rejected land=" + physicalLand + " size=" + width + "x" + height);
+                    return;
+                }
+                temp = new Texture2D(width, height, TextureFormat.RGBA32, false);
+                temp.SetPixels32(raw);
+                ApplyTexturePolicy(temp);
+                temp.Apply(false, false);
+                sprite = Sprite.Create(temp, new Rect(0f, 0f, width, height), new Vector2(0.5f, 0.5f),
+                    PixelsPerUnit, 0u, SpriteMeshType.FullRect);
+                if (sprite == null)
+                {
+                    Warn("decoration Sprite.Create failed land=" + physicalLand);
+                    return;
+                }
+                cache.DecorationTexture = temp;
+                cache.Decoration = sprite;
+                temp = null;
+                sprite = null;
+                Info("decoration land=" + physicalLand + " ready canvas=" + width + "x" + height);
+            }
+            catch (Exception e)
+            {
+                Warn("decoration failed land=" + physicalLand + " " + e.GetType().Name);
+            }
+            finally
+            {
+                DestroyQuietly(sprite);
+                DestroyQuietly(temp);
+            }
+        }
+
+        /// <summary>Lazy optional decoration load; base shore readiness is independent.</summary>
+        internal static bool TryEnsureDecoration(int physicalLand)
+        {
+            if (!TryEnsure(physicalLand)) return false;
+            ArtCache cache = CacheFor(physicalLand);
+            EnsureDecorationSpriteQuiet(cache, physicalLand);
+            return cache != null && cache.Decoration != null;
         }
 
         /// <summary>供布局终检：岸内 mask 与画布/bbox 事实（准备完成前返回 null）。</summary>
@@ -494,10 +583,15 @@ namespace KingdomEnhancedMod
             cache.Outline = null;
             DestroyQuietly(cache.ShoreTexture);
             DestroyQuietly(cache.OutlineTexture);
+            DestroyQuietly(cache.Decoration);
+            DestroyQuietly(cache.DecorationTexture);
             cache.ShoreTexture = null;
             cache.OutlineTexture = null;
+            cache.Decoration = null;
+            cache.DecorationTexture = null;
             cache.Prep = null;
             cache.Attempted = false;
+            cache.DecorationAttempted = false;
         }
 
         // ------------------------------------------------------------------ owner/代际租约
@@ -512,12 +606,18 @@ namespace KingdomEnhancedMod
             internal bool Superseded;            // 被更新 owner 接管：责任由新租约继承，旧租约注销
             internal bool WriteFailed;           // 归还写失败：责任保留（与"外部已替换"区分）
             internal bool RestorePending = true; // 归还责任：只有成功恢复/确认无需求才清零
+            /// <summary>Owned decoration node (not native). The node reference, not the Image
+            /// component, owns the lifetime: a missing Image must never drop the destroy duty.</summary>
+            internal UnityEngine.Object OwnedNode;
+            internal Image DecorationParent;
+            internal Func<bool> OwnedRelease;
+            internal bool Owned => OwnedRelease != null;
             /// <summary>本模块可能写入过、但未确认的 sprite（写后抛+读回 unknown；接管被拒时记入旧租约）。
             /// 归还时 current 落在其中视同“我方持有”，必须恢复原值，绝不误判为外部替换。</summary>
             internal readonly List<Sprite> HeldSprites = new List<Sprite>(4);
             internal readonly List<object> RetiredOwners = new List<object>(4);   // 有界：已被接管过的 owner
 
-            internal bool Alive { get { return Image != null; } }
+            internal bool Alive { get { return Owned ? OwnedNode != null : Image != null; } }
 
             /// <summary>读回当前 sprite；读异常 = unknown（调用方必须保留归还责任，不得当“外部已替换”）。</summary>
             internal bool TryReadCurrent(out Sprite current)
@@ -572,6 +672,7 @@ namespace KingdomEnhancedMod
             /// </summary>
             internal bool Release()
             {
+                if (Owned) return ReleaseOwned();
                 if (Image == null) { RestorePending = false; return true; }
                 if (Superseded) { RestorePending = false; return true; }        // 责任已由新租约继承
                 if (OriginalSprite == null) { WriteFailed = false; RestorePending = true; return false; }  // 读不到原值：不写、留责任
@@ -588,6 +689,29 @@ namespace KingdomEnhancedMod
                     return true;
                 }
                 catch (Exception) { WriteFailed = true; RestorePending = true; return false; }
+            }
+
+            private bool ReleaseOwned()
+            {
+                if (OwnedNode == null) { ClearOwned(); return true; }
+                bool released = false;
+                try { released = OwnedRelease != null && OwnedRelease(); }
+                catch (Exception) { released = false; }
+                if (!released) { WriteFailed = true; RestorePending = true; return false; }
+                ClearOwned();
+                return true;
+            }
+
+            private void ClearOwned()
+            {
+                OwnedNode = null;
+                OwnedRelease = null;
+                DecorationParent = null;
+                Image = null;
+                AppliedSprite = null;
+                OriginalSprite = null;
+                RestorePending = false;
+                WriteFailed = false;
             }
         }
 
@@ -664,7 +788,8 @@ namespace KingdomEnhancedMod
             for (int i = Leases.Count - 1; i >= 0; i--)
             {
                 BorrowedImage lease = Leases[i];
-                if (lease.Image == null)
+                bool dead = lease.Owned ? lease.OwnedNode == null : lease.Image == null;
+                if (dead)
                 {
                     lease.RestorePending = false;
                     Leases.RemoveAt(i);
@@ -688,6 +813,156 @@ namespace KingdomEnhancedMod
             return false;
         }
 
+        /// <summary>Parent lease must be the exact active owner for the exact shore sprite.</summary>
+        internal static bool IsAppliedBy(Image image, Sprite own, object owner)
+        {
+            if (image == null || own == null || owner == null) return false;
+            for (int i = 0; i < Leases.Count; i++)
+            {
+                BorrowedImage lease = Leases[i];
+                if (lease.Owned || lease.Superseded || !ReferenceEquals(lease.Owner, owner)) continue;
+                if (CompareNativeImage(lease.Image, image) != IdentityMatch.Same) continue;
+                if (CompareNativeSprite(lease.AppliedSprite, own) != IdentityMatch.Same) return false;
+                return lease.TryReadCurrent(out Sprite current) &&
+                    CompareNativeSprite(current, own) == IdentityMatch.Same;
+            }
+            return false;
+        }
+
+        internal static bool IsDecorationApplied(Image parent, object owner, Sprite sprite)
+        {
+            if (parent == null || owner == null || sprite == null) return false;
+            for (int i = 0; i < Leases.Count; i++)
+            {
+                BorrowedImage lease = Leases[i];
+                if (!lease.Owned || lease.OwnedNode == null || lease.Image == null) continue;
+                if (!ReferenceEquals(lease.Owner, owner)) continue;
+                if (CompareNativeImage(lease.DecorationParent, parent) != IdentityMatch.Same) continue;
+                if (CompareNativeSprite(lease.AppliedSprite, sprite) != IdentityMatch.Same) return false;
+                return lease.TryReadCurrent(out Sprite current) &&
+                    CompareNativeSprite(current, sprite) == IdentityMatch.Same;
+            }
+            return false;
+        }
+
+        /// <summary>Exact live owned node for this parent/owner (no name scan).</summary>
+        internal static bool TryGetDecorationNode(Image parent, object owner,
+            out UnityEngine.Object node, out Image image, out Sprite sprite)
+        {
+            node = null;
+            image = null;
+            sprite = null;
+            if (parent == null || owner == null) return false;
+            for (int i = 0; i < Leases.Count; i++)
+            {
+                BorrowedImage lease = Leases[i];
+                if (!lease.Owned || lease.OwnedNode == null || lease.Image == null) continue;
+                if (!ReferenceEquals(lease.Owner, owner)) continue;
+                if (CompareNativeImage(lease.DecorationParent, parent) != IdentityMatch.Same) continue;
+                node = lease.OwnedNode;
+                image = lease.Image;
+                sprite = lease.AppliedSprite;
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>Any live owned node for this exact parent (used for collector exclusions).</summary>
+        internal static bool TryGetDecorationNode(Image parent, out UnityEngine.Object node)
+        {
+            node = null;
+            if (parent == null) return false;
+            for (int i = 0; i < Leases.Count; i++)
+            {
+                BorrowedImage lease = Leases[i];
+                if (!lease.Owned || lease.OwnedNode == null) continue;
+                if (CompareNativeImage(lease.DecorationParent, parent) != IdentityMatch.Same) continue;
+                node = lease.OwnedNode;
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Register the owned node responsibility immediately after creating the GameObject,
+        /// before any SetActive/AddComponent/configuration call can fail. The Image is attached
+        /// later; the node and release delegate alone keep the destroy duty alive.
+        /// </summary>
+        internal static BorrowedImage RegisterOwnedNode(Image parent, Sprite parentShore,
+            UnityEngine.Object node, Sprite decoration, object owner, Func<bool> release)
+        {
+            if (node == null || owner == null || release == null) return null;
+            // Cleanup-only lease first: if any later parent/shore read or duplicate check fails,
+            // the caller still has an exact owned-node destroy duty. It is not published until
+            // parent/shore/decoration validation succeeds (Image stays null until Attach).
+            var lease = new BorrowedImage
+            {
+                Image = null,
+                OwnedNode = node,
+                OwnedRelease = release,
+                DecorationParent = parent,
+                Owner = owner,
+                Generation = ++_generation,
+                OriginalSprite = null,
+                RestorePending = true,
+            };
+            Leases.Add(lease);
+            if (parentShore == null || decoration == null) return null;
+            if (!IsAppliedBy(parent, parentShore, owner)) return null;
+            PruneDeadLeases();
+            for (int i = 0; i < Leases.Count; i++)
+            {
+                BorrowedImage existing = Leases[i];
+                if (ReferenceEquals(existing, lease) || !existing.Owned || existing.OwnedNode == null) continue;
+                if (CompareNativeImage(existing.DecorationParent, parent) == IdentityMatch.Same) return null;
+            }
+            lease.AppliedSprite = decoration;
+            return lease;
+        }
+
+        internal static bool AttachOwnedImage(BorrowedImage lease, Image image)
+        {
+            if (lease == null || !lease.Owned || lease.OwnedNode == null || image == null) return false;
+            lease.Image = image;
+            return true;
+        }
+
+        /// <summary>Release one exact owned node; false means the destroy duty is retained.</summary>
+        internal static bool ReleaseOwnedDecoration(UnityEngine.Object node)
+        {
+            if (node == null) return true;
+            for (int i = Leases.Count - 1; i >= 0; i--)
+            {
+                BorrowedImage lease = Leases[i];
+                if (!lease.Owned || !ReferenceEquals(lease.OwnedNode, node)) continue;
+                LeaseReleaseAttempt(lease, i);
+            }
+            for (int i = 0; i < Leases.Count; i++)
+            {
+                if (Leases[i].Owned && ReferenceEquals(Leases[i].OwnedNode, node)) return false;
+            }
+            return true;
+        }
+
+        /// <summary>Release every owned dependent of this parent (old owner takeover); true = none remain.</summary>
+        internal static bool ReleaseDecorationsFor(Image parent)
+        {
+            if (parent == null) return false;
+            for (int i = Leases.Count - 1; i >= 0; i--)
+            {
+                BorrowedImage lease = Leases[i];
+                if (!lease.Owned) continue;
+                if (CompareNativeImage(lease.DecorationParent, parent) != IdentityMatch.Same) continue;
+                LeaseReleaseAttempt(lease, i);
+            }
+            for (int i = 0; i < Leases.Count; i++)
+            {
+                if (Leases[i].Owned &&
+                    CompareNativeImage(Leases[i].DecorationParent, parent) == IdentityMatch.Same) return false;
+            }
+            return true;
+        }
+
         internal static BorrowedImage TryBorrow(Image image, Sprite own, object owner)
         {
             if (image == null || own == null) return null;
@@ -700,6 +975,7 @@ namespace KingdomEnhancedMod
             for (int i = 0; i < Leases.Count; i++)
             {
                 BorrowedImage existing = Leases[i];
+                if (existing.Owned) continue;
                 IdentityMatch match = CompareNativeImage(existing.Image, image);
                 if (match == IdentityMatch.Unknown)
                 {
@@ -841,11 +1117,21 @@ namespace KingdomEnhancedMod
         internal static void ReleaseBorrowed(Image image)
         {
             if (image == null) return;
+            // Dependents are appended after their parent; release them first so a live
+            // decoration node can never outlive the shore binding it belongs to.
             for (int i = Leases.Count - 1; i >= 0; i--)
             {
-                IdentityMatch match = CompareNativeImage(Leases[i].Image, image);
-                if (match != IdentityMatch.Same) continue;
-                LeaseReleaseAttempt(Leases[i], i);
+                BorrowedImage lease = Leases[i];
+                if (!lease.Owned) continue;
+                if (CompareNativeImage(lease.DecorationParent, image) != IdentityMatch.Same) continue;
+                LeaseReleaseAttempt(lease, i);
+            }
+            for (int i = Leases.Count - 1; i >= 0; i--)
+            {
+                BorrowedImage lease = Leases[i];
+                if (lease.Owned) continue;
+                if (CompareNativeImage(lease.Image, image) != IdentityMatch.Same) continue;
+                LeaseReleaseAttempt(lease, i);
             }
         }
 
@@ -917,6 +1203,8 @@ namespace KingdomEnhancedMod
         internal static byte[] ReadResourceBytes() => ReadResource(ResourceName);
         internal static byte[] ReadResourceBytes(int physicalLand)
             => ReadResource(MapExtensionIslandArtVariant.ResourceNameFor(physicalLand));
+        internal static byte[] ReadDecorationResourceBytes(int physicalLand)
+            => ReadResource(DecorationResourceNameFor(physicalLand));
 
         private static void ApplyTexturePolicy(Texture2D tex)
         {

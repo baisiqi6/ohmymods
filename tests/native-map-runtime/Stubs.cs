@@ -81,6 +81,13 @@ namespace UnityEngine
         public Color32(byte r, byte g, byte b, byte a) { this.r = r; this.g = g; this.b = b; this.a = a; }
     }
 
+    public struct Color
+    {
+        public float r, g, b, a;
+        public Color(float r, float g, float b, float a) { this.r = r; this.g = g; this.b = b; this.a = a; }
+        public static Color white => new Color(1f, 1f, 1f, 1f);
+    }
+
     public enum TextureFormat { RGBA32 = 4 }
     public enum FilterMode { Point = 0, Bilinear = 1 }
     public enum TextureWrapMode { Repeat = 0, Clamp = 1 }
@@ -107,8 +114,17 @@ namespace UnityEngine
 
     public static class ImageConversion
     {
+        /// <summary>可选装饰加载反例：按 1-based 调用序号失败一次，默认关闭。</summary>
+        public static int LoadCalls;
+        public static int FailOnLoadIndex = -1;
         public static bool LoadImage(Texture2D tex, byte[] bytes, bool markNonReadable)
         {
+            LoadCalls++;
+            if (FailOnLoadIndex > 0 && LoadCalls == FailOnLoadIndex)
+            {
+                FailOnLoadIndex = -1;
+                return false;
+            }
             if (tex == null || bytes == null) return false;
             RuntimeProbe.Png.Decode(bytes, out int w, out int h, out Color32[] topDown);
             if (w <= 0 || h <= 0 || topDown == null) return false;
@@ -139,8 +155,11 @@ namespace UnityEngine
 
         internal void MarkDestroyed() { _destroyed = true; }
 
+        /// <summary>测试注入：下一次 Destroy 抛异常一次（不改变默认语义）。</summary>
+        public static bool FailNextDestroy;
         public static void Destroy(Object obj)
         {
+            if (FailNextDestroy) { FailNextDestroy = false; throw new InvalidOperationException("destroy"); }
             if (obj == null) return;
             obj.MarkDestroyed();
             (obj as GameObject)?.DetachFromParent();
@@ -284,13 +303,24 @@ namespace UnityEngine
         }
 
         internal int SetActiveCalls;
+        /// <summary>测试注入：下一次 SetActive 抛异常一次。</summary>
+        public static bool FailNextSetActive;
 
-        public void SetActive(bool value) { SetActiveCalls++; activeSelf = value; }
+        public void SetActive(bool value)
+        {
+            if (FailNextSetActive) { FailNextSetActive = false; throw new InvalidOperationException("set-active"); }
+            SetActiveCalls++;
+            activeSelf = value;
+        }
 
         internal void DetachFromParent() => _transform?.SetParent(null, false);
 
+        /// <summary>测试注入：下一次 AddComponent 抛异常一次（早于组件创建）。</summary>
+        public static bool FailNextAddComponent;
+
         public T AddComponent<T>() where T : Component
         {
+            if (FailNextAddComponent) { FailNextAddComponent = false; throw new InvalidOperationException("add-component"); }
             Adds++;
             if (typeof(T) == typeof(RectTransform)) return (T)(object)_transform;
             if (typeof(T) == typeof(CanvasGroup)) EntryProbe.ProbeHooks.CanvasGroupAdds++;
@@ -563,12 +593,39 @@ namespace UnityEngine
                 if (ThrowOnAnchoredSet) throw new InvalidOperationException("anchored");
                 _anchoredPosition = value;
                 _suppressDerive = true;
-                try { localPosition = new Vector3(value.x, value.y, 0f); }
+                try
+                {
+                    if (Stretched && parent is RectTransform parentRect)
+                    {
+                        Vector2 reference = AnchorReference(parentRect);
+                        localPosition = new Vector3(reference.x + value.x, reference.y + value.y, 0f);
+                    }
+                    else
+                    {
+                        localPosition = new Vector3(value.x, value.y, 0f);
+                    }
+                }
                 finally { _suppressDerive = false; }
             }
         }
 
-        public Rect rect => new Rect(-pivot.x * _sizeDelta.x, -pivot.y * _sizeDelta.y, _sizeDelta.x, _sizeDelta.y);
+        private bool Stretched => anchorMin.x != anchorMax.x || anchorMin.y != anchorMax.y;
+
+        public Rect rect
+        {
+            get
+            {
+                if (Stretched && parent is RectTransform parentRect)
+                {
+                    Rect p = parentRect.rect;
+                    float width = p.width * (anchorMax.x - anchorMin.x) + _sizeDelta.x;
+                    float height = p.height * (anchorMax.y - anchorMin.y) + _sizeDelta.y;
+                    if (width >= 0f && height >= 0f)
+                        return new Rect(-pivot.x * width, -pivot.y * height, width, height);
+                }
+                return new Rect(-pivot.x * _sizeDelta.x, -pivot.y * _sizeDelta.y, _sizeDelta.x, _sizeDelta.y);
+            }
+        }
     }
 
     public class Canvas : Behaviour
@@ -719,6 +776,18 @@ namespace UnityEngine.UI
     public class Graphic : Behaviour
     {
         public bool raycastTarget = true;
+        private Color _color = Color.white;
+        /// <summary>测试注入：下一次 color 写入抛异常（不改变默认语义）。</summary>
+        public static bool FailNextColorSet;
+        public Color color
+        {
+            get => _color;
+            set
+            {
+                if (FailNextColorSet) { FailNextColorSet = false; throw new InvalidOperationException("color"); }
+                _color = value;
+            }
+        }
         public RectTransform rectTransform => gameObject != null ? gameObject.GetComponent<RectTransform>() : null;
     }
 
@@ -850,12 +919,18 @@ namespace UnityEngine.UI
         public bool ReadFaultAfterWriteThrow;
         /// <summary>读故障：sprite getter 抛（租约读回/快照路径）。</summary>
         public bool ThrowOnGet;
+        /// <summary>测试注入：第 N 次 sprite getter 抛一次（默认关闭）。</summary>
+        public int ThrowOnReadOrdinal = -1;
+        internal int SpriteReads;
         private bool _preserveAspect;
         private Type _type = Type.Simple;
         private bool _useSpriteMesh = true;
         /// <summary>图像字段读取计数（issue-156 零接管哨兵）：Mod 若不读 origin 的 native art
         /// （sprite/type/useSpriteMesh/preserveAspect/GetPixelAdjustedRect），计数必须保持不变。</summary>
         internal int ReadCalls;
+
+        /// <summary>Image.alphaHitTestMinimumThreshold（native 输入契约；本模块不得改写）。</summary>
+        public float alphaHitTestMinimumThreshold;
 
         /// <summary>Image.preserveAspect（native 岛图默认 false；映射测试可置 true）。</summary>
         public bool preserveAspect
@@ -899,7 +974,13 @@ namespace UnityEngine.UI
             get
             {
                 ReadCalls++;
+                SpriteReads++;
                 if (ThrowOnGet) throw new InvalidOperationException("get-sprite");
+                if (ThrowOnReadOrdinal > 0 && SpriteReads == ThrowOnReadOrdinal)
+                {
+                    ThrowOnReadOrdinal = -1;
+                    throw new InvalidOperationException("get-sprite-ordinal");
+                }
                 return _sprite;
             }
             set

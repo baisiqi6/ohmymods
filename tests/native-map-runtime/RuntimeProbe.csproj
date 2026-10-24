@@ -19,6 +19,7 @@
     <!-- 直链被测真实源码（不修改、不复制方法体） -->
     <Compile Include="../../il2cpp/MapMountIcons.cs" />
     <Compile Include="../../il2cpp/MapExtensionIslandArt.cs" />
+    <Compile Include="../../il2cpp/MapIslandDecorationArt.cs" />
     <Compile Include="../../il2cpp/Patch_MountIslandArtVariant.cs" />
     <Compile Include="../../il2cpp/MapResourceIconPlan.cs" />
     <Compile Include="../../il2cpp/PatchExtensionIsland_Map.cs" />

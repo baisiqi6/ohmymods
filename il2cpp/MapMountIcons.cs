@@ -1813,6 +1813,7 @@ namespace KingdomEnhancedMod
             {
                 if (BoxesIntersect(native[i], entry.BannerArea, 0.01f)) blockers.Add(native[i]);
             }
+            MapExtensionIslandArtVariant.AppendDecorationBlockers(entry.LandIndex, shoreFrame, blockers);
 
             MapIconBox area = MapWorldLayout.IconAreaOf(shoreFrame);
             // 正常 world 视口同样显式 .60 下限（与 detail 一致）：低于可读下限不再算成功，
@@ -1874,6 +1875,137 @@ namespace KingdomEnhancedMod
         }
 
         /// <summary>
+        /// Optional static decoration layer under the already-bound shore art. The parent must be
+        /// the exact active owner lease for the exact shore sprite; a late old owner cannot create
+        /// or overwrite a node. The owned node is registered before configuration and destroyed by
+        /// the existing lease cleanup on any failure; base shore/detail transactions never depend
+        /// on its success.
+        /// </summary>
+        private static bool EnsureDecoration(Image parentImage, int physicalLand, object owner)
+        {
+            if (parentImage == null || owner == null) return false;
+            try
+            {
+                Sprite parentShore = MapExtensionIslandArt.ShoreFor(physicalLand);
+                if (parentShore == null ||
+                    !MapExtensionIslandArt.IsAppliedBy(parentImage, parentShore, owner)) return false;
+                Sprite sprite = MapExtensionIslandArt.DecorationFor(physicalLand);
+                if (sprite != null && MapExtensionIslandArt.IsDecorationApplied(parentImage, owner, sprite) &&
+                    MapExtensionIslandArt.TryGetDecorationNode(parentImage, owner, out _, out Image ownedImage, out _))
+                {
+                    try
+                    {
+                        ownedImage.color = parentImage.color;
+                        return true;
+                    }
+                    catch (Exception e)
+                    {
+                        MapIconLog.Once("decoration-color-" + physicalLand + "-" + e.GetType().Name,
+                            "decoration color sync failed; node will be rebuilt: " + e.Message);
+                    }
+                }
+                // A new owner must not inherit the previous owner's node even when the optional
+                // asset is currently missing; release first, then decode if needed.
+                if (!MapExtensionIslandArt.ReleaseDecorationsFor(parentImage)) return false;
+                if (sprite == null && !MapExtensionIslandArt.TryEnsureDecoration(physicalLand)) return false;
+                sprite = MapExtensionIslandArt.DecorationFor(physicalLand);
+                if (sprite == null) return false;
+
+                GameObject node;
+                try
+                {
+                    node = new GameObject(MapExtensionIslandArt.DecorationNodeName);
+                }
+                catch (Exception e)
+                {
+                    MapIconLog.Once("decoration-create-" + physicalLand + "-" + e.GetType().Name,
+                        "decoration GameObject creation failed; nothing created: " + e.Message);
+                    return false;
+                }
+                // Responsibility is registered immediately after node creation, before any
+                // SetActive/AddComponent/configuration call can fail. Image is attached later.
+                Func<bool> release = () =>
+                {
+                    bool destroyed = node == null;
+                    try
+                    {
+                        if (!destroyed && node.activeSelf) node.SetActive(false);
+                    }
+                    catch (Exception) { }
+                    try
+                    {
+                        if (!destroyed)
+                        {
+                            UnityEngine.Object.Destroy(node);
+                            destroyed = true;
+                        }
+                    }
+                    catch (Exception) { }
+                    return destroyed;
+                };
+                MapExtensionIslandArt.BorrowedImage lease = null;
+                try
+                {
+                    lease = MapExtensionIslandArt.RegisterOwnedNode(parentImage, parentShore, node, sprite,
+                        owner, release);
+                }
+                catch (Exception) { lease = null; }
+                if (lease == null)
+                {
+                    if (!MapExtensionIslandArt.ReleaseOwnedDecoration(node))
+                    {
+                        MapIconLog.Once("decoration-register-retained-" + physicalLand,
+                            "decoration registration failed with retained owned node; cleanup kept");
+                    }
+                    return false;
+                }
+                try
+                {
+                    node.SetActive(false);
+                    RectTransform rect = node.AddComponent<RectTransform>();
+                    Image image = node.AddComponent<Image>();
+                    if (!MapExtensionIslandArt.AttachOwnedImage(lease, image))
+                        throw new InvalidOperationException("attach decoration image");
+                    rect.SetParent(parentImage.transform, false);
+                    rect.anchorMin = Vector2.zero;
+                    rect.anchorMax = Vector2.one;
+                    rect.pivot = new Vector2(0.5f, 0.5f);
+                    rect.sizeDelta = Vector2.zero;
+                    rect.anchoredPosition = Vector2.zero;
+                    rect.localScale = Vector3.one;
+                    image.raycastTarget = false;
+                    image.color = parentImage.color;
+                    image.sprite = sprite;
+                    node.SetActive(true);
+                    return true;
+                }
+                catch (Exception e)
+                {
+                    bool released = MapExtensionIslandArt.ReleaseOwnedDecoration(node);
+                    MapIconLog.Once("decoration-config-" + physicalLand + "-" + e.GetType().Name,
+                        "decoration configuration failed; owned release=" + released + ": " + e.Message);
+                    return false;
+                }
+            }
+            catch (Exception e)
+            {
+                MapIconLog.Once("decoration-ensure-" + physicalLand + "-" + e.GetType().Name,
+                    "decoration ensure failed; base shore kept: " + e.Message);
+                return false;
+            }
+        }
+
+        /// <summary>Exact owned rect only (never name-based): foreign same-name Graphics stay blockers.</summary>
+        private static void AppendDecorationExclusion(Image parent, List<RectTransform> into)
+        {
+            if (parent == null || into == null) return;
+            if (!MapExtensionIslandArt.TryGetDecorationNode(parent, out UnityEngine.Object node)) return;
+            GameObject go = node as GameObject;
+            RectTransform rect = go != null ? go.GetComponent<RectTransform>() : null;
+            if (rect != null && !into.Contains(rect)) into.Add(rect);
+        }
+
+        /// <summary>
         /// exact detail 克隆的新岸线：绑定自有 shore/outline（owner = canonical token）并按实际 Sprite.rect
         /// 等比放到 detail 页（左缘让出 native legend −96 + 4UI 水道、右缘不出 page282、垂直中心 −4 保留旧锚点）。
         /// - 冷启动可直接工作：`shore == null` 时也会先 TryEnsure（不依赖此前是否跑过 world）；
@@ -1923,6 +2055,7 @@ namespace KingdomEnhancedMod
                     DetailGeometryApplied(art, shore.rect.width, shore.rect.height) &&
                     DetailGeometryApplied(outline, shore.rect.width, shore.rect.height))
                 {
+                    EnsureDecoration(artImage, detailPhysical, token);
                     return true;
                 }
                 if (!MapExtensionIslandArt.TryEnsure(detailPhysical)) return false;   // 冷启动：直接 detail 也能加载
@@ -1989,6 +2122,7 @@ namespace KingdomEnhancedMod
                 _detailShapeLands[detailSlot] = land;
                 _detailShapeTokens[detailSlot] = token;
                 _detailShapeOutlineImages[detailSlot] = outlineImage;
+                EnsureDecoration(artImage, detailPhysical, token);
                 MapIconLog.Info("detail shore bound w=" + frame.Width.ToString("0.#") +
                     " centerX=" + ((frame.X0 + frame.X1) * 0.5f).ToString("0.#") +
                     " centerY=" + MapExtensionShapePlan.DetailCenterY.ToString("0.#"));
@@ -2511,8 +2645,10 @@ namespace KingdomEnhancedMod
                     Math.Min(shoreBox.X1 - inset, page.X1), Math.Min(shoreBox.Y1 - inset, page.Y1));
                 var excluded = new List<RectTransform>(4) { art, outline };
                 CollectSuppressedSlotRects(land, excluded);
+                AppendDecorationExclusion(artImage, excluded);
                 var blockers = new List<MapIconBox>(24);
                 CollectNativeBoxes(landRect, land.transform, blockers, true, excluded);
+                MapExtensionIslandArtVariant.AppendDecorationBlockers(physicalLand, shoreBox, blockers);
                 context = new DetailPageContext
                 {
                     ShoreBox = shoreBox, Area = area, Blockers = blockers, Mask = mask,
@@ -3880,8 +4016,9 @@ namespace KingdomEnhancedMod
                 RectTransform outline = FindNamedDescendant(entry.Cluster.transform, "Land Outline", 4);
                 RectTransform button = FindOverviewButtonRect(entry.Cluster);
                 if (art == null || outline == null) return false;
-                var excluded = new List<RectTransform>(3) { art, outline };
+                var excluded = new List<RectTransform>(4) { art, outline };
                 if (button != null) excluded.Add(button);
+                AppendDecorationExclusion(art.GetComponent<Image>(), excluded);
                 Transform bespoke = entry.Cluster.transform.Find("Map Icons/Bespoke");
                 if (!TryCompactGraphics(paper, entry.Cluster.transform, excluded, bespoke,
                         out absolute, out any)) return false;
@@ -5082,7 +5219,14 @@ namespace KingdomEnhancedMod
                     _bannerExcludedRects.Clear();
                     return false;
                 }
-                return TryLocalBox(paper, art, out artBox) && artBox.Width > 1f && artBox.Height > 1f;
+                if (!TryLocalBox(paper, art, out artBox) || artBox.Width <= 1f || artBox.Height <= 1f)
+                {
+                    return false;
+                }
+                EnsureDecoration(artImage, physicalLand, token);
+                AppendDecorationExclusion(artImage, _bannerExcludedRects);
+                AppendDecorationExclusion(artImage, entry.BannerExcluded);
+                return true;
             }
             catch (Exception e)
             {

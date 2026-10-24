@@ -34,11 +34,14 @@ namespace RuntimeProbe
             internal RectTransform Paper;
             internal CampaignSaveData.ReignInfo Reign;
         }
-        private static Pair NewPair()
+        private static Pair NewPair() => NewPairFrom(typeof(ProbeProgram).GetMethod("BuildWorld", Flags).Invoke(null,
+            new object[] { true, 1, new[] { 14 } }));
+        private static Pair NewPairSized(float paperW, float paperH)
+            => NewPairFrom(typeof(ProbeProgram).GetMethod("BuildWorldSized", Flags).Invoke(null,
+                new object[] { paperW, paperH, true, 1, new[] { 14 } }));
+        private static Pair NewPairFrom(object fixture)
         {
             ExtensionIslandMap.WorldTokens.Clear(); ExtensionIslandMap.DetailTokens.Clear();
-            object fixture = typeof(ProbeProgram).GetMethod("BuildWorld", Flags).Invoke(null,
-                new object[] { true, 1, new[] { 14 } });
             var p = new Pair {
                 A = Field<UILand>(fixture, "ExtensionDetail"),
                 WorldA = Field<UILand>(fixture, "Extension"),
@@ -233,6 +236,605 @@ namespace RuntimeProbe
             Check(requests.Count == (bOnly ? 8 : 16), "source catalog pressure count");
             return requests;
         }
+        private static readonly int[] ExpectedGroupA = { 21, 22, 23, 24, 25, 26, 13, 6 };
+        private static readonly int[] ExpectedGroupB = { 14, 15, 16, 2, 4, 7, 3, 38 };
+        private static List<MapIconRequest> RequestsFor(int physical)
+        {
+            using var fixture = JsonDocument.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "icon-rects.json")));
+            var requests = new List<MapIconRequest>();
+            foreach (var definition in CrossWorldMountCatalog.Definitions)
+            {
+                if (MountIslandSplitPolicy.GetTargetLand(definition.Id) != physical) continue;
+                float width, height;
+                if (MapCustomIconCatalog.TryGet(1, definition.SteedTypeId, out var custom))
+                { width = custom.UiWidth; height = custom.UiHeight; }
+                else
+                {
+                    var row = fixture.RootElement.GetProperty("1/" + definition.SteedTypeId);
+                    width = row.GetProperty("w").GetSingle() * Math.Abs(row.GetProperty("scale").GetProperty("x").GetSingle());
+                    height = row.GetProperty("h").GetSingle() * Math.Abs(row.GetProperty("scale").GetProperty("y").GetSingle());
+                }
+                requests.Add(new MapIconRequest(MapIconKind.Steed, definition.SteedTypeId, requests.Count, width, height));
+            }
+            Check(requests.Count == 8, "decoration group has eight real catalog entries for " + physical);
+            var expected = new HashSet<int>(physical == 11 ? ExpectedGroupA : ExpectedGroupB);
+            foreach (var request in requests) expected.Remove(request.TypeId);
+            Check(expected.Count == 0, "decoration group matches production split policy for " + physical);
+            return requests;
+        }
+        private static MapIconBox Foot(MapIconPlacement p)
+            => new MapIconBox(p.X, p.Y, p.X + p.Request.Width * p.Scale, p.Y + p.Request.Height * p.Scale);
+        private static float Gap(MapIconBox a, MapIconBox b)
+            => Math.Max(Math.Max(a.X0 - b.X1, b.X0 - a.X1), Math.Max(a.Y0 - b.Y1, b.Y0 - a.Y1));
+        private static readonly int[][] DecorTopLeftA = { new[] { 62, 8, 82, 20 }, new[] { 146, 22, 166, 34 } };
+        private static readonly int[][] DecorTopLeftB = { new[] { 38, 28, 50, 36 }, new[] { 146, 22, 158, 30 } };
+        private static List<MapIconBox> DecorFrames(int physical, in MapIconBox shore)
+        {
+            var frames = new List<MapIconBox>(2);
+            foreach (var r in physical == 11 ? DecorTopLeftA : DecorTopLeftB)
+                frames.Add(new MapIconBox(shore.X0 + r[0] / 228f * shore.Width,
+                    shore.Y0 + (84 - r[3]) / 84f * shore.Height,
+                    shore.X0 + r[2] / 228f * shore.Width,
+                    shore.Y0 + (84 - r[1]) / 84f * shore.Height));
+            return frames;
+        }
+        private static List<MapIconBox> PaddedFrames(List<MapIconBox> frames)
+        {
+            float gap = MapExtensionIslandLayout.Gutter;
+            var padded = new List<MapIconBox>(frames.Count);
+            foreach (var frame in frames)
+                padded.Add(new MapIconBox(frame.X0 - gap, frame.Y0 - gap, frame.X1 + gap, frame.Y1 + gap));
+            return padded;
+        }
+        private static void CheckClear(string tag, List<MapIconPlacement> placements, List<MapIconBox> obstacles,
+            float minGap)
+        {
+            foreach (var placed in placements)
+            {
+                var foot = Foot(placed);
+                foreach (var frame in obstacles)
+                {
+                    Check(Gap(foot, frame) >= minGap, tag + " type" + placed.Request.TypeId +
+                        " violates clearance gap=" + Gap(foot, frame).ToString("0.###"));
+                }
+            }
+        }
+        private static void CheckComplete(string tag, List<MapIconPlacement> placements, List<MapIconRequest> requests,
+            float scale, int failed)
+        {
+            Check(placements.Count == requests.Count && failed == 0 && scale >= MapExtensionIslandLayout.PreferScale,
+                tag + " complete readable count=" + placements.Count + "/" + requests.Count +
+                " scale=" + scale.ToString("0.##") + " failed=" + failed);
+            var seen = new HashSet<int>();
+            foreach (var placed in placements)
+                Check(placed.RequestIndex >= 0 && placed.RequestIndex < requests.Count && seen.Add(placed.RequestIndex),
+                    tag + " unique request identity");
+            Check(seen.Count == requests.Count, tag + " every request placed exactly once");
+        }
+        private static void CheckDecorBlockers(string tag, List<MapIconBox> blockers, List<MapIconBox> decor)
+        {
+            foreach (var frame in decor)
+                Check(blockers.FindAll(b => SameBox(b, frame)).Count == 1,
+                    tag + " context carries each padded decoration frame exactly once");
+        }
+        private static void DecorationDetail(int physical)
+        {
+            // The authored frames were chosen with 1.5 UI clearance from the no-blocker baseline, so
+            // the default eight do not touch them by accident. On the real host the native boat shifts
+            // A's type6 into its first frame, which is the wiring counterexample for this entry.
+            Pair p = NewPair();
+            UILand land = physical == 11 ? p.A : p.B;
+            Bind(p, land);
+            // Production takeover suppresses the native _spawnedIcon children before Rebuild plans the
+            // real detail page; the suppressed host rectangles themselves stay excluded by context.
+            var view = new MapMountIconView { Land = land, LandIndex = physical, Overview = false };
+            Call("SuppressNativeDynamicIcons", land, view);
+            object context = Context(land);
+            Check(context != null, "decoration detail context " + physical);
+            if (context == null) { p.Menu.OnDisable(); return; }
+            var shore = Field<MapIconBox>(context, "ShoreBox");
+            var blockers = Field<List<MapIconBox>>(context, "Blockers");
+            var decor = DecorFrames(physical, shore);
+            var requests = RequestsFor(physical);
+            var placements = new List<MapIconPlacement>();
+            object[] args = { context, requests, placements, 0f, 0 };
+            Check((bool)Call("TryPlanDetailSubset", args), "detail" + physical + " actual planner succeeds");
+            CheckComplete("detail" + physical, placements, requests, (float)args[3], (int)args[4]);
+            var full = new List<MapIconPlacement>();
+            object[] fullArgs = { land, requests, full, 0f, 0 };
+            Check((bool)Call("PlanExtensionDetailIsland", fullArgs) && full.Count == requests.Count &&
+                (float)fullArgs[3] >= MapExtensionIslandLayout.PreferScale && (int)fullArgs[4] == 0,
+                "detail" + physical + " production detail entry fits all eight without paging");
+            CheckClear("detail" + physical, placements, decor, MapExtensionIslandLayout.Gutter - 0.02f);
+            CheckDecorBlockers("detail" + physical, blockers, PaddedFrames(decor));
+            Check(blockers.Exists(b => SameBox(b, new MapIconBox(26, 77, 58, 109))),
+                "detail" + physical + " native boat blocker retained alongside decoration");
+            var mask = Field<MapShoreMask>(context, "Mask");
+            foreach (var placed in placements)
+            {
+                float sx = mask.Width / shore.Width, sy = mask.Height / shore.Height;
+                int x = (int)Math.Round((placed.X - shore.X0) * sx);
+                int y = (int)Math.Round((placed.Y - shore.Y0) * sy);
+                Check(mask.RectAllInside(x, y, x + Math.Max(1, (int)Math.Ceiling(placed.Request.Width * placed.Scale * sx)) - 1,
+                    y + Math.Max(1, (int)Math.Ceiling(placed.Request.Height * placed.Scale * sy)) - 1),
+                    "detail" + physical + " footprint on own top");
+            }
+            // Removing the decoration entries must not lower this host's scale: decoration itself never
+            // downgrades the plan. The host's native boat already determines .7 (the offline .85 result
+            // used no native blockers); the hard contract remains 8 items at >= .6, never paging.
+            var nativeOnly = new List<MapIconBox>();
+            var padded = PaddedFrames(decor);
+            foreach (var b in blockers) if (!padded.Exists(d => SameBox(b, d))) nativeOnly.Add(b);
+            var noDecor = new List<MapIconPlacement>();
+            bool noDecorOk = MapExtensionIslandLayout.TryPlan(Field<MapIconBox>(context, "Area"), requests, nativeOnly,
+                shore, mask, noDecor, out float noDecorScale, out int noDecorFailed,
+                MapExtensionIslandLayout.PreferScale, MapExtensionIslandArtVariant.AnchorsFor(physical));
+            Check(noDecorOk && noDecor.Count == requests.Count && (float)args[3] == noDecorScale,
+                "detail" + physical + " decoration adds no scale downgrade scale=" + (float)args[3] +
+                " nativeOnly=" + noDecorScale);
+            if (physical == 13)
+            {
+                var ordinary = requests.FindAll(r => r.TypeId != 38);
+                var ordinaryPlacements = new List<MapIconPlacement>();
+                object[] ordinaryArgs = { context, ordinary, ordinaryPlacements, 0f, 0 };
+                Check((bool)Call("TryPlanDetailSubset", ordinaryArgs), "detail13 ordinary actual planner succeeds");
+                CheckComplete("detail13 ordinary", ordinaryPlacements, ordinary, (float)ordinaryArgs[3], (int)ordinaryArgs[4]);
+                var ordinaryFull = new List<MapIconPlacement>();
+                object[] ordinaryFullArgs = { land, ordinary, ordinaryFull, 0f, 0 };
+                Check((bool)Call("PlanExtensionDetailIsland", ordinaryFullArgs) && ordinaryFull.Count == ordinary.Count &&
+                    (float)ordinaryFullArgs[3] >= MapExtensionIslandLayout.PreferScale && (int)ordinaryFullArgs[4] == 0,
+                    "detail13 production detail entry fits ordinary seven without paging");
+                CheckClear("detail13 ordinary", ordinaryPlacements, decor, MapExtensionIslandLayout.Gutter - 0.02f);
+            }
+            Call("RestoreSuppressed", view);
+            p.Menu.OnDisable();
+        }
+        private static object BuildOverviewEntry(Pair p, UILand land, int physical, in MapIconBox banner)
+        {
+            Type entryType = typeof(MapMountIcons).GetNestedType("OverviewEntry", BindingFlags.NonPublic);
+            object entry = Activator.CreateInstance(entryType, true);
+            entryType.GetField("Cluster", Fields).SetValue(entry, land);
+            entryType.GetField("LandIndex", Fields).SetValue(entry, physical);
+            object[] args = { entry, banner, p.Paper, p.Menu, physical, null };
+            if (!(bool)Call("ApplyExtensionBanner", args)) return null;
+            entryType.GetField("TargetArtBox", Fields).SetValue(entry, (MapIconBox)args[5]);
+            entryType.GetField("BannerArea", Fields).SetValue(entry, banner);
+            return entry;
+        }
+        private static void DecorationOverview(int physical)
+        {
+            // Host-forced eight-item pressure on a source-linked 620x420 paper with a free band. Default
+            // OnLandUpdated does not build the full overview silhouette set; this is wiring pressure,
+            // never a claim about the player's live overview.
+            Pair p = NewPairSized(620f, 420f);
+            UILand land = physical == 11 ? p.WorldA : p.WorldB;
+            var banner = new MapIconBox(40, 300, 260, 300 + 220f * 84f / 228f);
+            object entry = BuildOverviewEntry(p, land, physical, banner);
+            Check(entry != null, "overview" + physical + " banner entry built");
+            if (entry == null) { p.Menu.OnDisable(); return; }
+            Type entryType = typeof(MapMountIcons).GetNestedType("OverviewEntry", BindingFlags.NonPublic);
+            var shore = (MapIconBox)entryType.GetField("TargetArtBox", Fields).GetValue(entry);
+            var requests = RequestsFor(physical);
+            var placements = new List<MapIconPlacement>();
+            object[] args = { p.Paper, entry, requests, placements, 0f, 0 };
+            Call("PlanExtensionIsland", args);
+            Check((float)args[4] > 0f, "overview" + physical + " actual entry plan succeeds");
+            CheckComplete("overview" + physical, placements, requests, (float)args[4], (int)args[5]);
+            CheckClear("overview" + physical, placements, DecorFrames(physical, shore),
+                MapExtensionIslandLayout.Gutter - 0.02f);
+            float targetScale = physical == 11 ? .85f : .7f;
+            Check((float)args[4] >= targetScale, "overview" + physical + " keeps reviewed capacity scale=" +
+                ((float)args[4]).ToString("0.##") + " target=" + targetScale.ToString("0.##"));
+            var native = new List<MapIconBox>(64);
+            var excluded = (List<RectTransform>)entryType.GetField("BannerExcluded", Fields).GetValue(entry);
+            typeof(MapMountIcons).GetMethod("CollectNativeBoxes", Flags, null,
+                new[] { typeof(RectTransform), typeof(Transform), typeof(List<MapIconBox>), typeof(bool), typeof(List<RectTransform>) }, null)
+                .Invoke(null, new object[] { p.Paper, p.Paper, native, true, excluded });
+            var nativeInBanner = native.FindAll(b => b.Intersects(banner, 0.01f));
+            Check(nativeInBanner.Count > 0, "overview" + physical + " native blockers still intersect banner");
+            CheckClear("overview" + physical + " native", placements, nativeInBanner, -0.01f);
+            Check(ReferenceEquals(Art(land).sprite, MapExtensionIslandArt.ShoreFor(physical)),
+                "overview" + physical + " keeps its bound extension art");
+            p.Menu.OnDisable();
+        }
+        private static void DecorationAvoidance()
+        {
+            var unknown = new List<MapIconBox>(2);
+            MapExtensionIslandArtVariant.AppendDecorationBlockers(12, new MapIconBox(0, 0, 228, 84), unknown);
+            MapExtensionIslandArtVariant.AppendDecorationBlockers(-1, new MapIconBox(0, 0, 228, 84), unknown);
+            MapExtensionIslandArtVariant.AppendDecorationBlockers(11, default, unknown);
+            MapExtensionIslandArtVariant.AppendDecorationBlockers(11, new MapIconBox(0, 0, 228, 84), null);
+            Check(unknown.Count == 0, "unknown/non-positive decoration input writes nothing");
+            var helperA = new List<MapIconBox>(2);
+            MapExtensionIslandArtVariant.AppendDecorationBlockers(11, new MapIconBox(10, 20, 238, 104), helperA);
+            Check(helperA.Count == 2 && SameBox(helperA[0], new MapIconBox(70.5f, 82.5f, 93.5f, 97.5f)) &&
+                SameBox(helperA[1], new MapIconBox(154.5f, 68.5f, 177.5f, 83.5f)),
+                "A helper converts both half-open frames into bottom-up space with 1.5 clearance");
+            var helperB = new List<MapIconBox>(2);
+            MapExtensionIslandArtVariant.AppendDecorationBlockers(13, new MapIconBox(10, 20, 238, 104), helperB);
+            Check(helperB.Count == 2 && SameBox(helperB[0], new MapIconBox(46.5f, 66.5f, 61.5f, 77.5f)) &&
+                SameBox(helperB[1], new MapIconBox(154.5f, 72.5f, 169.5f, 83.5f)),
+                "B helper converts both half-open frames into bottom-up space with 1.5 clearance");
+            DecorationDetail(11);
+            DecorationDetail(13);
+            DecorationOverview(11);
+            DecorationOverview(13);
+        }
+
+        private static bool SamePixels(Color32[] left, Color32[] right)
+        {
+            if (left == null || right == null || left.Length != right.Length) return false;
+            for (int i = 0; i < left.Length; i++)
+            {
+                if (left[i].r != right[i].r || left[i].g != right[i].g ||
+                    left[i].b != right[i].b || left[i].a != right[i].a) return false;
+            }
+            return true;
+        }
+        private static GameObject DecorationNode(UILand land, out Image artImage, out Image nodeImage,
+            out RectTransform nodeRect)
+        {
+            artImage = Art(land);
+            nodeImage = null;
+            nodeRect = null;
+            if (!MapExtensionIslandArt.TryGetDecorationNode(artImage, out UnityEngine.Object node)) return null;
+            GameObject go = node as GameObject;
+            nodeImage = go != null ? go.GetComponent<Image>() : null;
+            nodeRect = go != null ? go.GetComponent<RectTransform>() : null;
+            return go;
+        }
+        private static void CheckDecoration(UILand land, int physical, string tag)
+        {
+            Image artImage = Art(land);
+            RectTransform artRect = (RectTransform)artImage.transform;
+            GameObject node = DecorationNode(land, out artImage, out Image nodeImage, out RectTransform nodeRect);
+            Check(node != null, tag + " exact owned decoration node");
+            if (node == null) return;
+            Check(node.name == MapExtensionIslandArt.DecorationNodeName &&
+                ReferenceEquals(node.transform.parent, artRect) &&
+                ReferenceEquals(artRect.GetChild(artRect.childCount - 1).gameObject, node),
+                tag + " decoration appended last under exact art");
+            Check(nodeImage != null && nodeRect != null, tag + " decoration Image/RectTransform present");
+            Sprite sprite = MapExtensionIslandArt.DecorationFor(physical);
+            Check(sprite != null && ReferenceEquals(nodeImage.sprite, sprite) && sprite.texture != null &&
+                sprite.texture.width == 228 && sprite.texture.height == 84 &&
+                Math.Abs(sprite.rect.width - 228f) < 1e-4f && Math.Abs(sprite.rect.height - 84f) < 1e-4f &&
+                Math.Abs(sprite.pivot.x - .5f) < 1e-4f && Math.Abs(sprite.pivot.y - .5f) < 1e-4f &&
+                Math.Abs(sprite.pixelsPerUnit - 32f) < 1e-4f &&
+                sprite.texture.filterMode == FilterMode.Point &&
+                sprite.texture.wrapMode == TextureWrapMode.Clamp && sprite.texture.anisoLevel == 0,
+                tag + " decoration sprite 228x84/pivot/PPU/Point/Clamp");
+            Check(Math.Abs(nodeRect.anchorMin.x) < 1e-5f && Math.Abs(nodeRect.anchorMin.y) < 1e-5f &&
+                Math.Abs(nodeRect.anchorMax.x - 1f) < 1e-5f && Math.Abs(nodeRect.anchorMax.y - 1f) < 1e-5f &&
+                Math.Abs(nodeRect.sizeDelta.x) < 1e-5f && Math.Abs(nodeRect.sizeDelta.y) < 1e-5f &&
+                Math.Abs(nodeRect.pivot.x - .5f) < 1e-5f && Math.Abs(nodeRect.pivot.y - .5f) < 1e-5f &&
+                Math.Abs(nodeRect.localScale.x - 1f) < 1e-5f && Math.Abs(nodeRect.localScale.y - 1f) < 1e-5f,
+                tag + " stretch anchors/sizeDelta/pivot/scale");
+            Check(Math.Abs(nodeRect.rect.width - artRect.rect.width) < 1e-4f &&
+                Math.Abs(nodeRect.rect.height - artRect.rect.height) < 1e-4f,
+                tag + " stretched size equals art frame");
+            Check(!nodeImage.raycastTarget, tag + " decoration raycast=false");
+            Check(Math.Abs(nodeImage.color.r - artImage.color.r) < 1e-6f &&
+                Math.Abs(nodeImage.color.g - artImage.color.g) < 1e-6f &&
+                Math.Abs(nodeImage.color.b - artImage.color.b) < 1e-6f &&
+                Math.Abs(nodeImage.color.a - artImage.color.a) < 1e-6f,
+                tag + " decoration copies base color");
+            Check(node.GetComponent<Button>() == null && node.GetComponent<Text>() == null &&
+                node.GetComponent<CanvasGroup>() == null && node.GetComponent<UIMapIcon>() == null,
+                tag + " no Button/Text/CanvasGroup/UIMapIcon on decoration");
+            Transform foundArt = (Transform)Call("FindArtTransform", land);
+            Transform foundOutline = (Transform)Call("FindNamedDescendant", land.transform, "Land Outline", 4);
+            Check(ReferenceEquals(foundArt, artRect) && ReferenceEquals(foundOutline, Outline(land).transform),
+                tag + " decoration does not alter FindArtTransform/FindNamedDescendant chain");
+            int named = 0;
+            for (int i = 0; i < artRect.childCount; i++)
+                if (artRect.GetChild(i).gameObject.name == MapExtensionIslandArt.DecorationNodeName) named++;
+            Check(named == 1, tag + " exactly one decoration child per shore");
+            Check(ReferenceEquals(artImage.sprite, MapExtensionIslandArt.ShoreFor(physical)),
+                tag + " base shore sprite unchanged");
+            var prep = MapExtensionIslandArt.PrepFor(physical);
+            Check(prep != null && artImage.sprite.texture != null &&
+                SamePixels(artImage.sprite.texture.Pixels, prep.Shore),
+                tag + " base shore pixels unchanged");
+        }
+        private static MapIconBox LocalBox(RectTransform space, RectTransform target)
+        {
+            object[] args = { space, target, null };
+            Check((bool)Call("TryLocalBox", args), "local box readable");
+            return (MapIconBox)args[2];
+        }
+        private static bool SameFrame(in MountIslandFrame a, in MountIslandFrame b)
+            => Math.Abs(a.X0 - b.X0) < 0.01f && Math.Abs(a.Y0 - b.Y0) < 0.01f &&
+               Math.Abs(a.X1 - b.X1) < 0.01f && Math.Abs(a.Y1 - b.Y1) < 0.01f;
+        private static void DecorationCompactExclusion()
+        {
+            // Compact/VerifyCompact use TryCompactState; with the same production exclusion the
+            // decoration does not change the measured state envelope.
+            Pair pc = NewPair();
+            Bind(pc, pc.A); CheckWorld(pc, pc.WorldA, 11);
+            RectTransform cluster = (RectTransform)pc.WorldA.transform;
+            cluster.SetParent(pc.Paper, false);
+            cluster.anchorMin = cluster.anchorMax = new Vector2(.5f, .5f);
+            cluster.pivot = new Vector2(.5f, .5f);
+            cluster.anchoredPosition = new Vector2(150f, 100f);
+            Type entryType = typeof(MapMountIcons).GetNestedType("OverviewEntry", BindingFlags.NonPublic);
+            object entry = Activator.CreateInstance(entryType, true);
+            entryType.GetField("Cluster", Fields).SetValue(entry, pc.WorldA);
+            entryType.GetField("Rect", Fields).SetValue(entry, cluster);
+            entryType.GetField("LandIndex", Fields).SetValue(entry, 11);
+            entryType.GetField("IsExtension", Fields).SetValue(entry, true);
+            MethodInfo compactState = typeof(MapMountIcons).GetMethod("TryCompactState", Flags, null,
+                new[] { typeof(RectTransform), entryType, typeof(MountIslandFrame).MakeByRefType(),
+                    typeof(bool).MakeByRefType(), typeof(MountIslandFrame).MakeByRefType() }, null);
+            object[] compactArgs = { pc.Paper, entry, null, null, null };
+            Check((bool)compactState.Invoke(null, compactArgs), "compact state readable with decoration");
+            var compactWith = (MountIslandFrame)compactArgs[4];
+            bool anyWith = (bool)compactArgs[3];
+            RectTransform compactArt = (RectTransform)Art(pc.WorldA).transform;
+            GameObject foreign = new GameObject(MapExtensionIslandArt.DecorationNodeName);
+            RectTransform foreignRect = foreign.AddComponent<RectTransform>();
+            foreignRect.SetParent(compactArt, false);
+            foreignRect.sizeDelta = new Vector2(40f, 40f);
+            foreignRect.pivot = new Vector2(.5f, .5f);
+            foreignRect.anchoredPosition = new Vector2(300f, 300f);
+            foreign.AddComponent<Image>();
+            object[] foreignArgs = { pc.Paper, entry, null, null, null };
+            Check((bool)compactState.Invoke(null, foreignArgs), "compact state readable with foreign same-name node");
+            Check(!SameFrame(compactWith, (MountIslandFrame)foreignArgs[4]),
+                "foreign same-name Graphic remains in TryCompactGraphics state");
+            UnityEngine.Object.Destroy(foreign);
+            GameObject compactNode = DecorationNode(pc.WorldA, out _, out _, out _);
+            UnityEngine.Object.Destroy(compactNode);
+            object[] bareArgs = { pc.Paper, entry, null, null, null };
+            Check((bool)compactState.Invoke(null, bareArgs), "compact state readable without decoration");
+            Check(anyWith && (bool)bareArgs[3] && SameFrame(compactWith, (MountIslandFrame)bareArgs[4]),
+                "owned decoration excluded from TryCompactGraphics state");
+            pc.Menu.OnDisable();
+
+        }
+        private static void DecorationLoadFailure()
+        {
+            MapExtensionIslandArt.Reset();
+            Pair p = NewPair();
+            ImageConversion.LoadCalls = 0;
+            ImageConversion.FailOnLoadIndex = 2;   // base decode succeeds, optional decoration decode fails
+            Bind(p, p.A);
+            Check(ReferenceEquals(Art(p.A).sprite, MapExtensionIslandArt.ShoreFor(11)) &&
+                DecorationNode(p.A, out _, out _, out _) == null &&
+                MapExtensionIslandArt.DecorationFor(11) == null,
+                "invalid optional decoration leaves base shore bound without a node");
+            CheckWorld(p, p.WorldA, 11);
+            Check(DecorationNode(p.WorldA, out _, out _, out _) == null &&
+                ReferenceEquals(Art(p.WorldA).sprite, MapExtensionIslandArt.ShoreFor(11)),
+                "world base transaction survives optional decoration failure");
+            int calls = ImageConversion.LoadCalls;
+            Bind(p, p.A);
+            Check(ImageConversion.LoadCalls == calls &&
+                DecorationNode(p.A, out _, out _, out _) == null,
+                "failed decoration is not retried within the same cache generation");
+            MapExtensionIslandArt.Reset();
+            ImageConversion.FailOnLoadIndex = -1;
+            Bind(p, p.A);
+            Check(DecorationNode(p.A, out _, out _, out _) != null,
+                "decoration retries after explicit cache reset");
+            p.Menu.OnDisable();
+            Check(MapExtensionIslandArt.LeaseCount == 0, "decoration load failure cleans up");
+        }
+        private static void DecorationCreationFailure()
+        {
+            MapExtensionIslandArt.Reset();
+            Pair p = NewPair();
+            Bind(p, p.A);
+            object token = ExtensionIslandMap.DetailTokens[11];
+            GameObject normal = DecorationNode(p.A, out _, out _, out _);
+            Check(MapExtensionIslandArt.ReleaseOwnedDecoration(normal), "creation-failure baseline node released");
+            int baseline = MapExtensionIslandArt.LeaseCount;
+
+            GameObject.FailNextSetActive = true;
+            UnityEngine.Object.FailNextDestroy = true;
+            Check(!(bool)Call("EnsureDecoration", Art(p.A), 11, token),
+                "SetActive failure after node registration returns false");
+            Check(MapExtensionIslandArt.TryGetDecorationNode(Art(p.A), out UnityEngine.Object retained) &&
+                MapExtensionIslandArt.LeaseCount == baseline + 1 && retained != null,
+                "owned duty retained after SetActive and first Destroy failure");
+            var retainedGo = retained as GameObject;
+            Check(retainedGo != null && !retainedGo.activeSelf,
+                "cleanup attempted inactive before failed Destroy");
+            Check((bool)Call("EnsureDecoration", Art(p.A), 11, token), "cleanup recovers after fault clears");
+            Check(retained == null && DecorationNode(p.A, out _, out _, out _) != null &&
+                MapExtensionIslandArt.LeaseCount == baseline + 1,
+                "retained node destroyed on recovery without duplicate lease");
+
+            GameObject current = DecorationNode(p.A, out _, out _, out _);
+            Check(MapExtensionIslandArt.ReleaseOwnedDecoration(current), "second baseline node released");
+            GameObject.FailNextAddComponent = true;
+            UnityEngine.Object.FailNextDestroy = true;
+            Check(!(bool)Call("EnsureDecoration", Art(p.A), 11, token),
+                "AddComponent failure after node registration returns false");
+            Check(MapExtensionIslandArt.TryGetDecorationNode(Art(p.A), out UnityEngine.Object retainedAdd) &&
+                retainedAdd != null && MapExtensionIslandArt.LeaseCount == baseline + 1,
+                "owned duty retained after AddComponent and first Destroy failure");
+            Check((bool)Call("EnsureDecoration", Art(p.A), 11, token), "AddComponent fault recovers");
+            Check(retainedAdd == null && DecorationNode(p.A, out _, out _, out _) != null &&
+                MapExtensionIslandArt.LeaseCount == baseline + 1,
+                "AddComponent failure leaves no silent orphan");
+            p.Menu.OnDisable();
+            Check(MapExtensionIslandArt.LeaseCount == 0 && MapExtensionIslandArt.Prep == null,
+                "creation failure cleanup reaches zero leases/caches");
+        }
+        private static void DecorationReadFaultRegistration()
+        {
+            MapExtensionIslandArt.Reset();
+            Pair p = NewPair();
+            Bind(p, p.A);
+            object token = ExtensionIslandMap.DetailTokens[11];
+            GameObject normal = DecorationNode(p.A, out _, out _, out _);
+            Check(MapExtensionIslandArt.ReleaseOwnedDecoration(normal), "read-fault baseline node released");
+            int baseline = MapExtensionIslandArt.LeaseCount;
+            Image parent = Art(p.A);
+            parent.SpriteReads = 0;
+            parent.ThrowOnReadOrdinal = 2;   // first parent check succeeds, second check fails
+            UnityEngine.Object.FailNextDestroy = true;
+            Check(!(bool)Call("EnsureDecoration", parent, 11, token) && parent.SpriteReads == 2,
+                "second parent read fault returns false after two reads");
+            Check(MapExtensionIslandArt.TryGetDecorationNode(parent, out UnityEngine.Object retained) &&
+                retained != null && MapExtensionIslandArt.LeaseCount == baseline + 1 &&
+                MapExtensionIslandArt.HasOutstanding(token) &&
+                MapExtensionIslandArt.DestroyCacheIfUnused() == false,
+                "unregistered cleanup-only node retains lease/owner/cache");
+            Check(MapExtensionIslandArt.ReleaseOwnedDecoration(retained) &&
+                DecorationNode(p.A, out _, out _, out _) == null &&
+                MapExtensionIslandArt.LeaseCount == baseline,
+                "second cleanup succeeds with no node or cleanup lease");
+            p.Menu.OnDisable();
+            Check(MapExtensionIslandArt.LeaseCount == 0 && MapExtensionIslandArt.Prep == null,
+                "read-fault cleanup reaches zero leases/caches");
+        }
+        private static void DecorationOverlay()
+        {
+            Pair p = NewPair();
+            Image artA = Art(p.A);
+            bool baseRayA = artA.raycastTarget, baseMeshA = artA.useSpriteMesh, basePreserveA = artA.preserveAspect;
+            var baseTypeA = artA.type;
+            artA.alphaHitTestMinimumThreshold = 0.37f;
+            Image artB = Art(p.B);
+            bool baseRayB = artB.raycastTarget, baseMeshB = artB.useSpriteMesh, basePreserveB = artB.preserveAspect;
+            var baseTypeB = artB.type;
+            artB.alphaHitTestMinimumThreshold = 0.37f;
+            Image worldA = Art(p.WorldA), worldB = Art(p.WorldB);
+            bool worldRayA = worldA.raycastTarget, worldRayB = worldB.raycastTarget;
+            Sprite nativeWorldB = worldB.sprite;
+            Bind(p, p.A); Bind(p, p.B);
+            CheckWorld(p, p.WorldA, 11); CheckWorld(p, p.WorldB, 13);
+            Check(artA.raycastTarget == baseRayA && artA.useSpriteMesh == baseMeshA &&
+                artA.preserveAspect == basePreserveA && artA.type == baseTypeA &&
+                Math.Abs(artA.alphaHitTestMinimumThreshold - 0.37f) < 1e-6f &&
+                artB.raycastTarget == baseRayB && artB.useSpriteMesh == baseMeshB &&
+                artB.preserveAspect == basePreserveB && artB.type == baseTypeB &&
+                Math.Abs(artB.alphaHitTestMinimumThreshold - 0.37f) < 1e-6f,
+                "base detail fields incl alphaHitTest unchanged by decoration");
+            Check(worldA.raycastTarget == worldRayA && worldB.raycastTarget == worldRayB,
+                "base world raycastTarget unchanged by decoration");
+            CheckDecoration(p.A, 11, "detail11");
+            CheckDecoration(p.B, 13, "detail13");
+            CheckDecoration(p.WorldA, 11, "world11");
+            CheckDecoration(p.WorldB, 13, "world13");
+            Check(ReferenceEquals(MapExtensionIslandArt.DecorationFor(11), MapExtensionIslandArt.DecorationFor(11)) &&
+                ReferenceEquals(MapExtensionIslandArt.DecorationFor(13), MapExtensionIslandArt.DecorationFor(13)) &&
+                !ReferenceEquals(MapExtensionIslandArt.DecorationFor(11), MapExtensionIslandArt.DecorationFor(13)),
+                "two decoration textures shared by four views");
+            GameObject detailA = DecorationNode(p.A, out _, out _, out _);
+            GameObject worldANode = DecorationNode(p.WorldA, out _, out _, out _);
+            int leases = MapExtensionIslandArt.LeaseCount;
+            Bind(p, p.A); CheckWorld(p, p.WorldA, 11);
+            Check(ReferenceEquals(DecorationNode(p.A, out _, out _, out _), detailA) &&
+                ReferenceEquals(DecorationNode(p.WorldA, out _, out _, out _), worldANode) &&
+                MapExtensionIslandArt.LeaseCount == leases,
+                "same-owner rebind reuses one node and does not duplicate leases");
+            Check(MapExtensionIslandArt.DestroyCacheIfUnused() == false &&
+                MapExtensionIslandArt.DecorationFor(11) != null,
+                "live decoration leases keep cache alive");
+
+            Color originalBaseColor = Art(p.A).color;
+            GameObject colorNode = DecorationNode(p.A, out _, out Image colorImage, out _);
+            var tint = new Color(.2f, .4f, .6f, .8f);
+            Art(p.A).color = tint;
+            Bind(p, p.A);
+            Check(ReferenceEquals(DecorationNode(p.A, out _, out _, out _), colorNode) &&
+                colorImage != null && Math.Abs(colorImage.color.r - tint.r) < 1e-6f &&
+                Math.Abs(colorImage.color.g - tint.g) < 1e-6f &&
+                Math.Abs(colorImage.color.b - tint.b) < 1e-6f &&
+                Math.Abs(colorImage.color.a - tint.a) < 1e-6f,
+                "same-owner fast path updates decoration color on rebind");
+            Art(p.A).color = originalBaseColor;
+
+            // Detail collector: the exact owned rect is excluded, a foreign same-name Graphic is not.
+            RectTransform detailArtRect = (RectTransform)Art(p.A).transform;
+            GameObject foreign = new GameObject(MapExtensionIslandArt.DecorationNodeName);
+            RectTransform foreignRect = foreign.AddComponent<RectTransform>();
+            foreignRect.SetParent(detailArtRect, false);
+            foreignRect.sizeDelta = new Vector2(40f, 40f);
+            foreignRect.pivot = new Vector2(.5f, .5f);
+            foreignRect.anchoredPosition = new Vector2(40f, 40f);
+            foreign.AddComponent<Image>().sprite = MapExtensionIslandArt.DecorationFor(11);
+            object context = Context(p.A);
+            Check(context != null, "decoration detail context rebuilt");
+            var blockers = Field<List<MapIconBox>>(context, "Blockers");
+            RectTransform landRect = (RectTransform)p.A.transform;
+            MapIconBox ownedBox = LocalBox(landRect, (RectTransform)DecorationNode(p.A, out _, out _, out _).transform);
+            MapIconBox foreignBox = LocalBox(landRect, foreignRect);
+            Check(blockers.Exists(b => SameBox(b, foreignBox)), "foreign same-name Graphic remains a blocker");
+            Check(!blockers.Exists(b => SameBox(b, ownedBox)), "exact owned decoration rect excluded from collector");
+            UnityEngine.Object.Destroy(foreign);
+
+            // New owner: old node is destroyed before replacement; late old cleanup/ensure is inert.
+            object oldToken = ExtensionIslandMap.DetailTokens[11];
+            GameObject oldNode = DecorationNode(p.A, out _, out _, out _);
+            ExtensionIslandMap.DetailTokens[11] = new object();
+            Bind(p, p.A);
+            GameObject newNode = DecorationNode(p.A, out _, out _, out _);
+
+            Check(newNode != null, "new owner creates replacement decoration node");
+            Check(!ReferenceEquals(newNode, oldNode), "new owner node differs from old");
+            Check(oldNode == null, "old owner decoration node destroyed");
+            MapExtensionIslandArt.ReleaseOwner(oldToken);
+            Check(ReferenceEquals(DecorationNode(p.A, out _, out _, out _), newNode) &&
+                ReferenceEquals(Art(p.A).sprite, MapExtensionIslandArt.ShoreFor(11)),
+                "late old owner cleanup keeps new node and shore");
+            Check(!(bool)Call("EnsureDecoration", Art(p.A), 11, oldToken) &&
+                ReferenceEquals(DecorationNode(p.A, out _, out _, out _), newNode),
+                "late old owner cannot recreate or overwrite decoration");
+
+            // Partial configuration failure releases the registered owned node; base stays bound.
+            object currentToken = ExtensionIslandMap.DetailTokens[11];
+            GameObject current = DecorationNode(p.A, out _, out _, out _);
+            Check(MapExtensionIslandArt.ReleaseOwnedDecoration(current), "owned node released for failure probe");
+            Check(DecorationNode(p.A, out _, out _, out _) == null, "owned node gone before failure probe");
+            int beforeFailure = MapExtensionIslandArt.LeaseCount;
+            Graphic.FailNextColorSet = true;
+            Check(!(bool)Call("EnsureDecoration", Art(p.A), 11, currentToken) &&
+                DecorationNode(p.A, out _, out _, out _) == null &&
+                MapExtensionIslandArt.LeaseCount == beforeFailure &&
+                ReferenceEquals(Art(p.A).sprite, MapExtensionIslandArt.ShoreFor(11)),
+                "partial decoration creation leaves no orphan or lease");
+            Check((bool)Call("EnsureDecoration", Art(p.A), 11, currentToken),
+                "decoration retries cleanly after configuration failure");
+            CheckDecoration(p.A, 11, "detail11-recovered");
+
+            // A lost Image component must not drop the owned-node destroy duty.
+            GameObject lost = DecorationNode(p.WorldA, out _, out Image lostImage, out _);
+            UnityEngine.Object.Destroy(lostImage);
+            Check(DecorationNode(p.WorldA, out _, out _, out _) == lost,
+                "owned node remains tracked when its Image component is gone");
+            Check(MapExtensionIslandArt.ReleaseOwnedDecoration(lost) &&
+                DecorationNode(p.WorldA, out _, out _, out _) == null,
+                "owned release destroys the node without relying on Image");
+            Check((bool)Call("EnsureDecoration", Art(p.WorldA), 11, ExtensionIslandMap.WorldTokens[11]) &&
+                DecorationNode(p.WorldA, out _, out _, out _) != null,
+                "decoration recreates after lost-component release");
+
+            // Parent release cascades to its owned node and restores the native sprite.
+            MapExtensionIslandArt.ReleaseBorrowed(Art(p.WorldB));
+            Check(DecorationNode(p.WorldB, out _, out _, out _) == null &&
+                ReferenceEquals(Art(p.WorldB).sprite, nativeWorldB),
+                "parent release destroys dependent decoration and restores native");
+            Check(MapExtensionIslandArt.DestroyCacheIfUnused() == false,
+                "remaining live leases still protect cache");
+
+            GameObject teardownA = DecorationNode(p.A, out _, out _, out _);
+            GameObject teardownB = DecorationNode(p.B, out _, out _, out _);
+            GameObject teardownWorldA = DecorationNode(p.WorldA, out _, out _, out _);
+            p.Menu.OnDisable();
+            Check(teardownA == null && teardownB == null && teardownWorldA == null &&
+                MapExtensionIslandArt.LeaseCount == 0 && MapExtensionIslandArt.Prep == null &&
+                MapExtensionIslandArt.DecorationFor(11) == null && MapExtensionIslandArt.DecorationFor(13) == null,
+                "teardown destroys all owned nodes and releases caches");
+            Check(ExtensionIslandMapPlan.IsSelfGeneratedNode(MapExtensionIslandArt.DecorationNodeName) &&
+                !ExtensionIslandMapPlan.IsSelfGeneratedNode("KEM_MapIslandDecorationOther"),
+                "clone sanitizer recognizes only the exact decoration name");
+            DecorationCompactExclusion();
+        }
+
         private static void Planning()
         {
             Pair p = NewPair(); Bind(p, p.B);
@@ -343,8 +945,9 @@ namespace RuntimeProbe
             Check(ReferenceEquals(Outline(p.A).sprite, MapExtensionIslandArt.OutlineFor(11)), "batch keeps A outline");
             Check(ReferenceEquals(Art(p.B).sprite, MapExtensionIslandArt.ShoreFor(13)), "batch keeps B terrain");
             Check(ReferenceEquals(Outline(p.B).sprite, MapExtensionIslandArt.OutlineFor(13)), "batch keeps B outline");
-            Check(MapExtensionIslandArt.LeaseCount == 4,
-                "four detail leases live after batch leases=" + MapExtensionIslandArt.LeaseCount);
+            Check(MapExtensionIslandArt.LeaseCount == 6,
+                "four detail shore leases plus two decoration leases live after batch leases=" +
+                MapExtensionIslandArt.LeaseCount);
             object a = Context(p.A), b = Context(p.B);
             Check(a != null && b != null, "both per-slot page contexts valid");
             Check(!ReferenceEquals(Field<MapShoreMask>(a, "Mask"), Field<MapShoreMask>(b, "Mask")),
@@ -428,9 +1031,9 @@ namespace RuntimeProbe
                 "late A click while viewing B is rejected without removing cached pager");
             // 数据回调重建 A pager（新内容 → 新 fingerprint → Rebuild）
             p.Menu.focusedLand = 10;
-            int[] trimmed = new int[cycle.Length - 1];   // 17 项 > 单页容量 16 → 必分 2 页重建 pager
-            Array.Copy(cycle, trimmed, trimmed.Length);
-            p.Reign.landData[11].steedSpawns = Steeds(trimmed);
+            int[] rebuilt = new int[cycle.Length];   // 18 项超过当前单页容量 17 → 仍必分 2 页重建 pager
+            for (int i = 0; i < rebuilt.Length; i++) rebuilt[i] = 22;
+            p.Reign.landData[11].steedSpawns = Steeds(rebuilt);
             p.A.UpdateLand(p.Reign, 10);
             object pagerA2 = PagerAt(11);
             Check(pagerA2 != null && !ReferenceEquals(pagerA2, pagerA), "fresh callback rebuilds A pager");
@@ -462,7 +1065,7 @@ namespace RuntimeProbe
             Check(ReferenceEquals(Art(p.A).sprite, MapExtensionIslandArt.ShoreFor(11)) &&
                 ReferenceEquals(Art(p.B).sprite, MapExtensionIslandArt.ShoreFor(13)),
                 "OFF keeps both detail pairs");
-            Check(MapExtensionIslandArt.LeaseCount == 4, "OFF keeps detail leases leases=" +
+            Check(MapExtensionIslandArt.LeaseCount == 6, "OFF keeps detail and decoration leases leases=" +
                 MapExtensionIslandArt.LeaseCount);
             // OnDisable：两 tuple 全归还 native，租约清零
             ModConfig.CrossWorldMountsEnabled.Value = true;
@@ -915,7 +1518,7 @@ namespace RuntimeProbe
                 if (Array.IndexOf(args, "--missing-b") >= 0) MissingB();
                 else if (Array.IndexOf(args, "--callback-only") >= 0) CallbackOnly();
                 else if (Array.IndexOf(args, "--ship-only") >= 0) { ShipPlanner(); ShipPlacement(11, 1f, "ship/A"); ShipPlacement(13, 1.4f, "ship/B-scaled"); ShipPlacement(11, 1f, "ship/wrapper", true); ShipFallbacks(); }
-                else { CrossLand(); BrokenPair(false); BrokenPair(true); CallbackOnly(); PagerFault(false); PagerFault(true); Planning(); SecondSpriteFailure(); DualPrepare(); WorldPrebuildPagers(); ShipPlanner(); ShipPlacement(11, 1f, "ship/A"); ShipPlacement(13, 1.4f, "ship/B-scaled"); ShipPlacement(11, 1f, "ship/wrapper", true); ShipFallbacks(); DetailDiagnostics(); }
+                else { CrossLand(); BrokenPair(false); BrokenPair(true); CallbackOnly(); PagerFault(false); PagerFault(true); Planning(); DecorationAvoidance(); DecorationOverlay(); DecorationLoadFailure(); DecorationCreationFailure(); DecorationReadFaultRegistration(); SecondSpriteFailure(); DualPrepare(); WorldPrebuildPagers(); ShipPlanner(); ShipPlacement(11, 1f, "ship/A"); ShipPlacement(13, 1.4f, "ship/B-scaled"); ShipPlacement(11, 1f, "ship/wrapper", true); ShipFallbacks(); DetailDiagnostics(); }
                 Console.WriteLine("PASS variant runtime checks=" + checks); return 0;
             }
             catch (Exception e) { Console.WriteLine("FAIL checks=" + checks + " " + e); return 1; }
