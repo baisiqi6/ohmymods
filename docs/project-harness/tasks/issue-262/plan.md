@@ -36,3 +36,10 @@
 ## 2026-10-25 运行进展：首次真实补货扣款（fixture 世界）
 
 `next-loader-restock-case-20261025-r5`（plan `bfca313c…`，gate 消费一次，zero Root input）在 Android 候选 `6b14879d…` + restock3 cfg `f0df327e…`（58 keys，仅 Workers/Archers/Ninjas 开）+ day32 fixture `35faea07…` + 609e 探针下取得首个真实经济扣款事实：`[AutoRestock] 工人 补货成功 price=6 nativePrice=3 coins=6`（native `Payable.TransactionComplete()` 之后、shop role 另含 `GetItemCount()+1` 验证），postflight `restockVerdict=paid-purchase-observed`。同 run：world `islandLand=8/castleBuilt=true/wallsCount=7`、live banker + `[BankAssistants] Authority spawned deterministic 8-assistant pool`、零 `MissingIl2CppInternalCallException`、资源/原盘交还通过。其余 6 类补货（Berserkers/Peasants/Farmers/CatapultBarrels/FireTowerAmmo/Musketeers）本 run 关闭/无对应店，未验证；保存/读档/换岛/池重建与手机/多人/长跑仍未验证。详见 `economy-restock-run-20261025.md`。本任务保持 open，不据此关闭 #262。
+
+
+## 2026-10-25 追加：其余补货分组（r6/r7）
+
+- r6（plan `6cbd2a19…`，restock6 cfg `b56d5a87…`，58 keys，6 类开、target 200）：fixture day32 世界取得 2 次额外真实扣款 `[AutoRestock] 农夫 补货成功 price=8 …`、`[AutoRestock] 投石车油桶 补货成功 price=10 …`；postflight `paid-purchase-observed`。其余角色 blocker 为世界/配置前提：狂战士 对象池未就绪/订单已满、无业村民 无可用目标、火塔罐 无可用目标（世界无火塔）、火枪手 请先开启火铳铺。
+- r7（plan `1a3070ea…`，restock7 cfg `feefad79…`，加 `MusketeerEnabled=true`）：`[MusketeerShop] ready x=20.21 … price=4` 成功放置，`请先开启火铳铺` gate 消失；火枪手自动采购仍 inconclusive（唯一行为行 `火枪人数或身份尚未确认`，无 purchase/created 行）。源码级 gate 分析或带火枪手/枪架的后续世界待做。
+- 至此真实扣款覆盖：工人、农夫、投石车油桶 三个角色；保存/读档/换岛/池重建、狂战士/火塔/火枪手正例仍待验证。

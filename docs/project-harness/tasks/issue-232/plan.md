@@ -1,6 +1,6 @@
 {
-  "case": "controlled-candidate136-loader-restock-isolated-20261025-r5-single1",
-  "objective": "economy-restock-probe",
+  "case": "controlled-candidate136-loader-restock7-isolated-20261025-r7-single1",
+  "objective": "economy-restock7-probe",
   "serial": "emulator-5582",
   "avd": "ohmymods_android35_inprocess",
   "emulator": "/opt/homebrew/share/android-commandlinetools/emulator/emulator",
@@ -29,8 +29,8 @@
     "originalSHA256": "5460efd9652731ce50b3d69d10570f3f599cce1935c007e0afe71a0669da156b"
   },
   "candidateCfg": {
-    "path": "/Users/Admin/projects/ohmymods/.local/tasks/android-profession-archery-20261014/g19-s1-runtime-preparation-20261018/restock-economy-config-20261025/MelonPreferences.restock3.cfg",
-    "sha256": "f0df327ecf5060e1bc672b5d5946976a3eeadfe29b599a1175a028a960e83d09",
+    "path": "/Users/Admin/projects/ohmymods/.local/tasks/android-profession-archery-20261014/g19-s1-runtime-preparation-20261018/restock-economy-config-20261025/MelonPreferences.restock7.cfg",
+    "sha256": "feefad796591f2043a671085d84d55735f74f3bbac40f19fc680ac0ce82c2fc1",
     "dest": "/sdcard/Android/data/com.rawfury.kingdom2crowns/files/MelonLoader/UserData/MelonPreferences.cfg",
     "originalSHA256": "9758bda80f7834063ba3bdee0146e2c93df4d3ccbb63a71a382e30c7f4d7c882",
     "preferenceKeys": 58
@@ -135,9 +135,9 @@
     "launchActivity": "eagle.simple.sdks.manage.FakeActivity",
     "probe": "/sdcard/Android/data/com.rawfury.kingdom2crowns/files/MelonLoader/Mods/OhMyMods.NativeSceneControlProbe.dll"
   },
-  "gateSHA256": "e5998b5b692f2b5fccd78aecddca9954d1ad13364d420823f500a2ba527079a3",
-  "sourceReviewSHA256": "fca99c50023bded7b78043c31585a0e824c8e9a16bb71f80f680b9af3c650a7f",
-  "resourceWindowSHA256": "325b5ffd6396cb192b588f44612f3680763241b6623ae3d04e2137284aaff29c",
+  "gateSHA256": "0253b186d3eed12a0b3f5d2e6eb975ca70b0f05a5bd47527ebee53d407cdeac7",
+  "sourceReviewSHA256": "9f9eaf3e2322c5ecdf5c1721d1ebf2ab0bf1364870b5531f5c2ed1e1045799c4",
+  "resourceWindowSHA256": "dad4da9a769edb783f139617eb55d2c596d7e9bc45e3879d356ae47a80ca9107",
   "taskIdentity": {
     "issue": 232,
     "owner": "mac-dsh-ohmymods-android-operator",

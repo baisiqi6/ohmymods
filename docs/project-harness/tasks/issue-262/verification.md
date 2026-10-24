@@ -361,3 +361,9 @@ Root 在旧实现得到5条失败、新实现19/0生命周期检查，覆盖 ina
 - case `controlled-candidate136-loader-restock-isolated-20261025-r5-single1`；plan `bfca313ca22138f3fc39abc7c447b065e6bd30431dd031b77b05be8922299725`；候选 `6b14879d…`、restock3 cfg `f0df327e…`（58 keys，Workers/Archers/Ninjas 开）、fixture F35fae、609e 探针、zero Root input。
 - 结果：controller exit0/evidenceReportable=true；world `islandLand=8/castleBuilt=true/wallsCount=7`；`[BankAssistants] Authority spawned deterministic 8-assistant pool`、live banker=1；`[AutoRestock] 工人 补货成功 price=6 nativePrice=3 coins=6`；postflight `restockVerdict=paid-purchase-observed`、`restockPurchaseIsPaymentProof=true`、`MissingIl2CppInternalCallException` 0、资源/原盘交还通过。
 - 边界：单角色单次采购事实；其余 6 类补货、保存/读档/换岛/池重建、手机/多人/长跑与 UI 手势/画面未验证。详见 `economy-restock-run-20261025.md`。
+
+
+## 2026-10-25 追加运行：r6 其余补货 + r7 火铳铺
+
+- r6（`6cbd2a19…`）：`农夫 补货成功 price=8`、`投石车油桶 补货成功 price=10` 两次真实扣款；狂战士/村民/火塔罐/火枪手 分别为对象池/订单/无目标/火铳铺 gate 的 world-precondition 记录。
+- r7（`1a3070ea…`）：`[MusketeerShop] ready price=4` 放置成功、cfg gate 消失；火枪手自动采购 inconclusive（`火枪人数或身份尚未确认`，无 purchase/created 行）；同 run 再次取得农夫/投石车油桶两次扣款。

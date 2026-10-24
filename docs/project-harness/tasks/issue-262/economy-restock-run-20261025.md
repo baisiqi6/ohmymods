@@ -36,3 +36,27 @@
 - 同 run 另有 `[BankAssistants] first assignment helper=1 … age=3.52s` → `first submission helper=1 … accepted=1`：8 助手池中至少一个助手完成了真实“领币→交银行”闭环（与 paid purchase 同段），但这不是原生银行账本持久化/保存验收。
 - r5 世界（day32 fixture）里 AutoRestock 只能看到 Workers 采购；Archers/Ninjas 已达标，其余 6 类（狂战士/无业村民/农夫/投石车油桶/火塔罐/火枪手）在该世界无对应店铺/塔（log 无 MusketeerShop/HeroShop/fire tower/catapult 等），因此下一组“弹药/火铳/全部助手”不能靠简单换 cfg 取得正例，需要另一份包含相应店铺/塔的 fixture 世界或新场景，否则只能记录为 world-precondition-missing（inconclusive）。
 - 保存/读档/换岛/池重建仍需新的动作/状态契约（当前 loader-control 零输入模型只覆盖首世界观察）。
+
+## r6：restock6 诊断（其余 6 类）— 又取得农夫/投石车油桶两次真实扣款
+
+- 组合：候选 `6b14879d…` + restock6 cfg `b56d5a8749106cb2ba68aea42d1515aad3105218ee0b3ac0c0e051fed296978e`（58 keys；相对 controlled58 的 15 个 changedKeys = 6 个补货开关 true + 9 个 target=200；W/A/N=false；其余 43 键逐字节保持；derivation 有据）+ fixture `35faea07…` + 609e，零 Root 输入。
+- case `controlled-candidate136-loader-restock6-isolated-20261025-r6-single1`；plan **`6cbd2a19…`**；旧 plan `bfca313c…` 正常 revise/approve；gate 消费一次；window `18:03:39–18:23:39Z`。
+- 结果：controller exit0、`evidenceReportable/controlValid=true`、READY+STOP、world `islandLand=8/castleBuilt=true/wallsCount=7`、`[BankAssistants] Authority spawned deterministic 8-assistant pool`、live banker=1；elapsed 226.7s；controller baseline PNG 1。
+- 真实扣款（2 次）：`[AutoRestock] 农夫 补货成功 price=8 nativePrice=4 coins=8`（RestockMotion 3 相；现有 15→17）；`[AutoRestock] 投石车油桶 补货成功 price=10 nativePrice=5 coins=10`（弹药 16→17；RestockMotion 3 相）；postflight `restockVerdict=paid-purchase-observed`、`restockPurchaseIsPaymentProof=true`、`worldPreconditionMissing=false`。
+- 其余角色事实（world/配置前提，非产品失败）：狂战士 “对象池未就绪/订单已满”；无业村民 “无可用目标/订单已满”；火塔罐 “无可用目标”（该世界无火塔）；火枪手 “请先开启火铳铺”；Workers/Archers/Ninjas 已关闭（前批已达标）。零 `MissingIl2CppInternalCallException`/`sig=`、零 Root 输入、资源/原盘交还通过。
+- 判读：day32 fixture 世界确实存在 工人/农夫/投石车油桶 店铺并完成真实扣款；火塔/火枪手/狂战士/村民的采购需要不同世界或额外开关（火枪手 gate=`请先开启火铳铺`），不能据此判失败。覆盖边界：3 个角色（工人/农夫/投石车油桶）真实采购；其余 6 类未全部取得正例；保存/读档/换岛/池重建仍未验证。
+
+## r7：火铳铺开启诊断 — 店铺成功放置，火枪手自动采购仍 inconclusive
+
+- 配置：候选/探针/fixture 同 r5/r6；cfg `feefad796591f2043a671085d84d55735f74f3bbac40f19fc680ac0ce82c2fc1`（58 keys；restock6 父本 + `MusketeerEnabled=true`；相对 controlled58 changedKeys=16、其余 42 键保持；9 targets=200）。
+- case `controlled-candidate136-loader-restock7-isolated-20261025-r7-single1`；plan **`1a3070ea…`**；旧 plan `6cbd2a19…` 正常 revise/approve；gate 消费一次；window `18:17:19–18:37:19Z`。
+- 结果：controller exit0、`evidenceReportable/controlValid=true`、READY+STOP、world `islandLand=8/castleBuilt=true/wallsCount=7`；`[MusketeerShop] owner preflight passed`、`ready x=20.21 native-payment=registered price=4`、`native bow prefab cached` — 火铳铺在 day32 世界成功放置；此前 r6 的 `请先开启火铳铺` gate 消失。Elapsed 227.6s。
+- 同 run 再次取得真实扣款：`[AutoRestock] 农夫 补货成功 price=8 nativePrice=4 coins=8`、`[AutoRestock] 投石车油桶 补货成功 price=10 nativePrice=5 coins=10`；postflight 非火枪手部分 `paid-purchase-observed`。
+- **火枪手自动采购 inconclusive**：唯一 role=火枪手 行为日志为 `火枪人数或身份尚未确认`（shop ready 之前 1s），之后无该角色 order/purchase 行，`musketeerAutoPurchaseCreated=false`、`musketeerPurchaseFact=false`。本候选 role-8 分支无通用 `补货成功` 行，零输入下的判据应为 `[MusketeerShop] purchase … result=created`（本 run 未出现）。该状态是身份/人数 gate（MusketeerSync 已 `owner:global-v`、Musketeer loaded records=12 bound=10 stock=0），不能判失败，也还不能判功能通过。
+- 零 `MissingIl2CppInternalCallException`/`sig=`；资源/原盘交还通过；零 Root 输入。
+- 下一步：源码级分析 `TryGetRestockCounts`/MusketeerIdentity 在 stock=0 且 shop 后放置时是否会重试/确认身份（判断是设计前提还是 Android 特有问题）；或用已有火枪手/枪架的存档世界验证 role-8 自动采购。其余仍未验证：狂战士池前提、火塔世界、保存/读档/换岛/池重建。
+
+### 证据哈希（r6/r7）
+
+- r6：result `0aa3c620…b6b91b`、observed `f5be7c9d…c774821e`、postflight `63b4f406…1db87ac3`、spent gate `8b2b0cc3…d6fe17e`、canonical readback `41c1836e…07ab`。
+- r7：result `75a9d6c1…d35259`、observed `662142b4…8885eec`、postflight `6a68c8c6…cf18dd`、spent gate `0253b186…cdeac7`、canonical readback `3c6d5945…8058b8c`。
