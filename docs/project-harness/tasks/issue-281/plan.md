@@ -36,3 +36,7 @@
 ## 2026-10-25 首错收敛
 
 已用实际Windows诊断DLL取得来源岛8保存首错，首missing unit在begin时已active但原生不持久/未注册；主档未写，Hero/Knight附档有快照轮转，原件完整保留。详见[现场记录](receipts/windows-first-failure-20261025.md)。原生当前主船递归排除已静态核验，尚缺本root归属；不跳过保护或猜职业运输。只读boat-scope增量已完成本机准备：default659/diag857、四种interop0W0E及默认IL/资源等价；源经Astra增量复核，候选未安装。旧“具体career尚未知”仅代表10/24，已由本次观测替代；尚未闭合完整出航身份交接。
+
+## 2026-10-25 诊断281.2已配套安装
+
+用户结束错误进程后，fresh核身份/25数据和444固定文件，按新具体执行审查完成a3dDLL+1e09清单一起替换；原launcher CheckOnly及独立读回通过，没有恢复正常数据。见[实际回执](receipts/windows-diagnostic-2812-install-20261025.md)。只读boat-scope尚待用户再次出航采样，不代表保存语义已修，继续Draft/Open。

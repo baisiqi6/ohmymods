@@ -1,3 +1,7 @@
+## 2026-10-25 — #281 Windows 诊断281.2已配套安装，待船归属实测
+
+已将a3d49aab…DLL与1e09caee…受管清单一起装入独立E:2.4.3玩家包；fresh完整备份及独审/GLM执行关口通过，真实PS5.1 Parser0、launcher CheckOnly exit0。独立读回444固定输入匹配、25份data及backup全同，未恢复正常数据或启动游戏。此版仅补只读boat-scope，保存语义未修；PR282仍Draft/Issue281开放。用户继续原.cmd手动出航并停首错，见[安装回执](tasks/issue-281/receipts/windows-diagnostic-2812-install-20261025.md)。
+
 ## 2026-10-25 — #281 Windows 出航首错已抓取，保存修复仍未完成
 
 实际diag.281.1从来源8向第一坐骑岛11提交成功，随后来源保存首missing unit在begin/apply均active但reg/pinstance为0，原生GetID未观察到；未见读取丢失/预算截断。Native global未变，Hero/Knight四附档快照轮转，副本全保留，未恢复玩家数据。当前2.4.3原生主船子级排除可产生此状态，尚缺本单位归属证据；现有边界内的只读增量已完成本机准备，default659/diag857、四种interop0W0E和默认IL/资源等价；源经Astra增量复核。保存尚未修复，候选未安装，Issue开放、PR282仍Draft。详见[现场记录](tasks/issue-281/receipts/windows-first-failure-20261025.md)。
