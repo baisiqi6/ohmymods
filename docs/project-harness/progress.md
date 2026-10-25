@@ -1,3 +1,27 @@
+## 2026-10-25 — 离线对齐盾卫验收边界，图层和坐骑池责任分类
+
+本岛登记恢复后再次真实保存/冷载Exact；选址两轮各504原候选及166临界候选全被原生拒绝，未截断/未诊断异常，因此不能把相切缺口当本岛NoSpace根因。自动操作未完成场地准备，已正常保存关闭私有窗口、归档检查点并撤凭据；用户有空后协助扩墙/清树，再验购买/领取/换岛/购后冷读。正常存档/运行包不变，PR287继续Draft。
+
+离线复核纠正旧“缺Stencil”及_DstBlend查询；入口与六小盾仍缺失败像素有效pass/MPB，未采纳猜测性排序/材质修复。五轮10条Error逐行一致，四条技能池错误已闭合为映射前置缺失（原生回退普通马），非资源没技能；NoEnvelope冷读分类与Harmony权限错误独立留界。选址临界点与池顺序分别由#290/#291独立处理，不混入本岛修复或预付Native。详情见既有[登记回执](tasks/issue-286/receipts/normal-registration-repair.md)与[图层回执](tasks/issue-286/receipts/mac-layer-observation.md)。
+
+## 2026-10-24 — #286 正常岛登记副本通过保存冷载，购买仍受选址门阻挡
+
+精确原始副本一次性新增11空登记并正确重建Musk配对，原17输入未变；真实ARM64首Load/Save及新进程冷载均Exact、Unknown/QuotaUnknown解除、0/errors[]退出。当前另一阻挡已实证为Create Find无店位，付款/领取/换岛/购后冷载未验，继续最薄原调用取样；不凭登记恢复声称购买完成。正常数据/DLL/Steam未改，未合并安装，PR287保持Draft。详见[副本恢复回执](tasks/issue-286/receipts/normal-registration-repair.md)。
+
+## 2026-10-24 — #286 六小盾私有B对照完成，购买问题未收尾
+
+红框已定位屋檐四枚/柜前两枚独立标记；只改Greek marker排序的私有B NoDeploy 0W0E、275资源保持，真实ARM64远近两朝向采样及UI自然退出通过，正常6对象未变、凭据已撤。B画面正常且无柜台/店员新遮挡，但A未稳定复现原异常，故不认定根因/修复通过，默认源码未采纳、未合并安装。该测试检查点本身左右各2/2满席，不能买属于限制；正常已访问land11缺账仍是另一个未修问题，PR287生成候选不能自动回填。详见[单次回执与边界](tasks/issue-286/receipts/marker-order-native.md)。
+
+## 2026-10-24 — #285/#286 Mac图层四点取样完成，根因未定案
+
+用户确认两问题均Mac；已用基线98259af＋只读Probe在可信source8私有环境取得入口与盾店远近4组，真实UI保存退出、controller0/errors[]、正常存档/配置/DLL及71物理游戏文件保持。共享stencil8/0/1与店身0/独立小盾1的排序分叉已读回；实际MPB/GPU pass未知。普通骑行未稳定复现原图大圆弧，角色实体覆盖小盾不能冒称透明区域异常已证；B未运行，未应用层序/材质修复、未安装。具体槽位现已由红框确认为六个独立小盾，原白X为截图Shift误触；本轮不代验PR287新生成或正常已访问岛11缺账恢复。详见[本轮回执](tasks/issue-286/receipts/mac-layer-observation.md)。
+
+## 2026-10-24 — #286 盾具店购买绑定候选，未安装
+
+首次生成非零槽位岛仍带 raw land0 时，旧入口误用序列化字段/旧岛行，可能使盾卫状态未绑定新岛。候选已在独立分支修正为唯一 native pointer→slot、生成 scope 与 origin 两阶段核验、失败前 detached 状态准备；保留普通 Load/Save、旧 paid 行、活跃付款与 Prepared/未知交易保护。Operator 主机626检查通过，Mac240/Win240/Win243 NoDeploy 0W0E、275资源实际读回一致，Android probe0E/既有1W、AdapterTests1265/0；独立代码审查通过。构建和受控主机用例不等于 Native 时序或玩家问题通过。
+
+本次正常 DLL/存档未替换。当前 Mac 已访问11号岛缺盾卫登记，不由生成候选自动回填；平台已确认Mac，六个marker已指认；正常岛实际拒绝分支仍待隔离核对，默认渲染尚未改，#252/#286保持开放。详见[任务及验证边界](tasks/issue-286/receipts/validation.md)。下文保留历史。
+
 ## 2026-10-25 — #232/#262 代码范围已关闭（checklist done + GitHub closed）
 
 Coordinate 生命周期：`issue-232`、`issue-262` 依次 closeout packet → review approved（Operator self-review，用户授权）→ **mark-done**，checklist 状态均为 `done`；GitHub [#232](https://github.com/baisiqi6/ohmymods/issues/232) 与 [#262](https://github.com/baisiqi6/ohmymods/issues/262) 已关闭（代码范围），关闭说明附证据/边界/pending。合并物：PR #263 `e15d872`、收口记录 PR #288 `171bd08`。

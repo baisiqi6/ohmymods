@@ -98,12 +98,35 @@ namespace KingdomEnhancedMod
     }
     internal sealed class CampaignSaveData
     {
+        // IL2CPP may expose distinct managed wrappers for one native pointer;
+        // same non-zero Pointer shares native-backed state, distinct pointers do not.
+        private static readonly Dictionary<IntPtr, CampaignSaveData> Backings = new();
+        private CampaignSaveData _shared;
+        private IntPtr _pointer;
+        private int _currentLand;
+        private IslandSaveData _currentIsland;
+        private List<IslandSaveData> _islandsBacking;
         internal static CampaignSaveData current => GlobalSaveData._loaded?.campaigns[GlobalSaveData._loaded.currentCampaign];
-        internal IntPtr Pointer;
-        internal int CurrentLand;
-        internal IslandSaveData CurrentIsland;
+        internal CampaignSaveData()
+        { _shared = this; _islandsBacking = new(); }
+        internal IntPtr Pointer
+        {
+            get => _shared._pointer;
+            set
+            {
+                if (value != IntPtr.Zero && Backings.TryGetValue(value, out var canonical)
+                    && !ReferenceEquals(canonical, this))
+                { _shared = canonical; return; }
+                _shared._pointer = value;
+                if (value != IntPtr.Zero) Backings[value] = _shared;
+            }
+        }
+        internal int CurrentLand
+        { get => _shared._currentLand; set => _shared._currentLand = value; }
+        internal IslandSaveData CurrentIsland
+        { get => _shared._currentIsland; set => _shared._currentIsland = value; }
         // Native campaign island table, addressed by slot; placeholders keep land 0.
-        internal List<IslandSaveData> _islands = new();
+        internal List<IslandSaveData> _islands => _shared._islandsBacking;
     }
     internal sealed class IslandSaveData
     {

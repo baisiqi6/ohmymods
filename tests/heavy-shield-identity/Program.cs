@@ -7,6 +7,8 @@ if (args.Contains("--r2")) { R2Regression.Run(); R2Regression.RunR3(); return; }
 if (args.Contains("--load-jobs")) { R2Regression.ProbeNativeJobs(); return; }
 if (args.Contains("--r3")) { R2Regression.RunR3(); return; }
 if (args.Contains("--enrollment")) { EnrollmentRegression.Run(); return; }
+if (args.Contains("--generation-slot")) { NewGenerationRegression.Run(); return; }
+if (args.Contains("--generation-delta")) { NewGenerationDeltaRegression.Run(); return; }
 
 int checks = 0;
 void Check(bool value, string label) { checks++; if (!value) throw new Exception(label); }
@@ -218,6 +220,7 @@ var virginIsland = new IslandSaveData
   isNew = true, playTimeDays = 0 };
 var sameSlotNew = new CampaignSaveData
 { Pointer = Ptr(), CurrentLand = 0, CurrentIsland = virginIsland };
+sameSlotNew._islands.Add(virginIsland);
 sameSlot.global.campaigns.Add(sameSlotNew);
 HeavyShieldPersistence.AfterCampaignCreated(sameSlot.global, sameSlotNew);
 var generation = HeavyShieldPersistence.BeginNativeGeneration(sameSlotNew);

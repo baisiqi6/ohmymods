@@ -66,10 +66,13 @@ internal static class HeavyShieldPersistence
 
     internal sealed class GenerationCapture
     {
-        internal IntPtr Campaign, Island;
-        internal long World;
-        internal int Land, Challenge;
-        internal bool WasNew, Closed;
+        internal IntPtr Global, Prefs, Campaign, Island;
+        internal long World, OwnerGeneration;
+        internal int Slot = -1, CampaignSlot = -1, Land, Challenge;
+        internal bool WasNew, Closed, KeyPresent, OwnerKeyPreflighted;
+        internal string KeyRaw, OwnerExpectedRaw;
+        internal long Epoch;
+        internal HeavyShieldIdentity.Session Origin;
     }
 
     internal sealed class CreateCapture
@@ -113,7 +116,7 @@ internal static class HeavyShieldPersistence
     }
 
     private static GlobalBinding _global;
-    private static long _nextGeneration;
+    private static long _nextGeneration, _nextGenerationEpoch;
     private static SaveCapture _save;
     private static LoadCapture _load;
     private static CreateCapture _create;
@@ -349,7 +352,11 @@ internal static class HeavyShieldPersistence
                 || !ReferenceEquals(HeavyShieldIdentity.Current, s))
             { Freeze(s, recoverableCapture: true); return; }
             var island = scope.IslandObject;
+            // The marker captured this island while its land matched the scope;
+            // a field that drifted before the finalizer cannot stage that snapshot
+            // under another land.
             if (island == null || island.Pointer != scope.Island
+                || island.land != scope.Land || scope.Land != s.Land
                 || island.objects == null) { Freeze(s, recoverableCapture: true); return; }
             var currentlySaving = IslandSaveData.CurrentlySavingIsland;
             if (currentlySaving != null && currentlySaving.Pointer != scope.Island)
@@ -583,20 +590,82 @@ internal static class HeavyShieldPersistence
     internal static GenerationCapture BeginNativeGeneration(CampaignSaveData exactCampaign)
     {
         var scope = new GenerationCapture();
+        // Every Begin invalidates any older live scope for closure ordering.
+        scope.Epoch = ++_nextGenerationEpoch;
         try
         {
-            if (exactCampaign == null || exactCampaign.CurrentIsland == null) return scope;
+            if (exactCampaign == null || exactCampaign.Pointer == IntPtr.Zero
+                || exactCampaign.CurrentIsland == null) return scope;
+            var loaded = GlobalSaveData._loaded;
+            var prefs = loaded?.prefs;
+            if (loaded == null || loaded.Pointer == IntPtr.Zero || prefs == null
+                || prefs.Pointer == IntPtr.Zero || prefs.contents == null
+                || loaded.currentCampaign < 0 || loaded.currentCampaign >= loaded.campaigns.Count) return scope;
+            // Native identity is the non-zero pointer, never managed reference
+            // identity: IL2CPP may hand out distinct wrappers for one object.
+            var member = loaded.campaigns[loaded.currentCampaign];
+            if (member == null || member.Pointer == IntPtr.Zero
+                || member.Pointer != exactCampaign.Pointer) return scope;
             var island = exactCampaign.CurrentIsland;
-            scope.Campaign = exactCampaign.Pointer;
-            scope.Island = island.Pointer;
+            if (island.Pointer == IntPtr.Zero) return scope;
+            if (!HeavyShieldEnrollment.TryUniqueSlot(exactCampaign, island, out int slot)) return scope;
+            if (island.land != 0 && island.land != slot) return scope;
+            bool keyPresent = prefs.contents.TryGetValue(HeavyShieldSaveSchema.Key, out string keyRaw);
+            if (keyPresent && keyRaw == null) return scope;
+            var owner = _global;
+            if (owner != null && owner.Global == loaded.Pointer)
+            {
+                if (owner.Closed || owner.Prefs != prefs.Pointer
+                    || owner.ExpectedRaw != (keyPresent ? keyRaw : null)) return scope;
+                scope.OwnerGeneration = owner.Generation;
+                scope.OwnerExpectedRaw = owner.ExpectedRaw;
+                scope.OwnerKeyPreflighted = owner.KeyPreflighted;
+                if (owner.Sessions.TryGetValue(exactCampaign.Pointer, out var bound))
+                    scope.Origin = bound;
+            }
+            else if (owner != null && owner.Prefs == prefs.Pointer) return scope;
+            scope.Global = loaded.Pointer; scope.Prefs = prefs.Pointer;
+            scope.Campaign = exactCampaign.Pointer; scope.Island = island.Pointer;
+            scope.CampaignSlot = loaded.currentCampaign; scope.Slot = slot;
             scope.Land = island.land;
             scope.WasNew = island.isNew && island.playTimeDays == 0.0;
-            scope.World = WorldKey();
-            var loaded = GlobalSaveData._loaded;
-            scope.Challenge = loaded == null ? -1 : loaded.currentChallenge;
+            scope.World = WorldKey(); scope.Challenge = loaded.currentChallenge;
+            scope.KeyPresent = keyPresent; scope.KeyRaw = keyRaw;
         }
         catch { }
         return scope;
+    }
+
+    // Pure native read used by both the prefix and the post-Tick second gate.
+    // It never installs, syncs, writes or marks any session.
+    private static bool GenerationScopeExact(GenerationCapture scope, CampaignSaveData exactCampaign,
+        GlobalSaveData loaded, PrefsSaveData prefs, Game game, out IslandSaveData island)
+    {
+        island = null;
+        if (loaded == null || prefs == null || game == null) return false;
+        if (loaded.Pointer != scope.Global || prefs.Pointer != scope.Prefs
+            || prefs.contents == null) return false;
+        if (loaded.currentCampaign != scope.CampaignSlot || loaded.currentCampaign < 0
+            || loaded.currentCampaign >= loaded.campaigns.Count) return false;
+        var member = loaded.campaigns[loaded.currentCampaign];
+        if (member == null || member.Pointer == IntPtr.Zero
+            || member.Pointer != scope.Campaign) return false;
+        if (exactCampaign == null || exactCampaign.Pointer != scope.Campaign) return false;
+        island = exactCampaign.CurrentIsland;
+        if (island == null || island.Pointer != scope.Island) return false;
+        if (!HeavyShieldEnrollment.TryUniqueSlot(exactCampaign, island, out int slot)
+            || slot != scope.Slot) return false;
+        if (island.land != 0 && island.land != scope.Slot) return false;
+        if (loaded.currentChallenge != scope.Challenge) return false;
+        if (scope.World == 0 || WorldKey() != scope.World || game.currentLand != scope.Slot) return false;
+        return true;
+    }
+
+    private static bool GenerationKeyExact(PrefsSaveData prefs, GenerationCapture scope)
+    {
+        if (prefs == null || prefs.contents == null) return false;
+        bool present = prefs.contents.TryGetValue(HeavyShieldSaveSchema.Key, out string raw);
+        return present == scope.KeyPresent && (!present || raw == scope.KeyRaw);
     }
 
     internal static void EndNativeGeneration(GenerationCapture scope,
@@ -604,47 +673,136 @@ internal static class HeavyShieldPersistence
     {
         if (scope == null || scope.Closed) return;
         scope.Closed = true;
-        if (!normalReturn || !scope.WasNew || exactCampaign == null
+        // Nested/reverse closure: only the newest live generation may commit.
+        if (scope.Epoch != _nextGenerationEpoch) return;
+        if (!normalReturn || !scope.WasNew || scope.Slot < 0 || scope.CampaignSlot < 0
+            || exactCampaign == null || exactCampaign.Pointer == IntPtr.Zero
             || exactCampaign.Pointer != scope.Campaign) return;
+        HeavyShieldIdentity.Session s = null;
         try
         {
+            // ---- Pure native read phase: no TickBinding / Install / mutation ----
+            var loaded = GlobalSaveData._loaded;
+            var prefs = loaded?.prefs;
+            var game = Managers.Inst?.game;
+            if (!GenerationScopeExact(scope, exactCampaign, loaded, prefs, game,
+                    out var island)) return;
+            var owner = _global;
+            if (scope.Origin != null
+                && (!ReferenceEquals(HeavyShieldIdentity.Current, scope.Origin)
+                    || owner == null || owner.Closed || owner.Global != scope.Global
+                    || owner.Prefs != scope.Prefs
+                    || !GenerationOriginExact(owner, scope.Origin, scope.Origin)))
+                return; // Current or owner.Sessions member replaced before Tick
+            bool firstPreflight = false;
+            if (scope.OwnerGeneration != 0)
+            {
+                if (owner == null || owner.Closed || owner.Global != scope.Global
+                    || owner.Prefs != scope.Prefs || owner.Generation != scope.OwnerGeneration)
+                    return;
+                bool sameKey = owner.ExpectedRaw == scope.OwnerExpectedRaw
+                    && owner.KeyPreflighted == scope.OwnerKeyPreflighted;
+                // The only accepted key transition is this same owner's first
+                // ConfirmedMissing -> owned PreflightKeyWrite (0 -> 1).
+                firstPreflight = !sameKey && !scope.OwnerKeyPreflighted && !scope.KeyPresent
+                    && scope.OwnerExpectedRaw == null && owner.KeyPreflighted
+                    && prefs.contents.TryGetValue(HeavyShieldSaveSchema.Key, out string transitionRaw)
+                    && transitionRaw != null && owner.ExpectedRaw == transitionRaw
+                    && owner.KeyRead == HeavyShieldNativeKeyRead.ConfirmedMissing;
+                if (!sameKey && !firstPreflight) return;
+            }
+            else if (owner != null && owner.Global == scope.Global)
+            {
+                // Prefix had no owner for this Global: only the same Global/Prefs
+                // first binding is acceptable, with a coherent preimage.
+                if (owner.Closed || owner.Prefs != scope.Prefs
+                    || owner.ExpectedRaw != (scope.KeyPresent ? scope.KeyRaw : null)) return;
+            }
+            if (!GenerationKeyExact(prefs, scope) && !firstPreflight) return;
+
+            // ---- Existing binding, then a second full identity/key gate ----
             TickBinding();
-            var s = HeavyShieldIdentity.Current;
-            var island = exactCampaign.CurrentIsland;
-            if (s == null || s.Campaign != scope.Campaign || island == null
-                || island.Pointer != scope.Island || island.land != scope.Land
-                || WorldKey() != scope.World || s.Challenge != scope.Challenge) return;
-            // A previously staged known island never becomes fresh through isNew.
-            var record = FindCampaign(_global.Staged, s.Guid);
-            if (record != null && record.Islands.Exists(x => x.Land == scope.Land && x.Challenge == scope.Challenge))
+            s = HeavyShieldIdentity.Current;
+            owner = _global;
+            if (s == null || owner == null || owner.Closed) return;
+            bool scoped = s.Campaign == scope.Campaign && s.Slot == scope.CampaignSlot;
+            if (!scoped) return; // never touch an unrelated/new session
+            var origin = scope.Origin ?? s;
+            if (!ReferenceEquals(s, origin)) return; // never mutate a foreign replacement
+            loaded = GlobalSaveData._loaded;
+            prefs = loaded?.prefs;
+            game = Managers.Inst?.game;
+            if (s.Global != scope.Global || s.Challenge != scope.Challenge
+                || owner.Global != scope.Global || owner.Prefs != scope.Prefs)
             { s.Unknown = true; return; }
-            if (s.Land != scope.Land) s = ReplaceIslandSession(_global, s, scope.Land);
-            s.Land = scope.Land; s.World = scope.World;
-            var entitlement = FindCampaign(_global.Prepared, s.Guid)
-                ?? (_global.LoadedByNative.TryGetValue(s.Campaign, out var nativeRecord) ? nativeRecord : null);
+            if (scope.OwnerGeneration != 0 && owner.Generation != scope.OwnerGeneration)
+                return; // new owner lifecycle: no foreign Unknown, no mutation
+            if (!GenerationScopeExact(scope, exactCampaign, loaded, prefs, game, out island))
+            { s.Unknown = true; return; }
+            bool nowPresent = prefs.contents.TryGetValue(HeavyShieldSaveSchema.Key, out string nowRaw);
+            if (nowPresent)
+            {
+                // Own preflight may have inserted the first key from a
+                // ConfirmedMissing binding; that is not an external edit.
+                bool keyOwnerCoherent = owner.ExpectedRaw != null && nowRaw == owner.ExpectedRaw
+                    && (owner.KeyRead == HeavyShieldNativeKeyRead.Present
+                        || (owner.KeyRead == HeavyShieldNativeKeyRead.ConfirmedMissing
+                            && owner.KeyPreflighted));
+                if (!keyOwnerCoherent) { s.Unknown = true; return; }
+                if (nowRaw != scope.KeyRaw)
+                {
+                    // Only a real preflight write authorized by this owner may
+                    // change the raw preimage; external edits never qualify.
+                    bool authorized = !scope.OwnerKeyPreflighted && owner.KeyPreflighted
+                        && nowRaw == owner.ExpectedRaw;
+                    if (!authorized) { s.Unknown = true; return; }
+                }
+            }
+            else if (scope.KeyPresent || owner.KeyRead != HeavyShieldNativeKeyRead.ConfirmedMissing
+                || owner.ExpectedRaw != null || owner.KeyPreflighted)
+            { s.Unknown = true; return; }
+            // Same-target re-generation is only a fresh candidate. An armed
+            // responsibility must be checked before any known-row quarantine:
+            // a pure return preserves Unknown, every valid lease and the row.
+            bool sameTarget = s.Land == scope.Slot;
+            if (sameTarget && (s.Claims.Count != 0 || s.Pending.Count != 0
+                || s.Completed.Count != 0 || s.Quota.OccupiedTotal != 0
+                || s.Quota.ShopOccupied || s.Quota.MoldPending || s.Quota.UpgradePending))
+            { return; }
+            // A previously staged known island never becomes fresh through isNew.
+            var record = FindCampaign(owner.Staged, s.Guid);
+            if (record != null && record.Islands.Exists(x => x.Land == scope.Slot && x.Challenge == scope.Challenge))
+            { s.Unknown = true; return; }
+            // Prepare the prospective session off to the side. Enrollment and
+            // quota work cannot touch the installed session on failure.
+            HeavyShieldIdentity.Session next = BuildIslandSession(s, scope.Slot);
+            next.World = scope.World;
+            var entitlement = FindCampaign(owner.Prepared, s.Guid)
+                ?? (owner.LoadedByNative.TryGetValue(s.Campaign, out var nativeRecord) ? nativeRecord : null);
             if (entitlement != null)
             {
-                s.MoldReceipt = entitlement.MoldReceipt;
-                s.LeftExtraReceipt = entitlement.LeftExtraReceipt;
-                s.RightExtraReceipt = entitlement.RightExtraReceipt;
+                next.MoldReceipt = entitlement.MoldReceipt;
+                next.LeftExtraReceipt = entitlement.LeftExtraReceipt;
+                next.RightExtraReceipt = entitlement.RightExtraReceipt;
             }
-            if (!s.Quota.BeginVerifiedRestore(s.MoldReceipt != null,
-                    s.LeftExtraReceipt != null, s.RightExtraReceipt != null)
-                || !s.Quota.FinishVerifiedRestore(true)) { s.Unknown = true; return; }
+            if (!next.Quota.BeginVerifiedRestore(next.MoldReceipt != null,
+                    next.LeftExtraReceipt != null, next.RightExtraReceipt != null)
+                || !next.Quota.FinishVerifiedRestore(true)) { s.Unknown = true; return; }
             // Verified generation success point: a provably unpaid campaign now
             // registers its other already-visited baselines before the first Gem.
             // The new island itself stays owned by this generation boundary.
-            if (!TryEnrollGenerationBaseline(s, island, exactCampaign))
-            {
-                // Active first-connect responsibility could not be discharged:
-                // keep the first purchase closed until a correct lifecycle.
-                s.Unknown = true;
-                return;
-            }
-            s.Unknown = false;
-            s.Phase = HeavyShieldIdentityPhase.Allocated;
+            if (!TryEnrollGenerationBaseline(next, island, exactCampaign, scope.Slot, origin))
+            { s.Unknown = true; return; }
+            try { owner.Sessions[s.Campaign] = next; HeavyShieldIdentity.Install(next); }
+            catch { owner.Closed = true; FreezeAll(owner); return; }
+            next.Unknown = false;
+            next.Phase = HeavyShieldIdentityPhase.Allocated;
         }
-        catch { }
+        catch
+        {
+            if (s != null && s.Campaign == scope.Campaign && s.Slot == scope.CampaignSlot)
+                s.Unknown = true;
+        }
     }
 
     // Before the first payment, prove this native Prefs dictionary can hold and
@@ -791,10 +949,9 @@ internal static class HeavyShieldPersistence
         { owner.Sessions.Remove(pointer); owner.LoadedByNative.Remove(pointer); }
     }
 
-    private static HeavyShieldIdentity.Session ReplaceIslandSession(GlobalBinding owner,
-        HeavyShieldIdentity.Session old, int land)
-    {
-        var next = new HeavyShieldIdentity.Session
+    private static HeavyShieldIdentity.Session BuildIslandSession(HeavyShieldIdentity.Session old,
+        int land)
+        => new HeavyShieldIdentity.Session
         {
             Global = old.Global, Campaign = old.Campaign,
             OwnerGeneration = old.OwnerGeneration, Slot = old.Slot,
@@ -803,6 +960,11 @@ internal static class HeavyShieldPersistence
             MoldReceipt = old.MoldReceipt, LeftExtraReceipt = old.LeftExtraReceipt,
             RightExtraReceipt = old.RightExtraReceipt,
         };
+
+    private static HeavyShieldIdentity.Session ReplaceIslandSession(GlobalBinding owner,
+        HeavyShieldIdentity.Session old, int land)
+    {
+        var next = BuildIslandSession(old, land);
         owner.Sessions[old.Campaign] = next;
         HeavyShieldIdentity.Install(next);
         return next;
@@ -1192,8 +1354,22 @@ internal static class HeavyShieldPersistence
     // Shared commit gate for both first-connect boundaries (native island pop and
     // verified new generation). The frozen rows are applied to a clone; the staged
     // state is assigned once, only if every condition still holds.
+    private static bool GenerationOriginExact(GlobalBinding owner,
+        HeavyShieldIdentity.Session draft, HeavyShieldIdentity.Session origin)
+    {
+        if (owner == null || draft == null || origin == null) return false;
+        if (!ReferenceEquals(HeavyShieldIdentity.Current, origin)) return false;
+        if (!owner.Sessions.TryGetValue(origin.Campaign, out var installed)
+            || !ReferenceEquals(installed, origin)) return false;
+        if (origin.Global != owner.Global || origin.OwnerGeneration != owner.Generation)
+            return false;
+        return draft.Global == origin.Global && draft.Campaign == origin.Campaign
+            && draft.OwnerGeneration == origin.OwnerGeneration && draft.Guid == origin.Guid
+            && draft.Slot == origin.Slot && draft.Challenge == origin.Challenge;
+    }
+
     private static bool CommitEnrollmentToken(GlobalBinding owner, HeavyShieldIdentity.Session s,
-        EnrollmentCapture token)
+        EnrollmentCapture token, HeavyShieldIdentity.Session originSession = null)
     {
         try
         {
@@ -1201,8 +1377,12 @@ internal static class HeavyShieldPersistence
             if (owner.Generation != token.OwnerGeneration || owner.Global != token.Global
                 || owner.Prefs != token.Prefs) return false;
             var loaded = GlobalSaveData._loaded;
-            if (loaded == null || loaded.Pointer != token.Global
-                || !ReferenceEquals(HeavyShieldIdentity.Current, s)) return false;
+            if (loaded == null || loaded.Pointer != token.Global) return false;
+            if (originSession == null)
+            {
+                if (!ReferenceEquals(HeavyShieldIdentity.Current, s)) return false;
+            }
+            else if (!GenerationOriginExact(owner, s, originSession)) return false;
             var prefs = loaded.prefs;
             if (prefs == null || prefs.Pointer != token.Prefs || prefs.contents == null) return false;
             bool found = prefs.contents.ContainsKey(HeavyShieldSaveSchema.Key);
@@ -1228,9 +1408,20 @@ internal static class HeavyShieldPersistence
             if (campaign == null || game == null || campaign.Pointer != token.Campaign
                 || campaign.CurrentIsland == null || campaign.CurrentIsland.Pointer != token.Island
                 || game.currentLand != token.Land) return false;
-            if (HeavyShieldEnrollment.TryCurrentSlot(campaign, campaign.CurrentIsland, out int currentSlot))
-            { if (currentSlot != token.Land) return false; }
-            else if (token.RequireCurrentSlot) return false;
+            if (token.RequireCurrentSlot)
+            {
+                if (!HeavyShieldEnrollment.TryCurrentSlot(campaign, campaign.CurrentIsland, out int currentSlot)
+                    || currentSlot != token.Land) return false;
+            }
+            else
+            {
+                // Generation token: the unique member position is the authority;
+                // raw land0 and the normalized own slot are both acceptable.
+                if (!HeavyShieldEnrollment.TryUniqueSlot(campaign, campaign.CurrentIsland, out int currentSlot)
+                    || currentSlot != token.Land) return false;
+                int currentLand = campaign.CurrentIsland.land;
+                if (currentLand != 0 && currentLand != token.Land) return false;
+            }
             if (!HeavyShieldEnrollment.TryVerifyRows(campaign, campaign.CurrentIsland, s.Guid,
                     s.Challenge, token.Rows, out _)) return false;
             if (!HeavyShieldSaveCodec.TrySerialize(owner.Staged, out string json, out _)
@@ -1254,12 +1445,20 @@ internal static class HeavyShieldPersistence
     // caller keeps the first purchase closed until a correct lifecycle completes
     // the responsibility. The outer catch never reports success.
     private static bool TryEnrollGenerationBaseline(HeavyShieldIdentity.Session s,
-        IslandSaveData island, CampaignSaveData campaign)
+        IslandSaveData island, CampaignSaveData campaign, int generationSlot,
+        HeavyShieldIdentity.Session origin)
     {
         try
         {
             var owner = _global;
-            if (owner == null || owner.Closed || s == null || island == null || campaign == null) return false;
+            if (owner == null || owner.Closed || s == null || island == null || campaign == null
+                || generationSlot < 0 || s.Land != generationSlot
+                || !GenerationOriginExact(owner, s, origin)) return false;
+            // The generation token is the only caller allowed to treat the
+            // unique member position as authority while the land field is raw.
+            if (!HeavyShieldEnrollment.TryUniqueSlot(campaign, island, out int slot)
+                || slot != generationSlot
+                || (island.land != 0 && island.land != generationSlot)) return false;
             if (s.StageFault || s.CaptureFaultRecoverable
                 || s.Pending.Count != 0 || s.Completed.Count != 0) return false;
             // An explicit legitimate paid record belongs to the original rules.
@@ -1270,7 +1469,7 @@ internal static class HeavyShieldPersistence
                 && HasLegacyRows(copies);
             string copiesDigest = allowLegacyUpgrade ? CopiesDigest(copies) : null;
             var outcome = HeavyShieldEnrollment.TryFreezeRows(campaign, island, s.Guid, s.Challenge,
-                copies, out var candidate, out _, allowLegacyUpgrade);
+                copies, out var candidate, out _, allowLegacyUpgrade, generationSlot);
             if (outcome == HeavyShieldEnrollment.Outcome.NoEnrollmentNeeded) return true;
             if (outcome != HeavyShieldEnrollment.Outcome.Frozen
                 || candidate == null || candidate.Rows.Count == 0) return false;
@@ -1297,7 +1496,7 @@ internal static class HeavyShieldPersistence
                 CampaignCopiesDigest = copiesDigest,
             };
             token.Rows.AddRange(candidate.Rows);
-            return CommitEnrollmentToken(owner, s, token);
+            return CommitEnrollmentToken(owner, s, token, origin);
         }
         catch { return false; }
     }
