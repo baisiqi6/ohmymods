@@ -1,5 +1,14 @@
+<<<<<<< origin/release/v9.5.13
 ## 2026-10-25 — #232/#262 代码范围已关闭（checklist done + GitHub closed）
 
+=======
+## 2026-10-25 — 11.0.0 Mac ARM64 发布批次 #294
+
+用户选定仅Mac ARM64正式包；以当前正常安装0553对应fa545源码整理版本和出处元数据，未加入未安装候选。新发行DLL8b475377…、ZIP706363ab…；0W0E、Capital885、authoring图/帧/布局核验、精确IL/资源差与双打包/读回/check-only留证。production-source旧R1布局pin在修改前后同样失败，未记全绿。正常包/存档保持，未新增游戏实机；Windows/Android未随本批发布。详见[本批记录](tasks/issue-294/release.md)；最终tag与下载以[发布页](https://github.com/baisiqi6/ohmymods/releases/tag/v11.0.0)回执为准。
+
+## 2026-10-25 — #232/#262 代码范围已关闭（checklist done + GitHub closed）
+
+>>>>>>> HEAD
 Coordinate 生命周期：`issue-232`、`issue-262` 依次 closeout packet → review approved（Operator self-review，用户授权）→ **mark-done**，checklist 状态均为 `done`；GitHub [#232](https://github.com/baisiqi6/ohmymods/issues/232) 与 [#262](https://github.com/baisiqi6/ohmymods/issues/262) 已关闭（代码范围），关闭说明附证据/边界/pending。合并物：PR #263 `e15d872`、收口记录 PR #288 `171bd08`。
 - 关闭依据：可达引擎缺口修复并复扫归零（P6–P8 不可达决策）；Android 构建/审查/全量测试/host 证据齐全；native 证据含 readiness、视觉接入、真实补货扣款 3 角色、原生保存写入、保存→读档两运行往返、prefs 内容级回读、读档后池重注册；PR 全部合并。
 - 如实 pending 并单列：换岛触发池重建、其余补货角色正例（world precondition missing/inconclusive）、付费职业/枪、手机/平板/多人/长期自然玩法与完整画面；已知语义差（PropertyBlock tint、P1 own-ledger、P5 AABB、MusketeerRights load ConfirmBaseline）已文档化。后续实机新问题另开 Issue/PR。

@@ -51,7 +51,7 @@ public class KingdomEnhancedPlugin :
             Instance = this;
             HeavyShieldNativeKeyReader.BindMainThread();
             // 手动构建戳：日志里区分不同部署（改完记得更新）
-            LogSource.LogInfo($"Plugin {MyPluginInfo.PLUGIN_GUID} v{MyPluginInfo.PLUGIN_VERSION} build=10.8.35-native-scale-farmcats-20261001 loading...");
+            LogSource.LogInfo($"Plugin {MyPluginInfo.PLUGIN_GUID} v{MyPluginInfo.PLUGIN_VERSION} build=11.0.0-mac-arm64 loading...");
 
             // 配置（BepInConfig，替代 UMM Settings）
             ModConfig.Init(Config);

@@ -50,7 +50,7 @@ internal static class PalaceCapitalResources
     private const string IndexName = "SHA256.json";
     internal const string IndexLogicalName = Prefix + IndexName;
     internal const string BootstrapIndexSha256 =
-        "49b99d18f959f08c7ba9b165713358fca56ffb533e31514a7f0c1d3a2d61c43b";
+        "9239913d1975024ed0ad5bcf79534715ea390a39d6636e9426c1da24f6a141db";
     internal const int MaxIndexBytes = 512 * 1024;
     internal const int MaxResourceBytes = 1024 * 1024;
     internal const int MaxTotalBytes = 16 * 1024 * 1024;

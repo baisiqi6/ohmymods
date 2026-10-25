@@ -1,0 +1,649 @@
+{
+  "sourceCommit": "e94342e38c922f593b6152be3b43bec0d9e3cf5a",
+  "files": [
+    {
+      "path": "core/0Harmony.dll",
+      "sha256": "6c898933b52149e8bcf6722305c7e4d94add47c9e53b364096f91721624c0877"
+    },
+    {
+      "path": "core/AsmResolver.DotNet.dll",
+      "sha256": "045bcdf32427f9bd39bee2620c470372583935c8e89b360931e467dd191d46d1"
+    },
+    {
+      "path": "core/AsmResolver.PE.File.dll",
+      "sha256": "8246433a1a6fb4c012c1814acee8a4ff24f3a4fac593569f6a1e343e68c9d8ee"
+    },
+    {
+      "path": "core/AsmResolver.PE.dll",
+      "sha256": "6ba6d56bf5fd3dd18233b56606a7ed1d42b8c93977b5375716771bf13ea36a1e"
+    },
+    {
+      "path": "core/AsmResolver.dll",
+      "sha256": "64b50030b34654f12805ec4d2848551e431c5f0bcd65cd70d6fe2845f715fb12"
+    },
+    {
+      "path": "core/AssetRipper.CIL.dll",
+      "sha256": "1eeff8d76dda5d65e5145ab0d43a3dac672e096e5692c47e0382ebb3c7c817f9"
+    },
+    {
+      "path": "core/AssetRipper.Primitives.dll",
+      "sha256": "681ba26fd356d9263fdf6afeb1b8f8506802a9503ffa80c9d21e0c4a46743a28"
+    },
+    {
+      "path": "core/BepInEx.Core.dll",
+      "sha256": "1d492eeecd40cd4feb7dc35aff7f08839928ac1637d4993bbde0060de36b7e0a"
+    },
+    {
+      "path": "core/BepInEx.Preloader.Core.dll",
+      "sha256": "d77423a81b60392cf7b21041ca539ec16c423b05cb3793cf14cd339379fc9e73"
+    },
+    {
+      "path": "core/BepInEx.Unity.Common.dll",
+      "sha256": "1e15d7ada3416d9fecb4514377ca297783ac25877bd53e0fd7ddd32a6cd37369"
+    },
+    {
+      "path": "core/BepInEx.Unity.IL2CPP.dll",
+      "sha256": "f12ff9c03c1b33af9c2df1771ee9aaebe6a643c86052c27e806c74315037f57e"
+    },
+    {
+      "path": "core/Cpp2IL.Core.dll",
+      "sha256": "2a6c78f3f8987df17eab19192af1f0e19c41d3f0e274bf2f89ac2114426df502"
+    },
+    {
+      "path": "core/Disarm.dll",
+      "sha256": "40e804c35369825884534734725d06831a534759478c8d9f3f908d80779a1a93"
+    },
+    {
+      "path": "core/Gee.External.Capstone.dll",
+      "sha256": "18f9cfbfd10b479143a46b3e417ccfce4a62d4c2770da9ed12d553a0b326302c"
+    },
+    {
+      "path": "core/Iced.dll",
+      "sha256": "f058c01321b4cdfc9b9151879e88e59571c8d0ba176fbcf95bc936a8f3d073ed"
+    },
+    {
+      "path": "core/Il2CppInterop.Common.dll",
+      "sha256": "070e04f2276a8963a6d2a7eb52d43b644f3ae9aa3816c34541124d3862f1b37f"
+    },
+    {
+      "path": "core/Il2CppInterop.Generator.dll",
+      "sha256": "95364bf2686f50d114784e482a0e78c472f6a649d07ea31a075328b2b756899d"
+    },
+    {
+      "path": "core/Il2CppInterop.HarmonySupport.dll",
+      "sha256": "f7612ea2e5a4d473b771f34ee3b20cf32dc0c4ecea0185416474999a17fbcc07"
+    },
+    {
+      "path": "core/Il2CppInterop.Runtime.dll",
+      "sha256": "4dae2520ea6d36701a92f622f62a339e9c4c58b7bf5bf4744e8154f7fa0c67e2"
+    },
+    {
+      "path": "core/LibCpp2IL.dll",
+      "sha256": "6c5e2054fd6b198e7a4cf72e8c4a0c8327c04870cf110d015645c0469499bef4"
+    },
+    {
+      "path": "core/Mono.Cecil.Mdb.dll",
+      "sha256": "61637f9940e5e336571cbf945be0f36d6d6050e06288df0f0232d93b26f0bde7"
+    },
+    {
+      "path": "core/Mono.Cecil.Pdb.dll",
+      "sha256": "a5249a04ad8fd7dfd47e4d0a620aed0f7eb6051e1ddec102c541ca3e12f6e2a8"
+    },
+    {
+      "path": "core/Mono.Cecil.Rocks.dll",
+      "sha256": "273292babd45f9f34de5054bd9cdfe1d859a7dbf6f4ad5974fe4ead70698ed5b"
+    },
+    {
+      "path": "core/Mono.Cecil.dll",
+      "sha256": "769a59793d4b8885bbbfbc5aee8f57a0d4e34d275c56c60c03994309b87f67e9"
+    },
+    {
+      "path": "core/MonoMod.Backports.dll",
+      "sha256": "cdd6e9f7bcdb98d2c002f63bfbe85ae80ea36261190a741e64283d769a6c6502"
+    },
+    {
+      "path": "core/MonoMod.ILHelpers.dll",
+      "sha256": "0081403bdcef3340f78c7ccded0be6ae0507b397ee8b9980b44f01bf9f93aed1"
+    },
+    {
+      "path": "core/MonoMod.RuntimeDetour.dll",
+      "sha256": "1b3d55f53cb9f9f2550daed4dfd300b247d71698a0ace82bc7b9ff38d563594f"
+    },
+    {
+      "path": "core/MonoMod.Utils.dll",
+      "sha256": "72a5b4249985873d7ecb160cbbed7a1e6540a38ee7618c72c64b9cb068c1438a"
+    },
+    {
+      "path": "core/OhMyMods.Arm64Entry.dll",
+      "sha256": "ae6f06985784a9b3260c307d01f9fb8b7a4d46baf6fed957dcd05ce5c072e56e"
+    },
+    {
+      "path": "core/OhMyMods.Arm64Injection.dll",
+      "sha256": "d5756eeb9f5556de95d8396c7566bd1bb111762733822925454c9e4bd303e894"
+    },
+    {
+      "path": "core/OhMyMods.MacCompatibility.dll",
+      "sha256": "6c4bf5825b1972dbbbf8da1f8d6a5fb72bfb52a9f8c59870cf4677a040b21b83"
+    },
+    {
+      "path": "core/SemanticVersioning.dll",
+      "sha256": "a5b57607225a0ebde049e93469f49e5b2d07a7d602a03864ce3a72ccf57103a2"
+    },
+    {
+      "path": "core/StableNameDotNet.dll",
+      "sha256": "280373b93a140395489d714703ac61f8d02c7aa07ac6e34024f8f0e26901325a"
+    },
+    {
+      "path": "core/WasmDisassembler.dll",
+      "sha256": "f837036e0db02d6f3dde76de573fd9a847a1175d61818607e40c46952f5c66c0"
+    },
+    {
+      "path": "interop/Assembly-CSharp-firstpass.dll",
+      "sha256": "39dbec656981c10325f8543617bf95e1be621c128791c76a3efd813cd7da0437"
+    },
+    {
+      "path": "interop/Assembly-CSharp.dll",
+      "sha256": "d6b249a4c5d7c833bec733d172df9a6083e87e5fc203c466d9195f0b7bc7041f"
+    },
+    {
+      "path": "interop/DOTween.dll",
+      "sha256": "5c28dbf155f51fbf6cb4230113c591bf264f6488d5722484bc8e78e197314ed1"
+    },
+    {
+      "path": "interop/DOTween43.dll",
+      "sha256": "aa6b7c424276cf7dd26fbbbd1f3885b317f5b6caa087f28f2c956894e80bfee1"
+    },
+    {
+      "path": "interop/DOTween46.dll",
+      "sha256": "2ef326672bb4e4aa3caf6ee6ebda99c2ef1bb2082cb8b9b749ad256cd2fbfd76"
+    },
+    {
+      "path": "interop/DOTweenPro.dll",
+      "sha256": "76dc1ce6529b1cdc69753055dd4709599171e4b2728c065245997fdf9b80d22a"
+    },
+    {
+      "path": "interop/GalaxyCSharp.dll",
+      "sha256": "31ab7cca2cd79acb1879d679aabbd698a305c29f6651b1b6ca1ad73d913c09d0"
+    },
+    {
+      "path": "interop/Haglet-Assembly-CSharp-02.dll",
+      "sha256": "c82cf17b29d449cb3ff2ba79c0fad537bf3aa1e9c5fb7469aa04fa891ee794bc"
+    },
+    {
+      "path": "interop/Il2CppMono.Security.dll",
+      "sha256": "d983ebb306e17a31f933376aec27becbc571df8c0a942e007b5146e851f0a671"
+    },
+    {
+      "path": "interop/Il2CppSystem.Configuration.dll",
+      "sha256": "b631d0d85fe994a0b2716e8ed3cab6ca019b1071db3272ca446b3ed5af59c0fe"
+    },
+    {
+      "path": "interop/Il2CppSystem.Core.dll",
+      "sha256": "5d977376e0df27f8fb27d6ebd0be7488983fa86df50991f820250d3f3173c034"
+    },
+    {
+      "path": "interop/Il2CppSystem.Data.dll",
+      "sha256": "babb4224c200ed8a6e8ef2f755daade6203c4070d3821e963fdc4bc130a0188c"
+    },
+    {
+      "path": "interop/Il2CppSystem.Drawing.dll",
+      "sha256": "066c396036bda7ef716755127b95c300d4a4ef0e99136bab546fec4ef00c1c44"
+    },
+    {
+      "path": "interop/Il2CppSystem.Numerics.dll",
+      "sha256": "b3cdf42a806e49b82beaf54d654b8b5dbeb2ff3edb7f9923c335ab4ac9d1c257"
+    },
+    {
+      "path": "interop/Il2CppSystem.Runtime.Serialization.dll",
+      "sha256": "94bf69965143a7834ef18590910fb79ea73175690fdc5d0e254cdda4df7b6ab9"
+    },
+    {
+      "path": "interop/Il2CppSystem.Xml.Linq.dll",
+      "sha256": "c96f014812d4f4196a4ed221fad3ba7c96d38a1632e8eb07ed54861c4661c9ec"
+    },
+    {
+      "path": "interop/Il2CppSystem.Xml.dll",
+      "sha256": "44a2ba7170a61e60e742031441c83d39b6d81209b32d736bb70a1cfd23a3475a"
+    },
+    {
+      "path": "interop/Il2CppSystem.dll",
+      "sha256": "13312c6663b3316976029f7ce23f581b363956e77f07738e2a05775cf5b9e324"
+    },
+    {
+      "path": "interop/Il2Cppmscorlib.dll",
+      "sha256": "2f4cc1a32e3ca068eb5823b9daa3e976f4dd113bca42bc9ec6167b44bb1110f5"
+    },
+    {
+      "path": "interop/Newtonsoft.Json.dll",
+      "sha256": "7df1357102d3d4ac5e0d720303ebda0358581b922bccac93d9e4bbb4c9064bc2"
+    },
+    {
+      "path": "interop/PlayFab.dll",
+      "sha256": "a24fa2afd50327db2853b820ac18bd166c0d1d15781cad70cd211797e47cd8c9"
+    },
+    {
+      "path": "interop/Rewired_Core.dll",
+      "sha256": "a77a170589cb59892a9d51fb15c0de2ba600e7417d4e0fce3eb12ed5348c4b50"
+    },
+    {
+      "path": "interop/Rewired_OSX.dll",
+      "sha256": "b450a1157f807cbd88f63d7708099f818205f85ffe86cda87276fc4491c90caa"
+    },
+    {
+      "path": "interop/SonyPS4SavedGames.dll",
+      "sha256": "8c85c7d2def9b4211e0b2956986c4bb07c1d6566e63d6298aafdd96c43ca6905"
+    },
+    {
+      "path": "interop/Unity.2D.Animation.Runtime.dll",
+      "sha256": "793f354b0a3d02a493c0aa2b2fa684c94dd315c824419b7c14de891e1284b463"
+    },
+    {
+      "path": "interop/Unity.Burst.Unsafe.dll",
+      "sha256": "a94b49a4d072c3f3a963d5b8976f42138f1c88697f710df10d86eb4023dfa649"
+    },
+    {
+      "path": "interop/Unity.Burst.dll",
+      "sha256": "3149b97f8b6b75a3704d575e4f099789bf185e9657a4d7eb8151c0d8e32341f9"
+    },
+    {
+      "path": "interop/Unity.Collections.LowLevel.ILSupport.dll",
+      "sha256": "0ee83b46b0bdc36e36804a44c09ae8fe30ab2cd9b00fcbada301accf37515474"
+    },
+    {
+      "path": "interop/Unity.Collections.dll",
+      "sha256": "0f52cdf2a6c10207483ef6e32e96a2d6a7b67ed4145889e6fadfd2a047e3687c"
+    },
+    {
+      "path": "interop/Unity.InternalAPIEngineBridge.001.dll",
+      "sha256": "166e0fa4612ed0b7843eef48ec144d3c4c5bc7730232c843cb85d55d6be13a46"
+    },
+    {
+      "path": "interop/Unity.Mathematics.dll",
+      "sha256": "299d0b4fe833a0d4fadf8e8e5692771b200a6767e9c71d044248193dc37f5d62"
+    },
+    {
+      "path": "interop/Unity.MemoryProfiler.dll",
+      "sha256": "fca11c26dc048e396297ff1332e7c761c17f5fbb180feb4df64ab31fcfd11526"
+    },
+    {
+      "path": "interop/Unity.Networking.Transport.dll",
+      "sha256": "b47185c2cc0da353246f3db22cf808297a806b729ef3464664d1f56f4e9012a8"
+    },
+    {
+      "path": "interop/Unity.Purchasing.AppleMacos.dll",
+      "sha256": "07edfd0ea7444dc06d48e522839737dac3ddbf895a2e2e0b2c974cb11b978c1a"
+    },
+    {
+      "path": "interop/Unity.Purchasing.AppleStub.dll",
+      "sha256": "4bacfa051f091eee4340be5052637ac0bdfbda93cdd485116bd242ec288e34a8"
+    },
+    {
+      "path": "interop/Unity.Purchasing.Security.dll",
+      "sha256": "cc2170eeeaae667dbf7bcf3fbdaea9fa8a0cff778125fad828a78b5a3e338794"
+    },
+    {
+      "path": "interop/Unity.Purchasing.SecurityCore.dll",
+      "sha256": "17f3f2d7c60df911b2c60312e0cddf2257fd3b94a96ec4ba5cdf561cd5396331"
+    },
+    {
+      "path": "interop/Unity.Purchasing.Stores.dll",
+      "sha256": "bb09bc38ce7818c3959124bd7cee64b22b003d5903ead376d269fc2cf147e9e1"
+    },
+    {
+      "path": "interop/Unity.Purchasing.Utilities.dll",
+      "sha256": "525913229f78ad82301c6e64c2e0803b93b6b93462b0f160c93e4101bf69fd58"
+    },
+    {
+      "path": "interop/Unity.Purchasing.dll",
+      "sha256": "3f2e49a6c7c51e80761079114faa14c1befa6a16750f14eb65e8ef22f47be086"
+    },
+    {
+      "path": "interop/Unity.RenderPipelines.Core.Runtime.dll",
+      "sha256": "6e3b7e8796d854b29c479d40035b03b8190997f49c00c15f53dfd1d9e626920b"
+    },
+    {
+      "path": "interop/Unity.Services.Analytics.dll",
+      "sha256": "4fb09ec14ec6b104db4b199109204c15fcf47d390c4bd447a7e4c4764d161ba0"
+    },
+    {
+      "path": "interop/Unity.Services.Core.Configuration.dll",
+      "sha256": "ec078c7d84e247c22954ba9013661066d9f60d668f5f097601d542613fa968e7"
+    },
+    {
+      "path": "interop/Unity.Services.Core.Device.dll",
+      "sha256": "ff3b3acc253ee79de4c9bcb308d5ea612e54a70662a07b2b4937562932aa3f51"
+    },
+    {
+      "path": "interop/Unity.Services.Core.Environments.Internal.dll",
+      "sha256": "75e214af1a207c733ca56128282be3fafb19a1672957f9a22ce8be5efd8ca934"
+    },
+    {
+      "path": "interop/Unity.Services.Core.Internal.dll",
+      "sha256": "83abd6160c9bce309e00b7b17e989f746f3e91d46a10b967a18358d29dc9502a"
+    },
+    {
+      "path": "interop/Unity.Services.Core.Registration.dll",
+      "sha256": "18dcf4cc7bc706bb1d66978d567cbad96bd0c15c24aa8cf3b9e6489479a6dbc6"
+    },
+    {
+      "path": "interop/Unity.Services.Core.Scheduler.dll",
+      "sha256": "9894c584c122a7fcfc3855179956d563264700bd5dbc61a4bf8922ce89291caf"
+    },
+    {
+      "path": "interop/Unity.Services.Core.Telemetry.dll",
+      "sha256": "3213b9790ed35958a67be0cee6ab2561291dbe9e4bb6bfcc3a5548eb4f46a01a"
+    },
+    {
+      "path": "interop/Unity.Services.Core.Threading.dll",
+      "sha256": "ef41e0b25cd20abfaaac4b6e3462c8422055db3322be4f39e41786d4dd8c1e5e"
+    },
+    {
+      "path": "interop/Unity.Services.Core.dll",
+      "sha256": "1d46f44792d8fd18eb0e7adaf829ad0704343db2bbcc4ef5ad669d30868d4300"
+    },
+    {
+      "path": "interop/Unity.TextMeshPro.dll",
+      "sha256": "43a04a9c00baea6822d00c59930f84d2d422a934922e17eec1a99f5a39f515b8"
+    },
+    {
+      "path": "interop/Unity.Timeline.dll",
+      "sha256": "5c7dd0aa3480da3a93d51b5973fe488098b91562e5a38c5477149c850b224697"
+    },
+    {
+      "path": "interop/UnityEngine.AIModule.dll",
+      "sha256": "8d4c8804f895efcc8330c3aa60eba8c188b91004ddbe1bfbb61610e291579e88"
+    },
+    {
+      "path": "interop/UnityEngine.AccessibilityModule.dll",
+      "sha256": "c2e5450eadb82d5017115767c6a1d121b6f80605834c4f0589d4513c020dec3e"
+    },
+    {
+      "path": "interop/UnityEngine.AndroidJNIModule.dll",
+      "sha256": "303a9722b2e6b865ec36f6a8f19c3c98786098dd1d7d34802a65f1d123502b9b"
+    },
+    {
+      "path": "interop/UnityEngine.AnimationModule.dll",
+      "sha256": "939c4b82c5523543f9d46a5241cf9fa8f34dd7b6ae6c35b11279c85bac8c9fa5"
+    },
+    {
+      "path": "interop/UnityEngine.AssetBundleModule.dll",
+      "sha256": "83e221d53135b2612beb92df6ee7b8341fefce652a0dcb9ca6c7a94e2e8e8e9e"
+    },
+    {
+      "path": "interop/UnityEngine.AudioModule.dll",
+      "sha256": "a540788e1893c14a9fdaff0e43b6a803f6125e96e499de1b56c956604c0da5ce"
+    },
+    {
+      "path": "interop/UnityEngine.ClothModule.dll",
+      "sha256": "7eb2b551f33dec4e62f53cee0aeef785b7ac44f8521554466e587c1633e6f09a"
+    },
+    {
+      "path": "interop/UnityEngine.ClusterInputModule.dll",
+      "sha256": "51b5cf6d2cae342e3fd2db44b29cf2a0469a331913e8abf589d24ce5cf59694a"
+    },
+    {
+      "path": "interop/UnityEngine.ClusterRendererModule.dll",
+      "sha256": "e9cfa4f140eb244f6e4bb98220d511f8e1457bd3552d510fe0dd5efae699b19d"
+    },
+    {
+      "path": "interop/UnityEngine.ContentLoadModule.dll",
+      "sha256": "1b414572f35c06154fa52a03ddb01c9aedab3129a8e366c2c8c2756ec3eb4d25"
+    },
+    {
+      "path": "interop/UnityEngine.CoreModule.dll",
+      "sha256": "f6519c39f4b574620c8f75676a53e570e8bd1f250363be14ad563348ccfd3364"
+    },
+    {
+      "path": "interop/UnityEngine.CrashReportingModule.dll",
+      "sha256": "ce8e35e653bca2980295922b80798db08cc29d7fe96e0d5d2259a555e34f0d0d"
+    },
+    {
+      "path": "interop/UnityEngine.DSPGraphModule.dll",
+      "sha256": "a918c5c28f6056fdc8f30d3096106ea4442298777fa601368ba93a354648e46c"
+    },
+    {
+      "path": "interop/UnityEngine.DirectorModule.dll",
+      "sha256": "8bb62d2b1eb744d214aaaa9b3f3637c8570bbf9fae8b6780f4f6f0ac57de8c2b"
+    },
+    {
+      "path": "interop/UnityEngine.GIModule.dll",
+      "sha256": "4bbce71ce6f398ee6033a4b4656c96102200bfcacc35a90d472a7398e7fc581b"
+    },
+    {
+      "path": "interop/UnityEngine.GameCenterModule.dll",
+      "sha256": "e3cf1188a392fa1a90f348204524fa8f853b62df3f9b2766a06bbfd4670a2332"
+    },
+    {
+      "path": "interop/UnityEngine.GraphicsStateCollectionSerializerModule.dll",
+      "sha256": "16f475d097e9e3dc36f82171b145062ace3811502b3511480294680eee145002"
+    },
+    {
+      "path": "interop/UnityEngine.GridModule.dll",
+      "sha256": "22952e5209e5283751cfbc6146b215ca09fc47d3bd253b19c39526d64c4dcdfd"
+    },
+    {
+      "path": "interop/UnityEngine.HierarchyCoreModule.dll",
+      "sha256": "f1f839fe468d1ee5106a67675fbf537ceb86279059a7dea965015e00b2e2641b"
+    },
+    {
+      "path": "interop/UnityEngine.HotReloadModule.dll",
+      "sha256": "5562bafd412043e69a103bf4b8cb6edce6105f00542d4c1e912730fc6e67ef77"
+    },
+    {
+      "path": "interop/UnityEngine.IMGUIModule.dll",
+      "sha256": "2c2980e37801a55d975a848484f75cef7b07df05f5699638d2192510c10b5b54"
+    },
+    {
+      "path": "interop/UnityEngine.ImageConversionModule.dll",
+      "sha256": "78f0743335925bb748e22e2c61a1cd2402362d0581596a872f2ce1289a5b8abb"
+    },
+    {
+      "path": "interop/UnityEngine.InputForUIModule.dll",
+      "sha256": "e9a4bdf4d7f6786f73196736b8468f174b5f0d236774f44c490a2fd78cda1d4c"
+    },
+    {
+      "path": "interop/UnityEngine.InputLegacyModule.dll",
+      "sha256": "b4256879d2d7accfb80bcb7d0bdfcd2d8a4f7a9cf3bd3d28df7127b43a7f81ac"
+    },
+    {
+      "path": "interop/UnityEngine.InputModule.dll",
+      "sha256": "4b21b643cdafcaba97fcd16df2d18d10fbf7bd7978a99ae492bdb6e14a05ecc3"
+    },
+    {
+      "path": "interop/UnityEngine.JSONSerializeModule.dll",
+      "sha256": "695ac9381f7b133e99c0e15676435c84c3238e64fd12eee9a0841a1033e81099"
+    },
+    {
+      "path": "interop/UnityEngine.LocalizationModule.dll",
+      "sha256": "fcd2f75a4765c780d4f0e4eae788a2f270a877125e92cdc7fff9254fd2301dd4"
+    },
+    {
+      "path": "interop/UnityEngine.MarshallingModule.dll",
+      "sha256": "e30f1763ca104435ac5792cede0b5819ab1f87a38e42ac8d7793bd36fb3eed89"
+    },
+    {
+      "path": "interop/UnityEngine.MultiplayerModule.dll",
+      "sha256": "1e896e22fbafe611c47369c8ecf1a254d05fa3e735384daaf617e3b4c8b29b99"
+    },
+    {
+      "path": "interop/UnityEngine.ParticleSystemModule.dll",
+      "sha256": "9118e9173094b096c2571ee4738d82bd0bfd34fa048a266977cb249ffdd4c66c"
+    },
+    {
+      "path": "interop/UnityEngine.PerformanceReportingModule.dll",
+      "sha256": "a5486aaee82be23af2ae6c3c742be855d1bef86c29a1c6c0a04baf7930a486ac"
+    },
+    {
+      "path": "interop/UnityEngine.Physics2DModule.dll",
+      "sha256": "688b333951bca4c29ab81711d0c700b3f1756558df603cc6a1232a0e579c2649"
+    },
+    {
+      "path": "interop/UnityEngine.PhysicsModule.dll",
+      "sha256": "8fa57ed47b8e2205b3a7f052d8fb64bb51246f287966ab2fdbc56c6949e93352"
+    },
+    {
+      "path": "interop/UnityEngine.PropertiesModule.dll",
+      "sha256": "02344e08d91724fd0b9133461d91a815da89099b68c6f4efb76e4c4f37deb069"
+    },
+    {
+      "path": "interop/UnityEngine.RuntimeInitializeOnLoadManagerInitializerModule.dll",
+      "sha256": "6e8a776bf70a9fb2d024512cd5c148544f52d6b01c633f3478af94080fa4a7c8"
+    },
+    {
+      "path": "interop/UnityEngine.ScreenCaptureModule.dll",
+      "sha256": "9134198636cdef26ba0dab77a5d7664c0d021349aa80be7abbb67c69ced4b09e"
+    },
+    {
+      "path": "interop/UnityEngine.ShaderVariantAnalyticsModule.dll",
+      "sha256": "fe845790c5345e89ba6b20598e2ab57297160ddf9d8691d4af16438f5a2cda33"
+    },
+    {
+      "path": "interop/UnityEngine.SharedInternalsModule.dll",
+      "sha256": "f871837323541ab8963779700612feef66437133e80b73cdfdb50184d7717dfd"
+    },
+    {
+      "path": "interop/UnityEngine.SpriteMaskModule.dll",
+      "sha256": "30c0bf93752292e2939477e95b7b1412c4ee382779d8dc2b1ff374c13d5e664f"
+    },
+    {
+      "path": "interop/UnityEngine.SpriteShapeModule.dll",
+      "sha256": "054785d089d1050132da19f021ca3c30edfc117b83343f1a30c358f6bd9d8302"
+    },
+    {
+      "path": "interop/UnityEngine.StreamingModule.dll",
+      "sha256": "d34b546cf6e5b1e677e21aacc05fdf9e89c7fecd449a6259f0e740ef144275e9"
+    },
+    {
+      "path": "interop/UnityEngine.SubstanceModule.dll",
+      "sha256": "ad1b6ef6e2ce7c4eaac593e417d892f929eb7721d220b38627e96c7a3e773683"
+    },
+    {
+      "path": "interop/UnityEngine.SubsystemsModule.dll",
+      "sha256": "b12f21b48c7fe23803fa01c942fa4178b344d3b00c251e35336c0d74e3835b91"
+    },
+    {
+      "path": "interop/UnityEngine.TLSModule.dll",
+      "sha256": "023b9fc0fbcaf3877ceab238e9cfbafebc629a422238e3eb858944cb0f5d6f87"
+    },
+    {
+      "path": "interop/UnityEngine.TerrainModule.dll",
+      "sha256": "eba2c6b7de70f3abc7472dd421df5e00c358771bdbba09d402d1e1f7c41765a0"
+    },
+    {
+      "path": "interop/UnityEngine.TerrainPhysicsModule.dll",
+      "sha256": "748e2b8df17e87e62faf71f373a808fbb7c8c114f7b548c826e57a35959c2b8e"
+    },
+    {
+      "path": "interop/UnityEngine.TextCoreFontEngineModule.dll",
+      "sha256": "41334f553c6dc8b3d51ee4ba44fc3798c29570adbb955a168e23b0db47312c47"
+    },
+    {
+      "path": "interop/UnityEngine.TextCoreTextEngineModule.dll",
+      "sha256": "45ccc367bb545daa8fab347a7e1f26a6062b9680e48a6ee54a21364cafc1d29d"
+    },
+    {
+      "path": "interop/UnityEngine.TextRenderingModule.dll",
+      "sha256": "84279b6797a3450a23b33ec16ab14a88e72b096208c937d808d66e696ce45029"
+    },
+    {
+      "path": "interop/UnityEngine.TilemapModule.dll",
+      "sha256": "b895f77364fb01fc2ca7eea7c84df4251b9fb4db75ccc91985892238c1b321a7"
+    },
+    {
+      "path": "interop/UnityEngine.UI.dll",
+      "sha256": "db3c48cf8b55a67c9d807237c0ffc8c8e4912d24ba8b2da8f460eec2a0ad99dc"
+    },
+    {
+      "path": "interop/UnityEngine.UIElementsModule.dll",
+      "sha256": "2539a0bff1c1fca4a0f6e7527a36538e608cbfa9066d08cb5121dcbe24ca3b1f"
+    },
+    {
+      "path": "interop/UnityEngine.UIModule.dll",
+      "sha256": "07cc1f6b69b79d7904873dc6564a4584c125c0a22cece8dd5b412f127eb60eeb"
+    },
+    {
+      "path": "interop/UnityEngine.UmbraModule.dll",
+      "sha256": "140645a98717182669707c76b80413f9dabd201eb0cfbb837236133de062e42c"
+    },
+    {
+      "path": "interop/UnityEngine.UnityAnalyticsCommonModule.dll",
+      "sha256": "ab6758f9a73add6a281d29a07225b7aca380a4b502f713abb25f7ce5f1d9b6be"
+    },
+    {
+      "path": "interop/UnityEngine.UnityAnalyticsModule.dll",
+      "sha256": "eabc360baa85b0f74309827fd041df244eccfdcc200ab3a339d9e891379ea77a"
+    },
+    {
+      "path": "interop/UnityEngine.UnityConnectModule.dll",
+      "sha256": "3426d84205b083aca7ed2d76861d89c7d8be736a1d083050c3af6704c2500317"
+    },
+    {
+      "path": "interop/UnityEngine.UnityCurlModule.dll",
+      "sha256": "573a145804b24d855a25b7b8de224481efb17af5b5bcf4a410744761bd638299"
+    },
+    {
+      "path": "interop/UnityEngine.UnityTestProtocolModule.dll",
+      "sha256": "fb866a6a35c2b97e94d3212c1078ccd8834550563fd6115b32f37d05be01fe20"
+    },
+    {
+      "path": "interop/UnityEngine.UnityWebRequestAssetBundleModule.dll",
+      "sha256": "45c69d95954bea381712e69d2ddc0b5be7c3a26d4bdfc19548efd32cf483f419"
+    },
+    {
+      "path": "interop/UnityEngine.UnityWebRequestAudioModule.dll",
+      "sha256": "c8c8b3f6d7ca8d12a97d806cd031737868339db37d4ed7a859c45a5122f62b97"
+    },
+    {
+      "path": "interop/UnityEngine.UnityWebRequestModule.dll",
+      "sha256": "334b65866d21079fcb315c39a8e5d48fa1c706bdb835423cab0ace38ed8ffc73"
+    },
+    {
+      "path": "interop/UnityEngine.UnityWebRequestTextureModule.dll",
+      "sha256": "1bfc9cb88e8551c621f43c565139ea260c8eba488d31541f35552ef5fbac2414"
+    },
+    {
+      "path": "interop/UnityEngine.UnityWebRequestWWWModule.dll",
+      "sha256": "fa0e5e07e17f79c7ce74dcb21400e530c73cc67c450fbed450e27b3737eaf3a8"
+    },
+    {
+      "path": "interop/UnityEngine.VFXModule.dll",
+      "sha256": "b703bd4d4aa4eea9615893249c5bca2b4218decf5c0eb053840b46945071d4eb"
+    },
+    {
+      "path": "interop/UnityEngine.VRModule.dll",
+      "sha256": "39736a44af7f2ba3f40defe241a06f6b8c6dfddd50400ec8a660b9f79154c375"
+    },
+    {
+      "path": "interop/UnityEngine.VehiclesModule.dll",
+      "sha256": "06edf83eaf0e36bcaaa9e6a65dd76767dfc5b60c34dcbfa3d5caa0b3aad12ad5"
+    },
+    {
+      "path": "interop/UnityEngine.VideoModule.dll",
+      "sha256": "23091d5ec464b830da17f572dd140b082ba7454dd1fefdf9aef944552381bdc4"
+    },
+    {
+      "path": "interop/UnityEngine.VirtualTexturingModule.dll",
+      "sha256": "eec5377955bf46ef5bce795cccbc30427700148f1e1a2ea77634d4cf6fdddd35"
+    },
+    {
+      "path": "interop/UnityEngine.WindModule.dll",
+      "sha256": "12f9019a185332b8fb5418a2bcbab0648f2fc758c3bcbdcff6a7eed223b61772"
+    },
+    {
+      "path": "interop/UnityEngine.XRModule.dll",
+      "sha256": "580ada7b0e13a991ad9b8ee4698afcf4406083f210d7773d0584091c6a7492dd"
+    },
+    {
+      "path": "interop/UnityEngine.dll",
+      "sha256": "c25ddd61802a9375a0efc4c673a1c911fa65d2398f2d6d13e1c569fd11c74b37"
+    },
+    {
+      "path": "interop/__Generated.dll",
+      "sha256": "8e50137e882165ca5a0aeac6e0b639066ddfcbc3e2c5cea85126f1f5207af82b"
+    },
+    {
+      "path": "interop/com.rlabrecque.steamworks.net.dll",
+      "sha256": "e4942084bc59d32669e92c81186771e0cd75e7d0103317023301bd39d486af3a"
+    }
+  ]
+}

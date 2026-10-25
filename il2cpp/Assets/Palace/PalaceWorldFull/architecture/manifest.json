@@ -5,7 +5,7 @@
   "supersedes": "architecture/candidate-r2 (production copied; only skyline-a/b revised per Astra R2 minor-revise; R1/R2 kept frozen)",
   "userAuthorizedPythonPixelEditing": true,
   "source": {
-    "path": "/Users/Admin/projects/ohmymods/.local/tasks/ming-imperial-palace-20261002/player-assets/received/玩家提供的原创素材/唐朝建筑和一些角色.png",
+    "path": ".local/tasks/ming-imperial-palace-20261002/player-assets/received/玩家提供的原创素材/唐朝建筑和一些角色.png",
     "sha256": "876044a5502676755b7939815c60bdd9ba2d46305e4cbb68351a22909a0b029e",
     "logical": [
       184,
@@ -42,7 +42,7 @@
         5.125
       ],
       "sourceSHA256": "876044a5502676755b7939815c60bdd9ba2d46305e4cbb68351a22909a0b029e",
-      "sourcePath": "/Users/Admin/projects/ohmymods/.local/tasks/ming-imperial-palace-20261002/player-assets/received/玩家提供的原创素材/唐朝建筑和一些角色.png",
+      "sourcePath": ".local/tasks/ming-imperial-palace-20261002/player-assets/received/玩家提供的原创素材/唐朝建筑和一些角色.png",
       "derivedOrPreserved": "preserved",
       "structuralEditRegions": [],
       "nativeBindingConfirmed": false,
@@ -126,7 +126,7 @@
         5.125
       ],
       "sourceSHA256": "876044a5502676755b7939815c60bdd9ba2d46305e4cbb68351a22909a0b029e",
-      "sourcePath": "/Users/Admin/projects/ohmymods/.local/tasks/ming-imperial-palace-20261002/player-assets/received/玩家提供的原创素材/唐朝建筑和一些角色.png",
+      "sourcePath": ".local/tasks/ming-imperial-palace-20261002/player-assets/received/玩家提供的原创素材/唐朝建筑和一些角色.png",
       "derivedOrPreserved": "derived-preserved",
       "structuralEditRegions": [
         {
@@ -237,7 +237,7 @@
         1.938
       ],
       "sourceSHA256": "876044a5502676755b7939815c60bdd9ba2d46305e4cbb68351a22909a0b029e",
-      "sourcePath": "/Users/Admin/projects/ohmymods/.local/tasks/ming-imperial-palace-20261002/player-assets/received/玩家提供的原创素材/唐朝建筑和一些角色.png",
+      "sourcePath": ".local/tasks/ming-imperial-palace-20261002/player-assets/received/玩家提供的原创素材/唐朝建筑和一些角色.png",
       "derivedOrPreserved": "preserved",
       "structuralEditRegions": [],
       "nativeBindingConfirmed": false,
@@ -315,7 +315,7 @@
         1.938
       ],
       "sourceSHA256": "876044a5502676755b7939815c60bdd9ba2d46305e4cbb68351a22909a0b029e",
-      "sourcePath": "/Users/Admin/projects/ohmymods/.local/tasks/ming-imperial-palace-20261002/player-assets/received/玩家提供的原创素材/唐朝建筑和一些角色.png",
+      "sourcePath": ".local/tasks/ming-imperial-palace-20261002/player-assets/received/玩家提供的原创素材/唐朝建筑和一些角色.png",
       "derivedOrPreserved": "derived-preserved",
       "structuralEditRegions": [
         {
@@ -517,7 +517,7 @@
         1.844
       ],
       "sourceSHA256": "876044a5502676755b7939815c60bdd9ba2d46305e4cbb68351a22909a0b029e",
-      "sourcePath": "/Users/Admin/projects/ohmymods/.local/tasks/ming-imperial-palace-20261002/player-assets/received/玩家提供的原创素材/唐朝建筑和一些角色.png",
+      "sourcePath": ".local/tasks/ming-imperial-palace-20261002/player-assets/received/玩家提供的原创素材/唐朝建筑和一些角色.png",
       "derivedOrPreserved": "new-original",
       "structuralEditRegions": [],
       "nativeBindingConfirmed": false,
@@ -562,7 +562,7 @@
         1.656
       ],
       "sourceSHA256": "876044a5502676755b7939815c60bdd9ba2d46305e4cbb68351a22909a0b029e",
-      "sourcePath": "/Users/Admin/projects/ohmymods/.local/tasks/ming-imperial-palace-20261002/player-assets/received/玩家提供的原创素材/唐朝建筑和一些角色.png",
+      "sourcePath": ".local/tasks/ming-imperial-palace-20261002/player-assets/received/玩家提供的原创素材/唐朝建筑和一些角色.png",
       "derivedOrPreserved": "new-original",
       "structuralEditRegions": [],
       "nativeBindingConfirmed": false,
@@ -608,7 +608,7 @@
         1.656
       ],
       "sourceSHA256": "876044a5502676755b7939815c60bdd9ba2d46305e4cbb68351a22909a0b029e",
-      "sourcePath": "/Users/Admin/projects/ohmymods/.local/tasks/ming-imperial-palace-20261002/player-assets/received/玩家提供的原创素材/唐朝建筑和一些角色.png",
+      "sourcePath": ".local/tasks/ming-imperial-palace-20261002/player-assets/received/玩家提供的原创素材/唐朝建筑和一些角色.png",
       "derivedOrPreserved": "new-original",
       "structuralEditRegions": [],
       "nativeBindingConfirmed": false,
@@ -653,7 +653,7 @@
         2.688
       ],
       "sourceSHA256": "876044a5502676755b7939815c60bdd9ba2d46305e4cbb68351a22909a0b029e",
-      "sourcePath": "/Users/Admin/projects/ohmymods/.local/tasks/ming-imperial-palace-20261002/player-assets/received/玩家提供的原创素材/唐朝建筑和一些角色.png",
+      "sourcePath": ".local/tasks/ming-imperial-palace-20261002/player-assets/received/玩家提供的原创素材/唐朝建筑和一些角色.png",
       "derivedOrPreserved": "new-original",
       "structuralEditRegions": [],
       "nativeBindingConfirmed": false,
@@ -710,7 +710,7 @@
         0.438
       ],
       "sourceSHA256": "876044a5502676755b7939815c60bdd9ba2d46305e4cbb68351a22909a0b029e",
-      "sourcePath": "/Users/Admin/projects/ohmymods/.local/tasks/ming-imperial-palace-20261002/player-assets/received/玩家提供的原创素材/唐朝建筑和一些角色.png",
+      "sourcePath": ".local/tasks/ming-imperial-palace-20261002/player-assets/received/玩家提供的原创素材/唐朝建筑和一些角色.png",
       "derivedOrPreserved": "new-original",
       "structuralEditRegions": [],
       "nativeBindingConfirmed": false,
@@ -764,7 +764,7 @@
         2.031
       ],
       "sourceSHA256": "876044a5502676755b7939815c60bdd9ba2d46305e4cbb68351a22909a0b029e",
-      "sourcePath": "/Users/Admin/projects/ohmymods/.local/tasks/ming-imperial-palace-20261002/player-assets/received/玩家提供的原创素材/唐朝建筑和一些角色.png",
+      "sourcePath": ".local/tasks/ming-imperial-palace-20261002/player-assets/received/玩家提供的原创素材/唐朝建筑和一些角色.png",
       "derivedOrPreserved": "new-original",
       "structuralEditRegions": [],
       "nativeBindingConfirmed": false,
@@ -809,7 +809,7 @@
         2.312
       ],
       "sourceSHA256": "876044a5502676755b7939815c60bdd9ba2d46305e4cbb68351a22909a0b029e",
-      "sourcePath": "/Users/Admin/projects/ohmymods/.local/tasks/ming-imperial-palace-20261002/player-assets/received/玩家提供的原创素材/唐朝建筑和一些角色.png",
+      "sourcePath": ".local/tasks/ming-imperial-palace-20261002/player-assets/received/玩家提供的原创素材/唐朝建筑和一些角色.png",
       "derivedOrPreserved": "new-original",
       "structuralEditRegions": [],
       "nativeBindingConfirmed": false,
@@ -854,7 +854,7 @@
         3.688
       ],
       "sourceSHA256": "876044a5502676755b7939815c60bdd9ba2d46305e4cbb68351a22909a0b029e",
-      "sourcePath": "/Users/Admin/projects/ohmymods/.local/tasks/ming-imperial-palace-20261002/player-assets/received/玩家提供的原创素材/唐朝建筑和一些角色.png",
+      "sourcePath": ".local/tasks/ming-imperial-palace-20261002/player-assets/received/玩家提供的原创素材/唐朝建筑和一些角色.png",
       "derivedOrPreserved": "new-original",
       "structuralEditRegions": [],
       "nativeBindingConfirmed": false,
@@ -899,7 +899,7 @@
         2.125
       ],
       "sourceSHA256": "876044a5502676755b7939815c60bdd9ba2d46305e4cbb68351a22909a0b029e",
-      "sourcePath": "/Users/Admin/projects/ohmymods/.local/tasks/ming-imperial-palace-20261002/player-assets/received/玩家提供的原创素材/唐朝建筑和一些角色.png",
+      "sourcePath": ".local/tasks/ming-imperial-palace-20261002/player-assets/received/玩家提供的原创素材/唐朝建筑和一些角色.png",
       "derivedOrPreserved": "new-original",
       "structuralEditRegions": [],
       "nativeBindingConfirmed": false,
