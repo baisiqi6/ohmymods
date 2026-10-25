@@ -61,6 +61,18 @@ internal static class MusketeerVoyageSaveDiagnostics
         internal bool? PersistRootMatch;
         internal bool? Registered, PersistObject, PersistInactive, PersistInstance, Active;
         internal bool? ShouldPersist, Eligible;
+        // Current-manager observation only (Managers.Inst.kingdom.boat). It never claims the
+        // native DontPersistInstance receiver, another boat, or a past cleanup.
+        internal IntPtr BoatRoot;
+        internal bool BoatRootKnown;
+        internal string BoatState = "unknown";
+        internal bool? BoatSelf, BoatChild;
+        internal string ScopeIssue;
+        internal bool? PersistentEnabled;
+        internal string PState = "unknown";
+        internal string PenabledState = "unknown";
+        internal bool? Embarked;
+        internal string EmbarkState = "unknown";
     }
 
     internal sealed class Observation
@@ -295,7 +307,16 @@ internal static class MusketeerVoyageSaveDiagnostics
             }
             catch { }
             Persistent persistent = null;
-            try { persistent = go != null ? go.GetComponent<Persistent>() : null; } catch { }
+            IntPtr persistRoot = IntPtr.Zero;
+            if (go == null) snapshot.PState = "go-missing";
+            else
+            {
+                // Component absence, a throwing lookup and a failed root read are different
+                // observations; none of them touches Capture fault counters.
+                try { persistent = go.GetComponent<Persistent>(); }
+                catch { snapshot.PState = "read-error"; }
+                if (snapshot.PState != "read-error" && persistent == null) snapshot.PState = "absent";
+            }
             if (persistent != null)
             {
                 try
@@ -305,7 +326,6 @@ internal static class MusketeerVoyageSaveDiagnostics
                 }
                 catch { }
                 bool rootRead = false;
-                IntPtr persistRoot = IntPtr.Zero;
                 try
                 {
                     var root = persistent.gameObject;
@@ -320,13 +340,28 @@ internal static class MusketeerVoyageSaveDiagnostics
                     snapshot.PersistRootMatch = persistRoot == snapshot.Root;
             }
             if (go != null) snapshot.Active = ReadBool(() => go.activeInHierarchy);
-            // Only the exact root's Persistent may speak for native eligibility. A component found
-            // on a different object, missing, or unreadable stays unknown instead of guessing.
-            if (snapshot.PersistRootMatch != true || persistent == null) return snapshot;
+            // Boat membership and embarkation are read independently of the persistent gate:
+            // they answer whether this exact root is currently parked under the main boat.
+            ReadBoatScope(snapshot, go);
+            ReadEmbarked(snapshot, go);
+            // Only the exact root's Persistent may speak for native eligibility; the reason stays
+            // bounded so absent and read faults never collapse into one unknown.
+            if (persistent == null) { snapshot.PenabledState = snapshot.PState; return snapshot; }
+            if (!snapshot.PersistRootKnown)
+            { snapshot.PState = "read-error"; snapshot.PenabledState = "read-error"; return snapshot; }
+            if (snapshot.Root == IntPtr.Zero)
+            { snapshot.PState = "root-unknown"; snapshot.PenabledState = "root-unknown"; return snapshot; }
+            if (snapshot.PersistRootMatch != true)
+            { snapshot.PState = "root-mismatch"; snapshot.PenabledState = "root-mismatch"; return snapshot; }
+            snapshot.PState = "ok";
             snapshot.Registered = ReadContains(registered, persistent);
             snapshot.PersistObject = ReadBool(() => persistent.persistObject);
             snapshot.PersistInactive = ReadBool(() => persistent.persistInactive);
             snapshot.PersistInstance = ReadBool(() => persistent._persistInstance);
+            // Behaviour.enabled is a separate dimension: it can hint that native OnDisable ran,
+            // but neither value proves a deregistration or a native writer hit.
+            try { snapshot.PersistentEnabled = persistent.enabled; snapshot.PenabledState = "ok"; }
+            catch { snapshot.PenabledState = "read-error"; }
             if (snapshot.PersistObject.HasValue && snapshot.PersistInstance.HasValue
                 && snapshot.Active.HasValue && snapshot.PersistInactive.HasValue)
                 snapshot.ShouldPersist = snapshot.PersistObject.Value && snapshot.PersistInstance.Value
@@ -336,6 +371,78 @@ internal static class MusketeerVoyageSaveDiagnostics
         }
         catch { }
         return snapshot;
+    }
+
+    // Read-only scope against the current main boat only. Missing references, destroyed objects
+    // and read failures are unknown with a bounded reason; true/false membership requires two
+    // successfully read non-zero GO pointers. Unity's IsChildOf includes self, so the boat root
+    // is answered as self and never re-tested as its own descendant.
+    private static void ReadBoatScope(Snapshot snapshot, GameObject go)
+    {
+        Boat boat;
+        GameObject boatGo;
+        try
+        {
+            var managers = Managers.Inst;
+            if (managers == null) { snapshot.BoatState = "manager-missing"; return; }
+            var kingdom = managers.kingdom;
+            if (kingdom == null) { snapshot.BoatState = "kingdom-missing"; return; }
+            boat = kingdom.boat;
+            if (boat == null) { snapshot.BoatState = "boat-missing"; return; }
+            boatGo = boat.gameObject;
+            if (boatGo == null) { snapshot.BoatState = "go-missing"; return; }
+            snapshot.BoatRoot = boatGo.Pointer;
+            if (snapshot.BoatRoot == IntPtr.Zero) { snapshot.BoatState = "go-missing"; return; }
+            snapshot.BoatRootKnown = true;
+            snapshot.BoatState = "ok";
+        }
+        catch { snapshot.BoatState = "read-error"; return; }
+
+        if (go == null) { snapshot.ScopeIssue = "go-missing"; return; }
+        IntPtr goRoot;
+        try { goRoot = go.Pointer; }
+        catch { snapshot.ScopeIssue = "read-error"; return; }
+        if (goRoot == IntPtr.Zero) { snapshot.ScopeIssue = "go-missing"; return; }
+        // A membership answer is only meaningful for the career's own proven root, the same
+        // address domain as root/persistRoot/boatGo.
+        if (snapshot.Root == IntPtr.Zero || goRoot != snapshot.Root)
+        { snapshot.ScopeIssue = "root-mismatch"; return; }
+        if (goRoot == snapshot.BoatRoot) { snapshot.BoatSelf = true; snapshot.BoatChild = false; return; }
+        snapshot.BoatSelf = false;
+        try
+        {
+            var actor = go.transform;
+            var layer = boatGo.transform;
+            if (actor == null || layer == null) { snapshot.ScopeIssue = "transform-missing"; return; }
+            snapshot.BoatChild = actor.IsChildOf(layer);
+        }
+        catch { snapshot.ScopeIssue = "hierarchy-read-error"; }
+    }
+
+    // Unit-only read of the live Archer's Embarkee. The actor GO must be the career's own proven
+    // root: a stale Character.gameObject (slot A, actor B) is unknown/root-mismatch and can never
+    // lend B's embarking Archer to the old career. A missing component is a confirmed "none";
+    // a missing reference or a failed read stays unknown. Neither is ever written as false.
+    private static void ReadEmbarked(Snapshot snapshot, GameObject go)
+    {
+        if (snapshot.Kind != MusketeerCareer.KindUnit) { snapshot.EmbarkState = "not-unit"; return; }
+        if (go == null) { snapshot.EmbarkState = "go-missing"; return; }
+        IntPtr goRoot;
+        try { goRoot = go.Pointer; }
+        catch { snapshot.EmbarkState = "read-error"; return; }
+        if (goRoot == IntPtr.Zero) { snapshot.EmbarkState = "go-missing"; return; }
+        if (snapshot.Root == IntPtr.Zero || goRoot != snapshot.Root)
+        { snapshot.EmbarkState = "root-mismatch"; return; }
+        try
+        {
+            var archer = go.GetComponent<Archer>();
+            if (archer == null) { snapshot.EmbarkState = "archer-missing"; return; }
+            var embarkee = archer._embarkee;
+            if (embarkee == null) { snapshot.EmbarkState = "embarkee-missing"; return; }
+            snapshot.Embarked = embarkee.IsEmbarked;
+            snapshot.EmbarkState = "ok";
+        }
+        catch { snapshot.EmbarkState = "read-error"; }
     }
 
     private static string CareerLine(Capture capture, Snapshot snapshot, string phase, string suffix)
@@ -350,7 +457,14 @@ internal static class MusketeerVoyageSaveDiagnostics
             + " reg=" + Tri(snapshot.Registered) + " pobj=" + Tri(snapshot.PersistObject)
             + " pinactive=" + Tri(snapshot.PersistInactive) + " pinstance=" + Tri(snapshot.PersistInstance)
             + " active=" + Tri(snapshot.Active) + " should=" + Tri(snapshot.ShouldPersist)
-            + " sourceEligible=" + Tri(snapshot.Eligible) + (suffix ?? "");
+            + " sourceEligible=" + Tri(snapshot.Eligible) + (suffix ?? "")
+            + " boatGo=" + (snapshot.BoatRootKnown ? Hex(snapshot.BoatRoot) : "unknown")
+            + " boatState=" + snapshot.BoatState
+            + " boatSelf=" + Tri(snapshot.BoatSelf) + " boatChild=" + Tri(snapshot.BoatChild)
+            + (snapshot.ScopeIssue == null ? "" : " scopeIssue=" + snapshot.ScopeIssue)
+            + " penabled=" + Tri(snapshot.PersistentEnabled)
+            + " penabledState=" + snapshot.PenabledState + " pstate=" + snapshot.PState
+            + " embarked=" + Tri(snapshot.Embarked) + " embarkState=" + snapshot.EmbarkState;
 
     private static string ObservationText(Capture capture, Snapshot snapshot)
     {
@@ -396,7 +510,8 @@ internal static class MusketeerVoyageSaveDiagnostics
                 + " epoch=" + SafeText(state != null ? state.Epoch : null, 40)
                 + " parent=" + ParentSequence(save)
                 + " protected=" + B(save != null && save.Protected)
-                + " careers=" + careers;
+                + " careers=" + careers
+                + " boatSrc=Managers.Inst.kingdom.boat";
             Emit(capture, line);
         }
         catch { }

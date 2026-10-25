@@ -1,3 +1,7 @@
+## 2026-10-25 — #281 Windows 出航首错已抓取，保存修复仍未完成
+
+实际diag.281.1从来源8向第一坐骑岛11提交成功，随后来源保存首missing unit在begin/apply均active但reg/pinstance为0，原生GetID未观察到；未见读取丢失/预算截断。Native global未变，Hero/Knight四附档快照轮转，副本全保留，未恢复玩家数据。当前2.4.3原生主船子级排除可产生此状态，尚缺本单位归属证据；现有边界内的只读增量已完成本机准备，default659/diag857、四种interop0W0E和默认IL/资源等价；源经Astra增量复核。保存尚未修复，候选未安装，Issue开放、PR282仍Draft。详见[现场记录](tasks/issue-281/receipts/windows-first-failure-20261025.md)。
+
 ## 2026-10-24 — #281 出航灰图修复与保存拒绝诊断待实机
 
 Windows 2.4.3 实际首错是来源岛出航 `save-missed-row → CaptureFault`，writer 保护拒绝；具体缺失 career 尚待诊断，不称存档语义已修。F5 owned-close 遗留 root CanvasGroup=false 的错误已修，独立 panel 37/37；identity default659/diag779（含target127）通过，四种240/243默认/诊断编译0W0E，Android host1265/0，未代验设备或Windows玩法。用户明确允许正常版手动测试和游戏读写当前档，先备份、不自动恢复；最小候选保留已安装旧基线，未带入新版宫廷。最小Windows诊断版16a0ddb5…cc4e7已安装，25份存档/配置完整备份并复验、写后保持，未自动开游戏或恢复；原生手动出航待采集，保存语义仍未修。安装回执单列，Issue保持开放。详见[阶段计划](tasks/issue-281/plan.md)。

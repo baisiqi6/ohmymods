@@ -44,6 +44,8 @@ internal static class Program
                     case "r4d-virgin-exact": VirginExactOnlyTests(); break;
 #if VOYAGE_SAVE_DIAGNOSTICS
                     case "voyage-diag": VoyageSaveDiagnosticsTests(); break;
+                    case "voyage-boat-scope": VoyageCurrentBoatScopeTests(); break;
+                    case "voyage-boat-scope-r2": VoyageBoatScopeRootGateTests(); break;
 #endif
                     default: throw new Exception("unknown case " + only);
                 }
@@ -330,6 +332,46 @@ internal static class Program
         Check(TryRegister(gun.tool), "diagnostic gun registered");
         if (registered) IslandSaveData.registeredPersistents.Add(persist);
         return (gun.go, gun.tool, persist);
+    }
+
+    static string DiagHex(IntPtr pointer) => "0x" + pointer.ToInt64().ToString("X");
+
+    // Current main boat only: a real Boat component whose gameObject supplies the GO pointer
+    // every snapshot is compared against (same domain as career root/persistRoot).
+    static (GameObject go, Boat boat) DiagBoat()
+    {
+        var go = new GameObject();
+        var boat = go.Add(new Boat());
+        Managers.Inst.kingdom = new Kingdom { boat = boat };
+        return (go, boat);
+    }
+
+    // A tracked unit career created through the real pickup boundary; the returned Archer is the
+    // live owner whose _embarkee the snapshot reads.
+    static (GameObject go, Character character, Archer archer) DiagUnitCareer()
+    {
+        var gun = Gun();
+        Check(TryRegister(gun.tool), "boat-scope unit fixture gun registered");
+        var unit = Unit();
+        MusketeerIdentity.OnGunPickupBegin(gun.tool, out var pickup);
+        MusketeerIdentity.OnGunPickupEnd(unit.character, pickup);
+        MusketeerIdentity.OnGunPickupAbort(pickup);
+        return unit;
+    }
+
+    static string CareerIdFor(Archer archer)
+        => MusketeerIdentity.Current.Careers.Single(x => ReferenceEquals(x.Archer, archer)).Id.ToString("N");
+
+    // One real SailingAway Save whose tracked career never reaches GetID. Save.Apply emits the
+    // missing career's begin/apply snapshots while the original refusal stays authoritative.
+    static MusketeerPersistence.SaveCapture SaveMissingRow()
+    {
+        PrepareSaveIsland(Island(), IslandJson("foreign-row"), "foreign-row");
+        var capture = BeginSaveThroughPatch(Island());
+        var foreign = new GameObject(); Persist(foreign);
+        CaptureIdThroughPatch(capture, foreign, "foreign-row");
+        FinishSaveThroughPatch(capture);
+        return capture;
     }
 
     static MusketeerPersistence.LoadCapture LoadBegin(string json, params string[] ids)
@@ -2327,6 +2369,8 @@ internal static class Program
         VoyageMissingEligibilityTests();
         VoyageGetIdObservationTests();
         VoyageBeginApplyChangeTests();
+        VoyageCurrentBoatScopeTests();
+        VoyageBoatScopeRootGateTests();
         VoyageDiagnosticFaultTests();
         VoyageRootReadFaultTests();
         VoyageNestedCaptureTests();
@@ -2491,6 +2535,359 @@ internal static class Program
             "a deferred source baseline is labelled first-getid | " + deferredApply);
         Check(VoyageDiagLine("save capture=1").Contains("phase=first-getid"),
             "the header does not claim a pre-GetID baseline");
+    }
+
+    // Issue 281 / Slice A2: current main-boat scope. Every value describes the exact
+    // Managers.Inst.kingdom.boat read inside that Take; it never claims the native
+    // DontPersistInstance receiver, a fleet boat, or an earlier cleanup.
+    static void VoyageCurrentBoatScopeTests()
+    {
+        // A strict descendant is a positive membership; the same read reports the exact boat GO.
+        RestartSailingWithDiagnostics();
+        var gun = DiagGun(true, true);
+        string gunId = CareerIdFor(gun.tool);
+        var boat = DiagBoat();
+        gun.go.transform.IsChildOfParent = boat.go.transform;
+        byte[] before = DiskBytes();
+        var capture = SaveMissingRow();
+        var begin = VoyageDiagLine("career=" + gunId + " phase=begin");
+        var apply = VoyageDiagLine("career=" + gunId + " phase=apply");
+        Check(begin.Contains("boatGo=" + DiagHex(boat.go.Pointer)),
+            "the begin snapshot carries the exact current boat GO pointer | " + begin);
+        Check(begin.Contains("boatState=ok") && begin.Contains("boatSelf=0") && begin.Contains("boatChild=1"),
+            "a strict descendant of the current main boat is positively attributed | " + begin);
+        Check(!begin.Contains("scopeIssue="), "a clean hierarchy read reports no scope issue | " + begin);
+        Check(apply.Contains("boatGo=" + DiagHex(boat.go.Pointer)) && apply.Contains("boatChild=1"),
+            "the apply snapshot re-samples the same current boat | " + apply);
+        Check(VoyageDiagLine("save capture=1").Contains("boatSrc=Managers.Inst.kingdom.boat"),
+            "the header names the current main-boat source, not a native receiver");
+        Check(!capture.Conflict && !capture.Applied && DiskBytes().SequenceEqual(before),
+            "boat observation never changes the missed-row refusal or archive bytes");
+
+        // A successfully read unrelated object is a definite false, not unknown.
+        RestartSailingWithDiagnostics();
+        gun = DiagGun(true, true);
+        gunId = CareerIdFor(gun.tool);
+        boat = DiagBoat();
+        gun.go.transform.IsChildOfResult = false;
+        capture = SaveMissingRow();
+        begin = VoyageDiagLine("career=" + gunId + " phase=begin");
+        Check(begin.Contains("boatState=ok") && begin.Contains("boatSelf=0") && begin.Contains("boatChild=0"),
+            "a read non-descendant is a definite excluded object | " + begin);
+        Check(!begin.Contains("boatChild=unknown"), "a clean unrelated object is never unknown | " + begin);
+
+        // The boat root itself is self, never its own passenger. IsChildOf includes self, so a
+        // fixture that would answer true proves the exclusion is local to the diagnostic.
+        RestartSailingWithDiagnostics();
+        var selfGun = DiagGun(true, true);
+        string selfId = CareerIdFor(selfGun.tool);
+        var selfBoat = selfGun.go.Add(new Boat());
+        Managers.Inst.kingdom = new Kingdom { boat = selfBoat };
+        selfGun.go.transform.IsChildOfResult = true;
+        capture = SaveMissingRow();
+        begin = VoyageDiagLine("career=" + selfId + " phase=begin");
+        apply = VoyageDiagLine("career=" + selfId + " phase=apply");
+        Check(begin.Contains("boatGo=" + DiagHex(selfGun.go.Pointer)) && begin.Contains("boatSelf=1")
+            && begin.Contains("boatChild=0"),
+            "the boat root itself is self and excluded from children | " + begin);
+        Check(apply.Contains("boatSelf=1") && apply.Contains("boatChild=0"),
+            "self exclusion holds at the apply snapshot too | " + apply);
+
+        // Missing kingdom / missing boat: both memberships unknown, never false.
+        RestartSailingWithDiagnostics();
+        gun = DiagGun(true, true);
+        gunId = CareerIdFor(gun.tool);
+        Managers.Inst.kingdom = null;
+        int getIds = IslandSaveData.GetIdCalls;
+        int registrations = IslandSaveData.registeredPersistents.Count;
+        before = DiskBytes();
+        capture = SaveMissingRow();
+        apply = VoyageDiagLine("career=" + gunId + " phase=apply");
+        Check(apply.Contains("boatGo=unknown") && apply.Contains("boatState=kingdom-missing")
+            && apply.Contains("boatSelf=unknown") && apply.Contains("boatChild=unknown"),
+            "a missing kingdom leaves both memberships unknown, never false | " + apply);
+        Check(apply.Contains("penabled=1"),
+            "Persistent.enabled is read independently of the boat reference | " + apply);
+        Check(IslandSaveData.GetIdCalls == getIds && IslandSaveData.registeredPersistents.Count == registrations,
+            "boat observation adds no GetID call and mutates no registration set");
+        Check(!capture.Conflict && !capture.Applied && DiskBytes().SequenceEqual(before),
+            "the missing kingdom keeps the original refusal and archive bytes");
+
+        RestartSailingWithDiagnostics();
+        gun = DiagGun(true, true);
+        gunId = CareerIdFor(gun.tool);
+        Managers.Inst.kingdom = new Kingdom { boat = null };
+        capture = SaveMissingRow();
+        apply = VoyageDiagLine("career=" + gunId + " phase=apply");
+        Check(apply.Contains("boatState=boat-missing") && apply.Contains("boatSelf=unknown")
+            && apply.Contains("boatChild=unknown"),
+            "a missing Boat reference is unknown, not a definite non-member | " + apply);
+
+        // Reading the Boat gameObject can fault: state and memberships stay unknown.
+        RestartSailingWithDiagnostics();
+        gun = DiagGun(true, true);
+        gunId = CareerIdFor(gun.tool);
+        boat = DiagBoat();
+        boat.boat.ThrowOnGameObjectRead = true;
+        capture = SaveMissingRow();
+        apply = VoyageDiagLine("career=" + gunId + " phase=apply");
+        Check(apply.Contains("boatState=read-error") && apply.Contains("boatGo=unknown")
+            && apply.Contains("boatSelf=unknown") && apply.Contains("boatChild=unknown"),
+            "a failed boat GO read is unknown with an explicit reason | " + apply);
+        Check(!capture.Conflict, "a harness read fault never becomes a capture conflict");
+
+        // A hierarchy read fault keeps self (pointer-proven false) and marks child unknown.
+        RestartSailingWithDiagnostics();
+        gun = DiagGun(true, true);
+        gunId = CareerIdFor(gun.tool);
+        DiagBoat();
+        gun.go.transform.ThrowOnIsChildOf = true;
+        capture = SaveMissingRow();
+        apply = VoyageDiagLine("career=" + gunId + " phase=apply");
+        Check(apply.Contains("boatSelf=0") && apply.Contains("boatChild=unknown")
+            && apply.Contains("scopeIssue=hierarchy-read-error"),
+            "a failed hierarchy read is unknown, never a false child | " + apply);
+        Check(!apply.Contains("boatChild=0"), "a failed hierarchy read is never downgraded to false | " + apply);
+
+        // Each snapshot keeps the boat it actually observed; Begin is not back-filled.
+        RestartSailingWithDiagnostics();
+        gun = DiagGun(true, true);
+        gunId = CareerIdFor(gun.tool);
+        var boatA = DiagBoat();
+        PrepareSaveIsland(Island(), IslandJson("foreign-row"), "foreign-row");
+        capture = BeginSaveThroughPatch(Island());
+        var boatBGo = new GameObject();
+        var boatB = boatBGo.Add(new Boat());
+        Managers.Inst.kingdom.boat = boatB;
+        var foreign = new GameObject(); Persist(foreign);
+        CaptureIdThroughPatch(capture, foreign, "foreign-row");
+        FinishSaveThroughPatch(capture);
+        begin = VoyageDiagLine("career=" + gunId + " phase=begin");
+        apply = VoyageDiagLine("career=" + gunId + " phase=apply");
+        Check(begin.Contains("boatGo=" + DiagHex(boatA.go.Pointer)),
+            "the begin row keeps the boat observed at begin | " + begin);
+        Check(apply.Contains("boatGo=" + DiagHex(boatBGo.Pointer))
+            && !apply.Contains("boatGo=" + DiagHex(boatA.go.Pointer)),
+            "the apply row keeps its own boat and never inherits the begin pointer | " + apply);
+        Check(DiagHex(boatA.go.Pointer) != DiagHex(boatBGo.Pointer),
+            "the two snapshots really observed different boat GOs");
+
+        // Persistent.enabled is a separate dimension: disabled component on an active GO.
+        RestartSailingWithDiagnostics();
+        gun = DiagGun(true, true);
+        gunId = CareerIdFor(gun.tool);
+        DiagBoat();
+        gun.persist.enabled = false;
+        capture = SaveMissingRow();
+        begin = VoyageDiagLine("career=" + gunId + " phase=begin");
+        apply = VoyageDiagLine("career=" + gunId + " phase=apply");
+        Check(begin.Contains("penabled=0") && begin.Contains("active=1")
+            && begin.Contains("should=1") && begin.Contains("sourceEligible=1"),
+            "disabled Persistent on an active GO is reported without pretending to be unregistered | " + begin);
+        Check(apply.Contains("penabled=0") && apply.Contains("should=1"),
+            "the disabled flag alone never changes native eligibility | " + apply);
+
+        RestartSailingWithDiagnostics();
+        gun = DiagGun(true, true);
+        gunId = CareerIdFor(gun.tool);
+        DiagBoat();
+        gun.persist.enabled = false;
+        PrepareSaveIsland(Island(), IslandJson("foreign-row"), "foreign-row");
+        capture = BeginSaveThroughPatch(Island());
+        gun.persist.ThrowOnEnabledRead = true;
+        foreign = new GameObject(); Persist(foreign);
+        CaptureIdThroughPatch(capture, foreign, "foreign-row");
+        FinishSaveThroughPatch(capture);
+        begin = VoyageDiagLine("career=" + gunId + " phase=begin");
+        apply = VoyageDiagLine("career=" + gunId + " phase=apply");
+        Check(begin.Contains("penabled=0"), "the begin row keeps the readable disabled value | " + begin);
+        Check(apply.Contains("penabled=unknown") && apply.Contains("pobj=1") && apply.Contains("pinstance=1")
+            && apply.Contains("should=1"),
+            "an enabled read fault is unknown and leaves the other flags intact | " + apply);
+
+        // Archer._embarkee.IsEmbarked: unit-only, tri-state with explicit missing/fault reasons.
+        RestartSailingWithDiagnostics();
+        var unit = DiagUnitCareer();
+        string unitId = CareerIdFor(unit.archer);
+        unit.archer._embarkee = new Embarkee { IsEmbarked = true };
+        capture = SaveMissingRow();
+        begin = VoyageDiagLine("career=" + unitId + " phase=begin");
+        apply = VoyageDiagLine("career=" + unitId + " phase=apply");
+        Check(begin.Contains("embarked=1") && begin.Contains("embarkState=ok"),
+            "a real embarked Archer is observably true | " + begin);
+        Check(apply.Contains("embarked=1"), "the apply row re-reads the live embarkee | " + apply);
+
+        RestartSailingWithDiagnostics();
+        unit = DiagUnitCareer();
+        unitId = CareerIdFor(unit.archer);
+        unit.archer._embarkee = new Embarkee { IsEmbarked = false };
+        capture = SaveMissingRow();
+        apply = VoyageDiagLine("career=" + unitId + " phase=apply");
+        Check(apply.Contains("embarked=0") && apply.Contains("embarkState=ok"),
+            "a real not-embarked Archer is observably false | " + apply);
+
+        RestartSailingWithDiagnostics();
+        unit = DiagUnitCareer();
+        unitId = CareerIdFor(unit.archer);
+        unit.archer._embarkee = null;
+        capture = SaveMissingRow();
+        apply = VoyageDiagLine("career=" + unitId + " phase=apply");
+        Check(apply.Contains("embarked=unknown") && apply.Contains("embarkState=embarkee-missing"),
+            "a missing _embarkee is unknown, not false | " + apply);
+        Check(!apply.Contains("embarked=0"), "a missing _embarkee is never rendered as false | " + apply);
+
+        RestartSailingWithDiagnostics();
+        unit = DiagUnitCareer();
+        unitId = CareerIdFor(unit.archer);
+        unit.go.Remove<Archer>();
+        capture = SaveMissingRow();
+        apply = VoyageDiagLine("career=" + unitId + " phase=apply");
+        Check(apply.Contains("embarked=unknown") && apply.Contains("embarkState=archer-missing"),
+            "a unit without an Archer component is an explicit confirmed absence | " + apply);
+
+        RestartSailingWithDiagnostics();
+        gun = DiagGun(true, true);
+        gunId = CareerIdFor(gun.tool);
+        capture = SaveMissingRow();
+        apply = VoyageDiagLine("career=" + gunId + " phase=apply");
+        Check(apply.Contains("embarked=unknown") && apply.Contains("embarkState=not-unit"),
+            "a gun career never claims an embarkee | " + apply);
+
+        RestartSailingWithDiagnostics();
+        unit = DiagUnitCareer();
+        unitId = CareerIdFor(unit.archer);
+        unit.archer._embarkee = new Embarkee { ThrowOnIsEmbarkedRead = true };
+        capture = SaveMissingRow();
+        apply = VoyageDiagLine("career=" + unitId + " phase=apply");
+        Check(apply.Contains("embarked=unknown") && apply.Contains("embarkState=read-error"),
+            "an IsEmbarked read fault is unknown with its own reason | " + apply);
+
+        // Combined faults: the original refusal, counters, registration set and bytes stay intact.
+        RestartSailingWithDiagnostics();
+        unit = DiagUnitCareer();
+        unitId = CareerIdFor(unit.archer);
+        unit.archer._embarkee = new Embarkee { ThrowOnIsEmbarkedRead = true };
+        boat = DiagBoat();
+        boat.boat.ThrowOnGameObjectRead = true;
+        getIds = IslandSaveData.GetIdCalls;
+        int persistReads = Persistent.PersistObjectReads + Persistent.PersistInactiveReads + Persistent.PersistInstanceReads;
+        registrations = IslandSaveData.registeredPersistents.Count;
+        before = DiskBytes();
+        capture = SaveMissingRow();
+        apply = VoyageDiagLine("career=" + unitId + " phase=apply");
+        Check(apply.Contains("boatState=read-error") && apply.Contains("embarkState=read-error"),
+            "both faulted observations stay unknown with reasons | " + apply);
+        Check(!capture.Conflict && !capture.Applied, "diagnostic faults keep the original refusal state");
+        Check(Logger.Lines.Exists(x => x.Contains("save-missed-row")),
+            "the original missed-row log remains after diagnostic faults");
+        Check(IslandSaveData.GetIdCalls == getIds, "diagnostic faults add no GetID calls");
+        Check(Persistent.PersistObjectReads + Persistent.PersistInactiveReads + Persistent.PersistInstanceReads == persistReads,
+            "diagnostic faults add no persistent flag reads on a unit without Persistent");
+        Check(IslandSaveData.registeredPersistents.Count == registrations,
+            "diagnostic faults do not mutate the registration set");
+        Check(MusketeerNativeSave.CaptureFailures == 1 && MusketeerNativeSave.StageCalls == 0,
+            "diagnostic faults keep the original fault accounting and writer block");
+        Check(DiskBytes().SequenceEqual(before), "diagnostic faults write no archive bytes");
+    }
+
+    // Astra review r2, both items: exact actor-root gate for embarkation, and bounded
+    // Persistent/enabled reasons. Fixtures drive the real Save.Apply -> Missing -> Take path.
+    static void VoyageBoatScopeRootGateTests()
+    {
+        // Slot root A, stale actor GO B: B's embarking Archer must never be attributed to the
+        // old career. ValidBinding/IsActive see A; only the diagnostic snapshot read sees B.
+        RestartSailingWithDiagnostics();
+        var unit = DiagUnitCareer();
+        string unitId = CareerIdFor(unit.archer);
+        var otherGo = new GameObject();
+        var otherArcher = otherGo.Add(new Archer());
+        otherArcher._embarkee = new Embarkee { IsEmbarked = true };
+        DiagBoat();
+        PrepareSaveIsland(Island(), IslandJson("foreign-row"), "foreign-row");
+        var capture = BeginSaveThroughPatch(Island());
+        int reads = unit.character.GameObjectReads;
+        unit.character.SubstituteGameObject = otherGo;
+        unit.character.SubstituteGameObjectAtCall = reads + 3;
+        var foreign = new GameObject(); Persist(foreign);
+        CaptureIdThroughPatch(capture, foreign, "foreign-row");
+        FinishSaveThroughPatch(capture);
+        unit.character.SubstituteGameObject = null;
+        var apply = VoyageDiagLine("career=" + unitId + " phase=apply");
+        Check(apply.Contains("scopeIssue=root-mismatch"),
+            "the stale actor GO is flagged against the slot root | " + apply);
+        Check(apply.Contains("embarked=unknown") && apply.Contains("embarkState=root-mismatch"),
+            "embarkation is unknown when the actor GO is not the career root | " + apply);
+        Check(!apply.Contains("embarked=1"),
+            "a stale actor GO's embarking Archer is never attributed to the old career | " + apply);
+        Check(!capture.Conflict && !capture.Applied,
+            "the exact actor root gate leaves the original refusal intact");
+
+        // A genuinely missing Persistent is absent, not a read fault.
+        RestartSailingWithDiagnostics();
+        unit = DiagUnitCareer();
+        unitId = CareerIdFor(unit.archer);
+        capture = SaveMissingRow();
+        apply = VoyageDiagLine("career=" + unitId + " phase=apply");
+        Check(apply.Contains("pstate=absent") && apply.Contains("penabled=unknown")
+            && apply.Contains("penabledState=absent"),
+            "a missing Persistent is reported as absent | " + apply);
+        Check(apply.Contains("persist=unknown") && apply.Contains("persistRootMatch=unknown"),
+            "absent Persistent keeps the existing unknown persist fields | " + apply);
+
+        // A throwing Persistent lookup is a read error, not absence.
+        RestartSailingWithDiagnostics();
+        var gun = DiagGun(true, true);
+        string gunId = CareerIdFor(gun.tool);
+        DiagBoat();
+        gun.go.ThrowOnPersistentRead = true;
+        capture = SaveMissingRow();
+        apply = VoyageDiagLine("career=" + gunId + " phase=apply");
+        Check(apply.Contains("pstate=read-error") && apply.Contains("penabledState=read-error")
+            && apply.Contains("penabled=unknown"),
+            "a throwing Persistent lookup is a read error, never absence | " + apply);
+        Check(apply.Contains("persist=unknown") && apply.Contains("persistRoot=unknown"),
+            "a throwing lookup keeps both persist pointers unknown | " + apply);
+        Check(!capture.Conflict && !capture.Applied,
+            "a throwing Persistent lookup changes no capture state");
+
+        // enabled getter fault: exact Persistent and root are still proven.
+        RestartSailingWithDiagnostics();
+        gun = DiagGun(true, true);
+        gunId = CareerIdFor(gun.tool);
+        DiagBoat();
+        gun.persist.enabled = false;
+        PrepareSaveIsland(Island(), IslandJson("foreign-row"), "foreign-row");
+        capture = BeginSaveThroughPatch(Island());
+        gun.persist.ThrowOnEnabledRead = true;
+        foreign = new GameObject(); Persist(foreign);
+        CaptureIdThroughPatch(capture, foreign, "foreign-row");
+        FinishSaveThroughPatch(capture);
+        var begin = VoyageDiagLine("career=" + gunId + " phase=begin");
+        apply = VoyageDiagLine("career=" + gunId + " phase=apply");
+        Check(begin.Contains("pstate=ok") && begin.Contains("penabledState=ok") && begin.Contains("penabled=0"),
+            "the readable begin row keeps its enabled value and state | " + begin);
+        Check(apply.Contains("pstate=ok") && apply.Contains("penabled=unknown")
+            && apply.Contains("penabledState=read-error") && apply.Contains("pobj=1"),
+            "an enabled read fault is distinct from component/root failures | " + apply);
+        Check(!capture.Conflict, "an enabled read fault changes no capture state");
+
+        // A definite different Persistent root is a mismatch, not absence; enabled is not read.
+        RestartSailingWithDiagnostics();
+        gun = DiagGun(true, true);
+        gunId = CareerIdFor(gun.tool);
+        DiagBoat();
+        PrepareSaveIsland(Island(), IslandJson("foreign-row"), "foreign-row");
+        capture = BeginSaveThroughPatch(Island());
+        gun.persist.gameObject = new GameObject();
+        foreign = new GameObject(); Persist(foreign);
+        CaptureIdThroughPatch(capture, foreign, "foreign-row");
+        FinishSaveThroughPatch(capture);
+        apply = VoyageDiagLine("career=" + gunId + " phase=apply");
+        Check(apply.Contains("pstate=root-mismatch") && apply.Contains("penabledState=root-mismatch")
+            && apply.Contains("penabled=unknown"),
+            "a definite different Persistent root is root-mismatch, not absence | " + apply);
+        Check(apply.Contains("persistRootMatch=0") && apply.Contains("sourceEligible=unknown"),
+            "the existing root-match evidence is unchanged | " + apply);
     }
 
     static void VoyageDiagnosticFaultTests()

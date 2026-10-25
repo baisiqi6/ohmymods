@@ -32,3 +32,7 @@
 ## 2026-10-24 诊断安装回执
 
 最小 Windows 诊断候选 `10.9.39-win243-diag.281.1` 已安装，SHA `16a0ddb5d508997595019cc14d5bb6faa96908522977cd7cd3ca75f6ec2cc4e7`。25个存档/配置文件共11979487 bytes先完整备份并逐项复验，写后数据保持，未自动恢复或启动游戏。安装中 stdin 大块传输与PS5.1空备份参数两次失败均保留原件；旧DLL/数据未改，改用SCP与显式原子备份路径后新apply成功。审批、脚本增量和安装回执分开绑定；见[安装摘要](receipts/windows-diagnostic-install.json)。已接上只读新进程采集，用户手动出航尚待完成，不称保存问题已修或Windows实测通过。
+
+## 2026-10-25 首错收敛
+
+已用实际Windows诊断DLL取得来源岛8保存首错，首missing unit在begin时已active但原生不持久/未注册；主档未写，Hero/Knight附档有快照轮转，原件完整保留。详见[现场记录](receipts/windows-first-failure-20261025.md)。原生当前主船递归排除已静态核验，尚缺本root归属；不跳过保护或猜职业运输。只读boat-scope增量已完成本机准备：default659/diag857、四种interop0W0E及默认IL/资源等价；源经Astra增量复核，候选未安装。旧“具体career尚未知”仅代表10/24，已由本次观测替代；尚未闭合完整出航身份交接。

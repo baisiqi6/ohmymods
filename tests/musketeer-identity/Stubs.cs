@@ -32,8 +32,16 @@ namespace UnityEngine
         public string tag = "";
         public Scene scene; public Transform transform = new();
         readonly Dictionary<Type, Component> components = new();
+        // Persistent-only fault injection: other GetComponent callers keep the old behaviour.
+        public bool ThrowOnPersistentRead;
         public T Add<T>(T c) where T : Component { c.gameObject = this; components[typeof(T)] = c; return c; }
-        public T GetComponent<T>() where T : Component => components.TryGetValue(typeof(T), out var c) ? (T)c : null;
+        public T GetComponent<T>() where T : Component
+        {
+            if (ThrowOnPersistentRead && typeof(T) == typeof(Persistent))
+                throw new InvalidOperationException("Persistent component read");
+            return components.TryGetValue(typeof(T), out var c) ? (T)c : null;
+        }
+        public void Remove<T>() where T : Component => components.Remove(typeof(T));
     }
     public class Component : Object
     {
@@ -41,6 +49,8 @@ namespace UnityEngine
         public int GameObjectReads;
         public bool ThrowOnGameObjectRead;
         public int ThrowOnGameObjectReadAtCall;
+        public GameObject SubstituteGameObject;
+        public int SubstituteGameObjectAtCall;
         public GameObject gameObject
         {
             get
@@ -49,6 +59,11 @@ namespace UnityEngine
                 if (ThrowOnGameObjectRead
                     || (ThrowOnGameObjectReadAtCall > 0 && GameObjectReads == ThrowOnGameObjectReadAtCall))
                     throw new InvalidOperationException("gameObject read");
+                // Models a native owner swap between ValidBinding/IsActive and the diagnostic
+                // snapshot: only the exact armed call returns a different live GO.
+                if (SubstituteGameObject != null && SubstituteGameObjectAtCall > 0
+                    && GameObjectReads == SubstituteGameObjectAtCall)
+                    return SubstituteGameObject;
                 return _gameObject;
             }
             set => _gameObject = value;
@@ -56,7 +71,22 @@ namespace UnityEngine
         public T GetComponent<T>() where T : Component => gameObject?.GetComponent<T>();
     }
     public struct Scene { public int handle; }
-    public class Transform : Component { public float x, y; public bool IsChildOf(Transform layer) => KingdomEnhancedMod.MusketeerAccess.InWorldResult; }
+    public class Transform : Component
+    {
+        public float x, y;
+        // Historical default stays InWorldResult for every existing fixture. Boat-scope cases
+        // override only their own instance: an explicit answer, a real parent edge, or a fault.
+        public bool? IsChildOfResult;
+        public Transform IsChildOfParent;
+        public bool ThrowOnIsChildOf;
+        public bool IsChildOf(Transform layer)
+        {
+            if (ThrowOnIsChildOf) throw new InvalidOperationException("IsChildOf read");
+            if (IsChildOfResult.HasValue) return IsChildOfResult.Value;
+            if (IsChildOfParent != null) return ReferenceEquals(IsChildOfParent, layer);
+            return KingdomEnhancedMod.MusketeerAccess.InWorldResult;
+        }
+    }
     public struct Vector2
     {
         public float x, y;
@@ -77,7 +107,17 @@ public class Character : UnityEngine.Component
     public Damageable _damageable = new();
     public Character Promote(DroppableTool tool, IUnitController unitController) => this;
 }
-public class Archer : UnityEngine.Component { }
+public class Embarkee : UnityEngine.Component
+{
+    private bool _isEmbarked;
+    public bool ThrowOnIsEmbarkedRead;
+    public bool IsEmbarked
+    {
+        get { if (ThrowOnIsEmbarkedRead) throw new InvalidOperationException("IsEmbarked read"); return _isEmbarked; }
+        set => _isEmbarked = value;
+    }
+}
+public class Archer : UnityEngine.Component { public Embarkee _embarkee; }
 public class Droppable : UnityEngine.Component { public bool pickedUp; public UnityEngine.GameObject enemyClaimer; public UnityEngine.GameObject dropper; }
 public class DroppableTool : Droppable { }
 public class Persistent : UnityEngine.Component
@@ -102,6 +142,14 @@ public class Persistent : UnityEngine.Component
     {
         get { PersistInstanceReads++; if (ThrowOnRead) throw new InvalidOperationException("_persistInstance read"); return __persistInstance; }
         set => __persistInstance = value;
+    }
+    // Behaviour.enabled: independent of activeInHierarchy and of the three persistence flags.
+    private bool _enabled = true;
+    public bool ThrowOnEnabledRead;
+    public bool enabled
+    {
+        get { if (ThrowOnEnabledRead) throw new InvalidOperationException("enabled read"); return _enabled; }
+        set => _enabled = value;
     }
     public bool ShouldPersist() { ShouldPersistCalls++; return false; }
 }
