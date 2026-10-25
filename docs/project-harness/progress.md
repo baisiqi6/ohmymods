@@ -1,3 +1,7 @@
+## 2026-10-24 — #285/#286 Mac图层四点取样完成，根因未定案
+
+用户确认两问题均Mac；已用基线98259af＋只读Probe在可信source8私有环境取得入口与盾店远近4组，真实UI保存退出、controller0/errors[]、正常存档/配置/DLL及71物理游戏文件保持。共享stencil8/0/1与店身0/独立小盾1的排序分叉已读回；实际MPB/GPU pass未知。普通骑行未稳定复现原图大圆弧，角色实体覆盖小盾不能冒称透明区域异常已证；B未运行，未应用层序/材质修复、未安装。具体槽位待用户指认，原白X为截图Shift误触；本轮不代验PR287新生成或正常已访问岛11缺账恢复。详见[本轮回执](tasks/issue-286/receipts/mac-layer-observation.md)。
+
 ## 2026-10-24 — #286 盾具店购买绑定候选，未安装
 
 首次生成非零槽位岛仍带 raw land0 时，旧入口误用序列化字段/旧岛行，可能使盾卫状态未绑定新岛。候选已在独立分支修正为唯一 native pointer→slot、生成 scope 与 origin 两阶段核验、失败前 detached 状态准备；保留普通 Load/Save、旧 paid 行、活跃付款与 Prepared/未知交易保护。Operator 主机626检查通过，Mac240/Win240/Win243 NoDeploy 0W0E、275资源实际读回一致，Android probe0E/既有1W、AdapterTests1265/0；独立代码审查通过。构建和受控主机用例不等于 Native 时序或玩家问题通过。

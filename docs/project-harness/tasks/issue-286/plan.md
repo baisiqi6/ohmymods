@@ -32,3 +32,7 @@
 ## 当前结果
 
 生成身份候选及本阶段增量已通过独立审查，Root实际复跑626项主机检查、三profile NoDeploy/资源回读、Android probe/1265 host检查；具体产物和边界见 `receipts/validation.md`。旧paid A→B→A有效用例复用；原始各轮失败不删改。当前为Draft范围，未合并/安装/Native实测。当前Mac活动campaign0/currentLand11缺盾卫行是已访问旧档边界，不因新生成修复自动补空登记。槽位修复尚待exact renderer及本次平台确认；不会凭这轮编译合并或宣称用户已经可购买。
+
+## Mac 现场增量
+
+用户明确两图层都是Mac，白十字为截图Shift误触；已完成可信source8私有case四点取样并通过UI自然退出（return0/errors[]），正常数据未变、批准已撤销。入口大圆弧未稳定复现，盾店角色实体遮挡与透明区裁切尚需目标指认；没有因此改材质/排序或安装。本轮不验证PR287生成/正常岛11旧账恢复。见 `receipts/mac-layer-observation.md`。
