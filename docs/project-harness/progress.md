@@ -1,3 +1,7 @@
+## 2026-10-25 — #281 已证首错单位在主船且已登船，转修付费身份交接
+
+.281.2真实首错确认begin/apply同根boatChild1/embarked1/penabled1、active1而reg/pinstance0，GetID未观测，无读取丢失；source8→target11交接成功后仍由source保存要求拒绝。主档与Musk四件不变，Hero/Knight仅快照轮转，cfg57值相同仅版本注释。Astra独核与GLM阶段定案通过；后续收窄paid GUID source→carry→destination承接，不再重复本资格诊断、不放宽Guard。25数据/日志/截图全留存，无输入/安装/restore，PR282仍Draft/Issue281开放。见[本轮回执](tasks/issue-281/receipts/windows-2812-first-failure-20261025.md)。
+
 ## 2026-10-25 — #281 Windows 诊断281.2已配套安装，待船归属实测
 
 已将a3d49aab…DLL与1e09caee…受管清单一起装入独立E:2.4.3玩家包；fresh完整备份及独审/GLM执行关口通过，真实PS5.1 Parser0、launcher CheckOnly exit0。独立读回444固定输入匹配、25份data及backup全同，未恢复正常数据或启动游戏。此版仅补只读boat-scope，保存语义未修；PR282仍Draft/Issue281开放。用户继续原.cmd手动出航并停首错，见[安装回执](tasks/issue-281/receipts/windows-diagnostic-2812-install-20261025.md)。

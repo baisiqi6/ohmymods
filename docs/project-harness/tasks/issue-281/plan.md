@@ -40,3 +40,7 @@
 ## 2026-10-25 诊断281.2已配套安装
 
 用户结束错误进程后，fresh核身份/25数据和444固定文件，按新具体执行审查完成a3dDLL+1e09清单一起替换；原launcher CheckOnly及独立读回通过，没有恢复正常数据。见[实际回执](receipts/windows-diagnostic-2812-install-20261025.md)。只读boat-scope尚待用户再次出航采样，不代表保存语义已修，继续Draft/Open。
+
+## 2026-10-25 281.2首错归属已闭合
+
+同根当前主船严格子级、已登船、组件enabled均已实测；active但不原生持久的运输单位与现Apply源岛行要求冲突已确认。此前boat归属unknown是旧阶段边界，现更新见[最新回执](receipts/windows-2812-first-failure-20261025.md)。下一步先确定付费GUID运输/到岸承接责任及失败、取消、重生未rebind时序，不重复当前诊断、不猜身份或跳过CaptureFault。原生保存和冷重进仍未通过，保持Open/Draft。
