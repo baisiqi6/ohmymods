@@ -135,8 +135,9 @@ internal static class HeroShopPlacement
         {
             if (value != center && Inside(value)) candidates.Add(value);
         }
-        Add((float)low);
-        Add((float)high);
+        // Every threshold is a candidate: native fits may accept the exact contact point that
+        // splits two exclusion cells, which no interior sample can hit.
+        foreach (double threshold in thresholds) Add((float)threshold);
         for (int i = 1; i < thresholds.Count; i++)
         {
             double a = thresholds[i - 1], b = thresholds[i];
