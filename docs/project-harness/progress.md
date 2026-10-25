@@ -1,3 +1,7 @@
+## 2026-10-25 — #290 商店精确相切候选修复（离线交付）
+
+真实Find回归旧实现RED，新实现Core71、盾店372、火枪店45通过；仅将已有thresholds加入原候选集，原native fits/Inside/去重/排序仍裁决，查询上界8n+6。三套Mac240/Win240/Win243私有全源NoDeploy 0W0E、275资源逐项一致；Android实际net6 probe0E/既有1W，Adapter1503/1，唯一为已确认旧WallEngineerRuntime frozen pin，未跳检并交Android专项。独立源码审查通过，不代验Native或本岛NoSpace（其504+166全拒）；正常档/运行包不动，未合并安装。详见[回执](tasks/issue-290/verification.md)。
+
 ## 2026-10-25 — #232/#262 代码范围已关闭（checklist done + GitHub closed）
 
 Coordinate 生命周期：`issue-232`、`issue-262` 依次 closeout packet → review approved（Operator self-review，用户授权）→ **mark-done**，checklist 状态均为 `done`；GitHub [#232](https://github.com/baisiqi6/ohmymods/issues/232) 与 [#262](https://github.com/baisiqi6/ohmymods/issues/262) 已关闭（代码范围），关闭说明附证据/边界/pending。合并物：PR #263 `e15d872`、收口记录 PR #288 `171bd08`。

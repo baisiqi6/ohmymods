@@ -33,6 +33,18 @@ bool Search(float left,float right,float halfWidth,IReadOnlyList<Interval> real,
     out float position,IReadOnlyList<Interval> collected=null)
     => HeroShopPlacement.Find(left,right,halfWidth,p=>NativeFits(p,halfWidth,real),
         ()=>collected??real,out position);
+// Native Payable Retrieve admits abs(point-center) == distance+half (strict <), unlike the
+// closed blocker test. Keep this oracle explicit instead of folding both into one epsilon.
+bool PayableFits(float p,float halfWidth,float[] centers,float distance)
+{
+    foreach(float center in centers)
+        if(MathF.Abs(p-center)<distance+halfWidth) return false;
+    return true;
+}
+bool SearchPayable(float left,float right,float halfWidth,float[] centers,float distance,
+    IReadOnlyList<Interval> collected,out float position)
+    => HeroShopPlacement.Find(left,right,halfWidth,p=>PayableFits(p,halfWidth,centers,distance),
+        ()=>collected,out position);
 int collections=0;
 Check(HeroShopPlacement.Find(-10,10,2,p=>true,()=>{collections++;return empty;},out float x)
     &&x==0&&collections==0,"middle succeeds without collecting exclusions");
@@ -79,6 +91,22 @@ Check(Search(-20,20,2,occupied,out float first),"first shop can be placed");
 occupied.Add(new Interval(first-2,first+2));
 Check(Search(-20,20,2,occupied,out float second)&&NativeFits(second,2,occupied),"second shop does not overlap registered first shop");
 
+// Two eligible Payables at centres 0/8 with distance 2 and a half-width 2 shop leave the
+// legal centre range [1,6]; only the exact contact 4 passes the strict native Retrieve test.
+var touchingCenters=new[]{0f,8f};
+var touchingExclusions=new[]{new Interval(-2,2),new Interval(6,10)};
+Check(SearchPayable(-1,8,2,touchingCenters,2,touchingExclusions,out x)&&x==4f,
+    "exact strict Payable contact at the only legal centre is found");
+Check(!Search(-1,8,2,touchingExclusions,out x),
+    "the same contact stays rejected when the native exclusion includes its endpoints");
+Check(!HeroShopPlacement.Find(-1,8,2,p=>false,()=>touchingExclusions,out x),
+    "every candidate rejected by native fits fails the search");
+var duplicatedExclusions=new[]{new Interval(-2,2),new Interval(6,10),
+    new Interval(-2,2),new Interval(6,10)};
+Check(SearchPayable(-1,8,2,touchingCenters,2,duplicatedExclusions,out float once)&&once==4f
+    &&SearchPayable(-1,8,2,touchingCenters,2,duplicatedExclusions,out float twice)&&twice==once,
+    "duplicate exclusion boundaries stay deduplicated and the choice is deterministic");
+
 int calls=0;
 int CountFailedSearch(float left,float right,IReadOnlyList<Interval> source)
 {
@@ -93,14 +121,14 @@ int CountFailedSearch(float left,float right,IReadOnlyList<Interval> source)
 }
 int shortCalls=CountFailedSearch(-100,100,centerBlocked);
 int longCalls=CountFailedSearch(-1000000,1000000,centerBlocked);
-Check(shortCalls<=6*centerBlocked.Length+6&&longCalls<=6*centerBlocked.Length+6,
+Check(shortCalls<=8*centerBlocked.Length+6&&longCalls<=8*centerBlocked.Length+6,
     "native calls scale with boundaries, not territory length");
 var many=new List<Interval>();
 for(int i=0;i<1500;i++) many.Add(new Interval(-5000+i*2,-4999+i*2));
 many.Add(new Interval(-10000,4000));
 many.Add(new Interval(4004.1f,10000));
 Check(Search(-10000,10000,2,many,out x)&&x>4002&&x<4002.1f,"no candidate or source cutoff loses distant final gap");
-Check(CountFailedSearch(-10000,10000,many)<=6*many.Count+6,"large source remains linear in native checks");
+Check(CountFailedSearch(-10000,10000,many)<=8*many.Count+6,"large source remains linear in native checks");
 Check(HeroShopGrounding.TryResolve(true,true,0.875f,out float gy)&&gy==0.875f,"same-world active native root is the baseline");
 Check(HeroShopGrounding.TryResolve(true,true,-1.25f,out gy)&&gy==-1.25f,"negative native root kept as-is");
 Check(HeroShopGrounding.TryResolve(true,true,0f,out gy)&&gy==0f,"zero native root is still a real reference");
