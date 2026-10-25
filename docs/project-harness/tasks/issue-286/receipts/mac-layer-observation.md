@@ -24,3 +24,9 @@
 - 重新核源PNG：入口192×192、alpha0/255=16865/19999、透明RGB全0且可见纯黑0；小盾19×30、alpha0/255=103/467，未烘入黑弧。只排除这些源像素假设，运行时纹理/MPB仍未知。
 - A/B源码仅marker order差异，但A未稳定复现且截图位置/时段不同，B画面正常不足以定因。仍需失败像素同帧有效pass/variant、正确Blend/MPB纹理alpha与depth/stencil前后写入者；不批准猜测order/Z/material或逐帧覆写。默认图层源码未采纳、正常包未更新。
 - 详细只读计算、shader/PNG/截图和源码哈希留本机`offline-20261025/layer-audit.md`，原始玩家资料不提交。Issue #285/#286保留开放。
+
+### 关键遮挡者的剩余盲点与平台边界
+
+追加源读发现：旧DescribeMaterial的keywords只覆盖入口/reference/V2四层；six-marker与玩家树MaterialBrief不记keywords/material pointer/多slot，steed.SpriteFX.Renderer还被remember去重，首次NearDone与64节点cap实际截断会漏瞬态/第二slot。不能把它们归到已知普通片元变体；下一次失败帧应窄采six-marker slot0、steed SpriteFX及实际DarkQueen/Puff等遮挡renderer的slot/keywords/MPB与正确DstBlend。
+
+另纠正一份旧1521项地址表的平台归属：它由Windows PE白名单脚本生成，不是Mac完整表，其“不含SpriteRendererFX”不是Mac实现缺失证据。Root已直接用当前Mac v31 metadata核六个SpriteRendererFX方法token（RefreshShared/Instanced/SetInstanced/Flash/Glow），不依赖该表；但native实现地址/实际writer/调用时机仍未绑定。缓存interop的整体生成来源缺回执，此六token的身份匹配不能扩称全缓存绑定或GPU因果。
