@@ -14,7 +14,7 @@ internal static class Program
     private static string _registry;
     private static string _layout;
     private static PalaceProductionSource _source;
-    private static readonly string RegistryHash="1263122e48ac98a5a9717cfce5c76c261c7b3d3675e0bd2c8f1843298cefaae2";
+    private static readonly string RegistryHash="eb872aa629f0bda9cf8cddb77bf269ca6c50e046bd54ff80c0f2db78a16cbbdf";
     private static readonly string LayoutHash="ff18f6c45ae620c248c88f99d393d370c3330dc06b6c6afb30220e6d7a0a6a7d";
     private static readonly int[] DistrictStarts={20,1348,2415,3485,4548,5780,6978,8292,9356,10464,11492,12820};
 
