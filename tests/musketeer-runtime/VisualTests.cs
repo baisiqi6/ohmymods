@@ -18,6 +18,79 @@ namespace MusketeerRuntimeTests
             Case.Run("native-hide release failure keeps a receipt and retries on Sync", ReleaseFailureKeepsReceipt);
             Case.Run("own visual carries the shared 0.9 appearance scale (absolute; Z stays 1)", OwnVisualAppearanceScale);
             Case.Run("leisure Stand overlay yields immediately to shot, target, night and pause", LeisurePriority);
+            Case.Run("renderer look follows the platform flipY contract without dropping other fields", RendererLookFlipYContract);
+            Case.Run("an unconfirmed native hide write is not treated as success", HideWriteUnconfirmedIsNotSuccess);
+        }
+
+        private static void RendererLookFlipYContract()
+        {
+            Archer archer = ArmedMusketeerWithVisuals(out _);
+            SpriteRenderer own = FindOwn(archer);
+            SpriteRenderer native = archer._spriteRenderer;
+            Check.True(own != null && native != null, "own and native renderers exist");
+            native.sortingLayerID = 7;
+            native.sortingOrder = -3;
+            native.flipX = true;
+            native.color = new Color { r = 0.25f, g = 0.5f, b = 0.75f, a = 0.8f };
+            native.sharedMaterial = new Material();
+            native.gameObject.layer = 9;
+#if !ANDROID
+            native.PropertyBlockColor = new Color { r = 0.1f, g = 0.2f, b = 0.3f, a = 0.4f };
+#endif
+            Sync();
+
+#if !ANDROID
+            native.flipY = true; Sync();
+            Check.True(own.flipY, "positive native Y copied");
+            native.flipY = false; Sync();
+            Check.False(own.flipY, "negative native Y copied");
+#endif
+            bool fields = own.flipX
+                && own.color.r == native.color.r && own.color.g == native.color.g
+                && own.color.b == native.color.b && own.color.a == native.color.a
+                && own.sortingLayerID == native.sortingLayerID && own.sortingOrder == native.sortingOrder
+                && own.gameObject.layer == native.gameObject.layer
+                && ReferenceEquals(own.sharedMaterial, native.sharedMaterial);
+#if ANDROID
+            // Android 2.4：flipY 与 Get/SetPropertyBlock 都无 ICall。本用例只证明其余字段仍完整复制、
+            // 三个缺失成员一次也没被读取；PropertyBlock 的显式跳过与“只提示一次”由下面的
+            // RendererContract.AssertAndroidIcallContract 统一断言（本用例还会再触发多次 Sync）。
+            Check.True(SpriteRenderer.FlipYReads == 0 && SpriteRenderer.FlipYWrites == 0 && fields,
+                "Android reads=" + SpriteRenderer.FlipYReads + " writes=" + SpriteRenderer.FlipYWrites
+                + " color=" + (own.color.r == native.color.r && own.color.a == native.color.a)
+                + " layer=" + (own.gameObject.layer == native.gameObject.layer)
+                + " material=" + ReferenceEquals(own.sharedMaterial, native.sharedMaterial));
+#else
+            Check.True(fields
+                && own.PropertyBlockColor.r == native.PropertyBlockColor.r
+                && own.PropertyBlockColor.g == native.PropertyBlockColor.g
+                && own.PropertyBlockColor.b == native.PropertyBlockColor.b
+                && own.PropertyBlockColor.a == native.PropertyBlockColor.a,
+                "non-Y renderer fields copied");
+#endif
+        }
+
+        private static void HideWriteUnconfirmedIsNotSuccess()
+        {
+            Archer archer = ArmedMusketeerWithVisuals(out _);
+            SpriteRenderer native = archer._spriteRenderer;
+            Check.True(RendererContract.NativeHidden(native), "the first life hid the native renderer");
+
+            MusketeerVisuals.Remove(archer);
+            Check.False(RendererContract.NativeHidden(native), "remove returns the native renderer");
+
+            MusketeerVisuals.Apply(archer);
+            Check.True(MusketeerVisuals.HasVisual(archer), "re-applied visual exists");
+            RendererContract.FailNextNativeWrite(native);   // 这一次隐藏写不会被引擎确认
+            Sync();
+            Check.False(RendererContract.NativeHidden(native),
+                "unconfirmed hide write is not treated as success");
+            SpriteRenderer own = FindOwn(archer);
+            Check.True(own != null && !own.enabled, "own renderer stays hidden while the hide is unconfirmed");
+
+            Sync();
+            Check.True(RendererContract.NativeHidden(native), "next Sync retries and confirms the hide");
+            Check.True(own.enabled, "own renderer becomes visible once the hide is confirmed");
         }
 
         private static void OwnVisualAppearanceScale()
@@ -77,7 +150,7 @@ namespace MusketeerRuntimeTests
             for (int i = 0; i < 210; i++) { Time.time += .1f; Time.frameCount++; MusketeerVisuals.Sync(); }
             Check.False(own.sprite?.Texture?.width == 56 * 4, "night keeps leisure off");
             MusketeerVisuals.Remove(archer);
-            Check.False(archer._spriteRenderer.forceRenderingOff, "leisure removal returns native renderer");
+            Check.False(RendererContract.NativeHidden(archer._spriteRenderer), "leisure removal returns native renderer");
         }
 
         private static void ReuseResetsOldPhase()
@@ -88,7 +161,7 @@ namespace MusketeerRuntimeTests
             SpriteRenderer native = archer._spriteRenderer;
 
             ShowFirePhase(archer, sprites, own);
-            Check.True(native.forceRenderingOff, "the current life hides the native renderer");
+            Check.True(RendererContract.NativeHidden(native), "the current life hides the native renderer");
             Check.True(own.enabled, "own renderer visible during Fire");
 
             // Reload 相位（真实时钟推进）
@@ -101,7 +174,7 @@ namespace MusketeerRuntimeTests
             MusketeerRuntime.Archer_OnEnable_MusketeerPackage_Patch.Prefix(archer);   // 池复用（同一对象）
 
             Check.False(MusketeerVisuals.HasVisual(archer), "the old life visual is no longer the current life's");
-            Check.False(native.forceRenderingOff, "native hide responsibility was released (CAS)");
+            Check.False(RendererContract.NativeHidden(native), "native hide responsibility was released (CAS)");
             Check.False(own.enabled, "old own renderer is hidden immediately");
             Check.False(UnityEngine.Object.Destroyed.Contains(own.gameObject),
                 "destruction is deferred out of the callback");
@@ -138,7 +211,7 @@ namespace MusketeerRuntimeTests
             Check.True(fresh != null && fresh != own, "a brand new own renderer serves the new life");
             int frame = Index(fresh.sprite, sprites);
             Check.True(frame >= 0 && frame <= 11, "fresh life shows an idle frame, not the old phase: " + frame);
-            Check.True(archer._spriteRenderer.forceRenderingOff, "the new life hides the native again");
+            Check.True(RendererContract.NativeHidden(archer._spriteRenderer), "the new life hides the native again");
         }
 
         private static void ReuseWithoutNewCareer()
@@ -149,7 +222,7 @@ namespace MusketeerRuntimeTests
 
             MusketeerIdentity.Units.Remove(archer);           // 池化后被别的职业复用
             MusketeerRuntime.Archer_OnEnable_MusketeerPackage_Patch.Prefix(archer);
-            Check.False(archer._spriteRenderer.forceRenderingOff,
+            Check.False(RendererContract.NativeHidden(archer._spriteRenderer),
                 "the old career never leaves the native renderer hidden");
             Check.False(MusketeerVisuals.HasVisual(archer), "no visual for a non-musketeer life");
 
@@ -163,15 +236,15 @@ namespace MusketeerRuntimeTests
             Archer archer = ArmedMusketeerWithVisuals(out Sprite[] sprites);
             SpriteRenderer own = FindOwn(archer);
             ShowFirePhase(archer, sprites, own);
-            Check.True(archer._spriteRenderer.forceRenderingOff, "native hidden before reuse");
+            Check.True(RendererContract.NativeHidden(archer._spriteRenderer), "native hidden before reuse");
 
-            archer._spriteRenderer.ThrowOnForceRenderingOffSet = true;   // 归还那一次写失败
+            RendererContract.FailNextNativeWrite(archer._spriteRenderer);   // 归还那一次写失败
             MusketeerRuntime.Archer_OnEnable_MusketeerPackage_Patch.Prefix(archer);
             Check.False(MusketeerVisuals.HasVisual(archer), "old life visual detached even though the release failed");
-            Check.True(archer._spriteRenderer.forceRenderingOff, "native still hidden until the release succeeds");
+            Check.True(RendererContract.NativeHidden(archer._spriteRenderer), "native still hidden until the release succeeds");
 
             Sync();
-            Check.False(archer._spriteRenderer.forceRenderingOff,
+            Check.False(RendererContract.NativeHidden(archer._spriteRenderer),
                 "the retained receipt retried on Sync and released the native hide");
             Check.True(UnityEngine.Object.Destroyed.Contains(own.gameObject), "the root was still retired");
         }

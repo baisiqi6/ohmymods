@@ -14,6 +14,13 @@
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
   </PropertyGroup>
 
+  <!-- Same opt-in ANDROID mode pattern as tests/musketeer-runtime / hero-native-visuals:
+       `-p:AndroidFlipYTest=true` defines ANDROID so the shared Android producer branch is compiled
+       and exercised against the Android-shaped stubs; the default (PC) mode stays unchanged. -->
+  <PropertyGroup Condition="'$(AndroidFlipYTest)'=='true'">
+    <DefineConstants>$(DefineConstants);ANDROID</DefineConstants>
+  </PropertyGroup>
+
   <ItemGroup>
     <Compile Include="Program.cs" />
     <Compile Include="Stubs.cs" />

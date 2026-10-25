@@ -43,6 +43,8 @@ internal sealed class MobileModPanel
     private readonly Action closeVegetation;
     private readonly Action openProfession;
     private readonly Action closeProfession;
+    private readonly Action openEconomy;
+    private readonly Action closeEconomy;
 
     private ModPanelStyles styles;
     private FloatLayout layout;
@@ -64,6 +66,8 @@ internal sealed class MobileModPanel
         closeVegetation = CloseVegetationPage;
         openProfession = OpenProfessionPage;
         closeProfession = CloseProfessionPage;
+        openEconomy = OpenEconomyPage;
+        closeEconomy = CloseEconomyPage;
     }
 
     /// <summary>菜单行内导航（返回世界/进入植被页）用的自有动作；随面板实例缓存，无每帧委托分配。</summary>
@@ -71,6 +75,8 @@ internal sealed class MobileModPanel
     internal Action CloseVegetation => closeVegetation;
     internal Action OpenProfession => openProfession;
     internal Action CloseProfession => closeProfession;
+    internal Action OpenEconomy => openEconomy;
+    internal Action CloseEconomy => closeEconomy;
 
     private struct Hit
     {
@@ -156,24 +162,47 @@ internal sealed class MobileModPanel
     internal void Step(string title, string value, string help, Action action)
         => Row(title, value, help, true, false, action);
 
+    /// <summary>整数数量：复用一行卡片和触屏手势，两个 48*scale 控件分别减少/增加。</summary>
+    internal void Quantity(string title, int value, string help, Action decrement, Action increment)
+        => Row(title, value.ToString(System.Globalization.CultureInfo.InvariantCulture), help,
+            true, false, increment, decrement);
+
     /// <summary>只读行（人口等）：无 tap rect。</summary>
     internal void Info(string title, string value, string help)
         => Row(title, value, help, false, false, null);
 
-    private void Row(string title, string value, string help, bool interactive, bool valueOn, Action action)
+    private void Row(string title, string value, string help, bool interactive, bool valueOn, Action action,
+        Action decrease = null)
     {
-        var metrics = ModPanelControls.MeasureRow(rowWidth, title, value, help, interactive, styles, rowScale);
+        bool quantity = decrease != null;
+        var metrics = ModPanelControls.MeasureRow(rowWidth, title, value, help, interactive, styles, rowScale,
+            quantity ? 144f : 0f, quantity ? 48f : 0f);
         float height = ModPanelControls.RowHeight(metrics);
         float localY = cursor - gesture.ScrollY;
-        if (action != null)
-        {
-            // tap rect 由 physical viewport 算成 absolute 并裁剪到视口：Draw 与 Hit 同一几何来源。
-            Rect tap = ImGuiCompat.IntersectRect(new Rect(viewport.x, viewport.y + localY, rowWidth, height), viewport);
-            if (tap.width > 0f && tap.height > 0f) hits.Add(new Hit { Rect = tap, Action = action });
-        }
+        if (!quantity) ContentHit(new Rect(0f, localY, rowWidth, height), action);
         ModPanelControls.DrawRow(0f, localY, rowWidth, height, title, value, help, interactive, valueOn, metrics, styles,
             viewport.position, new Rect(0f, 0f, viewport.width, viewport.height));
+        if (quantity)
+        {
+            Rect valueRect = ModPanelControls.RowValueRect(0f, localY, rowWidth, metrics);
+            float buttonWidth = Mathf.Min(48f * rowScale, valueRect.width / 3f);
+            Rect minus = new Rect(valueRect.x, valueRect.y, buttonWidth, valueRect.height);
+            Rect plus = new Rect(valueRect.xMax - buttonWidth, valueRect.y, buttonWidth, valueRect.height);
+            Rect clip = new Rect(0f, 0f, viewport.width, viewport.height);
+            ModPanelControls.DrawControl(minus, "−", styles.Button, styles.CardTexture, viewport.position, clip);
+            ModPanelControls.DrawControl(plus, "+", styles.Button, styles.CardTexture, viewport.position, clip);
+            ContentHit(minus, decrease);
+            ContentHit(plus, action);
+        }
         cursor += height + ModPanelControls.RowGap * rowScale;
+    }
+
+    private void ContentHit(Rect local, Action action)
+    {
+        if (action == null) return;
+        Rect tap = ImGuiCompat.IntersectRect(new Rect(viewport.x + local.x, viewport.y + local.y,
+            local.width, local.height), viewport);
+        if (tap.width > 0f && tap.height > 0f) hits.Add(new Hit { Rect = tap, Action = action });
     }
 
     private bool CanShowContent => viewport.width > 0f && viewport.height > 0f && rowWidth > 0f;
@@ -234,6 +263,7 @@ internal sealed class MobileModPanel
         if (layout.PlayerPage) { MobilePlayerMenu.Draw(this, rowWidth, rowScale); return; }
         if (layout.VegetationPage) { MobileVegetationMenu.Draw(this, rowWidth, rowScale); return; }
         if (layout.ProfessionPage) { MobileProfessionMenu.Draw(this, rowWidth, rowScale); return; }
+        if (layout.EconomyPage) { MobileEconomyMenu.Draw(this, rowWidth, rowScale); return; }
         if (layout.WorldPage) { MobileWorldMenu.Draw(this, rowWidth, rowScale); return; }
         if (layout.GenerationPage) { MobileGenerationMenu.Draw(this, rowWidth, rowScale); return; }
         DrawRoot();
@@ -303,7 +333,7 @@ internal sealed class MobileModPanel
         bool player = page == 1, world = page == 2, generation = page == 3, population = page == 4;
         bool same = current.PlayerPage == player && current.WorldPage == world
             && current.GenerationPage == generation && current.PopulationPage == population
-            && !current.VegetationPage && !current.ProfessionPage;
+            && !current.VegetationPage && !current.ProfessionPage && !current.EconomyPage;
         if (same) return;
         current.PlayerPage = player;
         current.WorldPage = world;
@@ -311,6 +341,7 @@ internal sealed class MobileModPanel
         current.PopulationPage = population;
         current.VegetationPage = false;
         current.ProfessionPage = false;
+        current.EconomyPage = false;
         CancelGesture();
     }
 
@@ -320,6 +351,7 @@ internal sealed class MobileModPanel
         if (current == null || current.VegetationPage) return;
         current.VegetationPage = true;
         current.ProfessionPage = false;
+        current.EconomyPage = false;
         CancelGesture();
     }
 
@@ -338,6 +370,7 @@ internal sealed class MobileModPanel
         current.WorldPage = true;
         current.VegetationPage = false;
         current.ProfessionPage = true;
+        current.EconomyPage = false;
         CancelGesture();
     }
 
@@ -346,6 +379,25 @@ internal sealed class MobileModPanel
         FloatLayout current = layout;
         if (current == null || !current.ProfessionPage) return;
         current.ProfessionPage = false;
+        CancelGesture();
+    }
+
+    private void OpenEconomyPage()
+    {
+        FloatLayout current = layout;
+        if (current == null || current.EconomyPage) return;
+        current.WorldPage = true;
+        current.VegetationPage = false;
+        current.ProfessionPage = false;
+        current.EconomyPage = true;
+        CancelGesture();
+    }
+
+    private void CloseEconomyPage()
+    {
+        FloatLayout current = layout;
+        if (current == null || !current.EconomyPage) return;
+        current.EconomyPage = false;
         CancelGesture();
     }
 

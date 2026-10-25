@@ -26,6 +26,62 @@ Arrow ArrowFrom(float vx)
     var go=new GameObject("arrow");go.transform.SetParent(Managers.Inst.world.gameLayer,false);var arrow=go.AddComponent<Arrow>();arrow._rigidbody=go.AddComponent<Rigidbody2D>();arrow._rigidbody.velocity=new(vx,0);arrow.archer=owner;return arrow;}
 Character PeasantResult() {var go=new GameObject("native peasant");go.transform.SetParent(Managers.Inst.world.gameLayer,false);go.AddComponent<Peasant>();return go.AddComponent<Character>();}
 void NativePool(GameObject root) {HeavyShieldIntegration.BeforePoolDespawn(root,0);root.SetActive(false);HeavyShieldIntegration.AfterPoolDespawn(root,0);}
+
+// Android 2.4 has no SpriteRenderer.flipY getter/setter and no Renderer forceRenderingOff /
+// Get/SetPropertyBlock ICalls. The platform boundary must skip only those members and keep the
+// rest of CopyLook (facing/color/layer/material) intact.
+// Runs before legacy banner fixtures because this suite has no Android banner owner.
+{
+    using var flipFixture = new Fixture();
+    bool flipAttached=flipFixture.Attach(new(3,false,false));
+#if ANDROID
+    Check(flipAttached,$"flipY platform contract attach (reads={SpriteRenderer.FlipYReads} writes={SpriteRenderer.FlipYWrites})");
+    Check(Renderer.ForceOffReads==0&&Renderer.ForceOffWrites==0,
+        $"Android never accesses forceRenderingOff: reads={Renderer.ForceOffReads} writes={Renderer.ForceOffWrites}");
+#else
+    Check(flipAttached,"flipY platform contract attach");
+#endif
+    var flipNative=flipFixture.Archer._spriteRenderer;
+    var flipRows=(System.Collections.IDictionary)typeof(HeavyShieldActorVisuals).GetField("Active",BindingFlags.NonPublic|BindingFlags.Static).GetValue(null);
+    var flipRow=flipRows[flipFixture.Handle.GoId];
+    var flipOwn=(SpriteRenderer)flipRow.GetType().GetField("Own",BindingFlags.NonPublic|BindingFlags.Instance).GetValue(flipRow);
+    flipNative.sortingLayerID=7;flipNative.sortingOrder=-3;flipNative.color=new Color(3);flipNative.gameObject.layer=9;
+    int flipWrites=NativeBoundaryWrites.Count;
+#if ANDROID
+    Check(SpriteRenderer.FlipYReads==0&&SpriteRenderer.FlipYWrites==0,$"Android never accesses flipY: reads={SpriteRenderer.FlipYReads} writes={SpriteRenderer.FlipYWrites}");
+#else
+    flipNative.flipY=true;HeavyShieldActorVisuals.Tick(flipFixture.Handle.GoId);
+    Check(flipOwn.flipY,"positive native Y copied");
+    flipNative.flipY=false;HeavyShieldActorVisuals.Tick(flipFixture.Handle.GoId);
+    Check(!flipOwn.flipY,"negative native Y copied");
+#endif
+    HeavyShieldActorVisuals.Tick(flipFixture.Handle.GoId);
+    Check(flipOwn.color.Value==flipNative.color.Value&&flipOwn.sortingLayerID==flipNative.sortingLayerID&&flipOwn.sortingOrder==flipNative.sortingOrder
+        &&flipOwn.gameObject.layer==flipNative.gameObject.layer&&ReferenceEquals(flipOwn.sharedMaterial,flipNative.sharedMaterial)
+        &&NativeBoundaryWrites.Count>flipWrites,"flipY boundary keeps color/layer/order/material and renderer writes");
+#if ANDROID
+    // P2: the 2.4 player has no Animator.GetFloat(string) ICall. TryActualMotion must use the cached
+    // int hash + GetFloat(int) path; the ANDROID stub string overload throws and is counted.
+    var motionEntries=(System.Collections.IDictionary)typeof(HeavyShieldRuntime).GetField("Entries",BindingFlags.NonPublic|BindingFlags.Static).GetValue(null);
+    var motionEntry=(HeavyShieldRuntime.Entry)motionEntries[flipFixture.Handle.GoId];
+    flipFixture.Archer._animator.Speed=2f;
+    int motionIntReads=Animator.IntReads,motionStringReads=Animator.StringReads;
+    var motionMethod=typeof(HeavyShieldRuntime).GetMethod("TryActualMotion",BindingFlags.NonPublic|BindingFlags.Static);
+    object[] motionArgs={motionEntry,HeavyShieldStance.BackIdle};
+    bool motionKnown=(bool)motionMethod.Invoke(null,motionArgs);
+    Check(motionKnown&&(HeavyShieldStance)motionArgs[1]==HeavyShieldStance.BackRun
+        &&Animator.IntReads>motionIntReads&&Animator.StringReads==motionStringReads,
+        $"Android TryActualMotion uses Animator.GetFloat(int): int={Animator.IntReads-motionIntReads} string={Animator.StringReads-motionStringReads}");
+#endif
+#if ANDROID
+    // The skipped property-block copy must announce itself exactly once, not once per frame.
+    Check(KingdomEnhancedPlugin.Instance.LogSource.Infos==1,
+        $"Android property-block skip logs once: infos={KingdomEnhancedPlugin.Instance.LogSource.Infos}");
+#endif
+}
+#if ANDROID
+Console.WriteLine($"PASS Android flipY contract: {checks} assertions");
+#else
 var entryRows=(System.Collections.IDictionary)typeof(HeavyShieldRuntime).GetField("Entries",BindingFlags.NonPublic|BindingFlags.Static).GetValue(null);
 void NoAttempt(Fixture f,HeavyShieldRuntime.AttachResult expected,string label,HeavyShieldCareerHandle? handle=null)
 {
@@ -406,6 +462,7 @@ var visualRows=(System.Collections.IDictionary)typeof(HeavyShieldActorVisuals).G
 SpriteRenderer Own(Fixture f) {var row=visualRows[f.Handle.GoId];return (SpriteRenderer)row.GetType().GetField("Own",BindingFlags.NonPublic|BindingFlags.Instance).GetValue(row);}
 GameObject VisualRoot(Fixture f)=>Own(f).gameObject;
 HeavyShieldPoseMachine Pose(Fixture f) {var row=visualRows[f.Handle.GoId];return (HeavyShieldPoseMachine)row.GetType().GetField("Pose",BindingFlags.NonPublic|BindingFlags.Instance).GetValue(row);}
+
 
 // New art contract: the original integer is retained, including a pending zero, and every
 // stance/action selects that wear. Existing three-hit/life/CAS/native-demote negatives above remain.
@@ -853,6 +910,7 @@ RuntimeLifecycleRegression.Run(Check);
 
 Console.WriteLine($"PASS HeavyShield production runtime/combat/life/visuals: {checks} assertions");
 
+#endif
 sealed class Fixture : IDisposable
 {
     internal GameObject Go=new("shield");internal Archer Archer;internal Damageable Damage;internal HeavyShieldCareerHandle Handle;internal RuntimeAnimatorController BeforeAnimator;

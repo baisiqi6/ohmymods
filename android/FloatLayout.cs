@@ -30,6 +30,7 @@ internal sealed class FloatLayout
     public bool GenerationPage { get; set; }
     public bool VegetationPage { get; set; }
     public bool ProfessionPage { get; set; }
+    public bool EconomyPage { get; set; }
     public bool Captured { get; private set; }
     public bool Dragged { get; private set; }
     public float Width { get; private set; }

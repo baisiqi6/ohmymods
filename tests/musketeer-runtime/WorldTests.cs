@@ -277,13 +277,19 @@ namespace MusketeerRuntimeTests
         private static void CapacityRetainedAfterSaturation()
         {
             Archer archer = Armed(out GameObject target);
-            Physics2D.Saturate = true;                    // 数组饱和 → 完整 List 兜底（不再吞弹）
+            Physics2D.Saturate = true;                    // 每档都满 → PC 完整 List；Android 扩到硬上限后 fail-closed
             Fixture.QueueHit(target, 0.5f);
             Fire(archer);
             MusketeerCombat.Tick(0.05f, true);
+#if ANDROID
+            Check.Equal(1024, MusketeerCombat.HitCapacity, "buffer grew to the Android hard cap");
+            Check.Equal(0, target.GetComponent<Damageable>().DamageLog.Count,
+                "android hard-cap saturation consumes conservatively");
+#else
             Check.Equal(256, MusketeerCombat.HitCapacity, "buffer grew to the soft cap");
             Check.Equal(1, target.GetComponent<Damageable>().DamageLog.Count,
                 "the complete-list fallback still lands the hit");
+#endif
 
             Physics2D.Saturate = false;
             Physics2D.QueuedHits.Clear();
@@ -293,8 +299,13 @@ namespace MusketeerRuntimeTests
             Fire(archer);
             MusketeerCombat.Tick(0.05f, true);
             Check.Equal(1, Physics2D.CastCount, "one array cast per segment again");
+#if ANDROID
+            Check.Equal(1024, MusketeerCombat.HitCapacity, "the enlarged Android buffer is retained (never shrunk back)");
+            Check.Equal(1, target.GetComponent<Damageable>().DamageLog.Count, "normal casts still damage");
+#else
             Check.Equal(256, MusketeerCombat.HitCapacity, "the enlarged buffer is retained (never shrunk back to 32)");
             Check.Equal(2, target.GetComponent<Damageable>().DamageLog.Count, "normal casts still damage");
+#endif
         }
 
         // ---------- helpers ----------

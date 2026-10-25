@@ -29,6 +29,9 @@ namespace Il2CppInterop.Runtime.InteropTypes.Arrays
                 "native-pointer overload: Il2CppReferenceArray(IntPtr) wraps an existing native array and is not valid for length-based creation; use the Int64 length ctor");
         }
         public int Count => _items.Length;
+        // Real Il2CppInterop array wrappers expose both Length (int, Il2CppArrayBase<T>) and Count;
+        // the Android producer branch uses Length, so the host shell must expose it too.
+        public int Length => _items.Length;
         public T this[int index]
         {
             get => _items[index];
@@ -161,6 +164,22 @@ namespace UnityEngine
             if (NextResults != null)
                 for (int i = 0; i < NextResults.Count; i++) results.Add(NextResults[i]);
             return ForceCount ?? results.Count;
+        }
+
+        /// <summary>
+        /// Android 2.4 producer 分支的替换 overload（真实 native 由
+        /// PhysicsScene2D::OverlapBoxArray_Internal_Injected 支撑）。Host 里与 List shell 共用
+        /// NextResults/ForceCount/Calls，只验证调用形状与截断语义，不运行 native。
+        /// 与真实 native 一致：只写满数组容量即止，返回写入条数。
+        /// </summary>
+        public static int OverlapArea(Vector2 a, Vector2 b, ContactFilter2D filter,
+            Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppReferenceArray<Collider2D> results)
+        {
+            Calls++;
+            int total = NextResults != null ? NextResults.Count : 0;
+            int written = Math.Min(total, results.Length);
+            for (int i = 0; i < written; i++) results[i] = NextResults[i];
+            return ForceCount ?? written;
         }
     }
 

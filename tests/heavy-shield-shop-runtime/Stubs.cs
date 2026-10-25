@@ -34,7 +34,7 @@ namespace UnityEngine
         public static int InstantiateCalls, DestroyCalls, BambooRegisterCount = 1;
         public static bool OmitBambooLamp;
         public static GameObject LastInstantiated;
-        public static void Destroy(Object obj) { DestroyCalls++; obj.Destroyed = true; if (obj is GameObject go) { go.SetActive(false); go.transform.SetParent(null, true); } }
+        public static void Destroy(Object obj) { DestroyCalls++; obj.Destroyed = true; if (obj is Texture2D texture) texture.FreeImageData(); if (obj is GameObject go) { go.SetActive(false); go.transform.SetParent(null, true); } }
         public static T Instantiate<T>(T prefab, Transform owner, bool keep) where T : Object
         {
             var go = new GameObject(prefab.name); go.transform.SetParent(owner, false);
@@ -146,17 +146,34 @@ namespace UnityEngine
     public struct Quaternion { public static Quaternion identity => default; }
     public enum FilterMode { Point }
     public enum TextureWrapMode { Clamp }
-    public enum TextureFormat { RGBA32 }
+    public enum TextureFormat { RGBA32 = 4, ARGB32 = 5, BGRA32 = 14 }
     public enum SpriteMeshType { FullRect }
     public record struct Rect(float x, float y, float width, float height);
-    public struct Color32 { public byte r, g, b, a; }
+    public struct Color32
+    {
+        public byte r, g, b, a;
+        public Color32(byte r, byte g, byte b, byte a) { this.r = r; this.g = g; this.b = b; this.a = a; }
+    }
     public class Texture2D : Object
     {
         public int width, height, anisoLevel;
         public FilterMode filterMode; public TextureWrapMode wrapMode;
-        public Texture2D(int width, int height, TextureFormat format, bool mipmap) { this.width = width; this.height = height; }
+        public TextureFormat format;
+        public IntPtr imageData;
+        public ulong imageDataSize;
+        public bool imageDataPointerNull;
+        public static bool ThrowOnGetPixels32;
+        public static int GetPixels32Calls, LiveImageDataCount;
+        public Texture2D(int width, int height, TextureFormat format, bool mipmap)
+        { this.width = width; this.height = height; this.format = format; }
         // Pixel roundtrip is covered by the existing Pillow suite; this fake decodes only dimensions for borrowing tests.
         public Color32[] GetPixels32()
+        {
+            GetPixels32Calls++;
+            if (ThrowOnGetPixels32) throw new MissingMethodException("MissingICall: Texture2D.GetPixels32");
+            return BuildFixturePixels(width, height);
+        }
+        internal static Color32[] BuildFixturePixels(int width, int height)
         {
             var pixels = new Color32[width * height];
             if (width == 512 && height == 504)
@@ -169,13 +186,52 @@ namespace UnityEngine
             else pixels[0].a = 255;
             return pixels;
         }
+        public ulong GetImageDataSize() => imageDataSize;
+        public IntPtr GetWritableImageData(int element = 0)
+            => element == 0 && !imageDataPointerNull ? imageData : IntPtr.Zero;
+        /// <summary>Android native surface owned by this stub: real HGlobal, explicitly freed by the test owner.</summary>
+        public void SetImageData(byte[] bytes)
+        {
+            FreeImageData();
+            if (bytes == null) return;
+            imageDataSize = (ulong)bytes.Length;
+            if (bytes.Length == 0) return;
+            imageData = System.Runtime.InteropServices.Marshal.AllocHGlobal(bytes.Length);
+            LiveImageDataCount++;
+            System.Runtime.InteropServices.Marshal.Copy(bytes, 0, imageData, bytes.Length);
+        }
+        internal void FreeImageData()
+        {
+            if (imageData != IntPtr.Zero)
+            {
+                System.Runtime.InteropServices.Marshal.FreeHGlobal(imageData);
+                imageData = IntPtr.Zero;
+                LiveImageDataCount--;
+            }
+            imageDataSize = 0;
+        }
     }
     public static class ImageConversion
     {
+        // Not a PNG decoder: reads only the IHDR dimensions. Android fixture bytes come from the
+        // same BuildFixturePixels double as the PC GetPixels32 path, preserving its meaning.
         public static bool LoadImage(Texture2D texture, byte[] bytes, bool nonReadable)
         {
             texture.width = System.Buffers.Binary.BinaryPrimitives.ReadInt32BigEndian(bytes.AsSpan(16,4));
-            texture.height = System.Buffers.Binary.BinaryPrimitives.ReadInt32BigEndian(bytes.AsSpan(20,4)); return true;
+            texture.height = System.Buffers.Binary.BinaryPrimitives.ReadInt32BigEndian(bytes.AsSpan(20,4));
+#if ANDROID
+            texture.format = TextureFormat.RGBA32;
+            Color32[] fixture = Texture2D.BuildFixturePixels(texture.width, texture.height);
+            var native = new byte[fixture.Length * 4];
+            for (int i = 0; i < fixture.Length; i++)
+            {
+                int n = i * 4;
+                native[n] = fixture[i].r; native[n + 1] = fixture[i].g;
+                native[n + 2] = fixture[i].b; native[n + 3] = fixture[i].a;
+            }
+            texture.SetImageData(native);
+#endif
+            return true;
         }
     }
     public class Sprite : Object

@@ -14,6 +14,16 @@ namespace Il2CppInterop.Runtime.InteropTypes.Arrays
         public T this[int i] {get=>Rows[i];set=>Rows[i]=value;} }
 }
 namespace Il2CppInterop.Runtime.Attributes { public class HideFromIl2CppAttribute : Attribute {} }
+// The ANDROID diagnostic in HeavyShieldRuntime's existing attach catch reads Signature; the host
+// boundary only needs the exception shape, never a live missing ICall.
+namespace Il2CppInterop.Runtime
+{
+    public class MissingIl2CppInternalCallException : Exception
+    {
+        public string Signature;
+        public MissingIl2CppInternalCallException(string message) : base(message) { }
+    }
+}
 namespace Il2CppInterop.Runtime.Injection
 { public static class ClassInjector { public static bool IsTypeRegisteredInIl2Cpp(Type t)=>true; public static void RegisterTypeInIl2Cpp<T>(){} public static void RegisterTypeInIl2Cpp(Type t){} } }
 namespace UnityEngine
@@ -59,19 +69,55 @@ namespace UnityEngine
         public static bool operator !=(Color a,Color b)=>a.Value!=b.Value;public override bool Equals(object o)=>o is Color c&&c==this;public override int GetHashCode()=>Value; }
     public class Sprite : Object {}
     public class RuntimeAnimatorController : Object {}
-    public class Animator : Behaviour {public RuntimeAnimatorController runtimeAnimatorController=new();public float Speed;public bool ReadFails;public int SpeedReads;
-        public float GetFloat(string name){SpeedReads++;if(ReadFails)throw new Exception("animation sample unavailable");if(name!="Speed")throw new Exception("unexpected animator parameter");return Speed;} }
+    public class Animator : Behaviour {public RuntimeAnimatorController runtimeAnimatorController=new();public float Speed;public bool ReadFails;public int SpeedReads;public static int StringReads,IntReads;
+        // Unity's string overload is StringToHash(name) + GetFloat(int); the Android 2.4 player has no
+        // Animator::GetFloatString_Injected ICall, so the ANDROID production path caches StringToHash and
+        // uses the int overload. The ANDROID string overload throws (like flipY) to prove it is unused.
+        public static int StringToHash(string name)=>name!=null?name.GetHashCode():0;
+        public float GetFloat(int id){SpeedReads++;IntReads++;if(ReadFails)throw new Exception("animation sample unavailable");if(id!=StringToHash("Speed"))throw new Exception("unexpected animator parameter");return Speed;}
+#if ANDROID
+        public float GetFloat(string name){SpeedReads++;StringReads++;throw new Exception("Android 2.4 Animator has no GetFloat(string) ICall");}
+#else
+        public float GetFloat(string name){SpeedReads++;StringReads++;if(ReadFails)throw new Exception("animation sample unavailable");if(name!="Speed")throw new Exception("unexpected animator parameter");return Speed;}
+#endif
+    }
     public class Material : Object {}
     public class MaterialPropertyBlock {}
-    public class SpriteRenderer : Behaviour { private bool Off;public int VisibilityWrites;public bool forceRenderingOff {get=>Off;set{NativeBoundaryWrites.Count++;VisibilityWrites++;Off=value;}}
-        public bool flipX,flipY;public int sortingLayerID,sortingOrder;public Color color;
+    // Synthetic renderer boundary: the real Renderer owns enabled/forceRenderingOff; SpriteRenderer
+    // only adds sprite properties. Android 2.4 has no forceRenderingOff ICall, so the ANDROID stub
+    // throws (like flipY) to prove the compat path never reads or writes it.
+    public class Renderer : Behaviour { public int VisibilityWrites;
+#if ANDROID
+        public static int ForceOffReads,ForceOffWrites;
+        public bool forceRenderingOff{get{ForceOffReads++;throw new Exception("Android 2.4 Renderer has no forceRenderingOff ICall");}
+            set{ForceOffWrites++;throw new Exception("Android 2.4 Renderer has no forceRenderingOff ICall");}}
+#else
+        private bool Off;
+        public bool forceRenderingOff {get=>Off;set{NativeBoundaryWrites.Count++;VisibilityWrites++;Off=value;}}
+#endif
+    }
+    public class SpriteRenderer : Renderer { public bool flipX;
+#if ANDROID
+        public static int FlipYReads,FlipYWrites;
+        public bool flipY{get{FlipYReads++;throw new Exception("Android 2.4 SpriteRenderer has no flipY getter");}set{FlipYWrites++;throw new Exception("Android 2.4 SpriteRenderer has no flipY setter");}}
+#else
+        public bool flipY;
+#endif
+        public int sortingLayerID,sortingOrder;public Color color;
         public Sprite sprite;public Material sharedMaterial=new(); public void GetPropertyBlock(MaterialPropertyBlock b){}public void SetPropertyBlock(MaterialPropertyBlock b){NativeBoundaryWrites.Count++;} }
     public class Rigidbody2D : Component {public bool VelocityReadFails;public int VelocityReads;private Vector2 Velocity;
         public Vector2 velocity {get{VelocityReads++;if(VelocityReadFails)throw new Exception("physical velocity unavailable");return Velocity;}set=>Velocity=value;} }
-    public static class Time {public static float time,deltaTime=.2f,timeScale=1;public static int frameCount {get;set;}public static double unscaledTimeAsDouble {get;set;}}
+    public static class Time {public static float time,deltaTime=.2f,timeScale=1,unscaledTime;public static int frameCount {get;set;}public static double unscaledTimeAsDouble {get;set;}}
 }
+#if ANDROID
+namespace Il2CppCoatsink.Common { public class IHaglet : Il2CppInterop.Runtime.InteropTypes.Il2CppObjectBase {}
+    public class Haglet : IHaglet {public bool stopped,completed,executing;} }
+namespace Coatsink.Common { public class IHaglet : Il2CppCoatsink.Common.Haglet {}
+    public class Haglet : IHaglet {} }
+#else
 namespace Coatsink.Common { public class IHaglet : Il2CppInterop.Runtime.InteropTypes.Il2CppObjectBase {}
     public class Haglet : IHaglet {public bool stopped,completed,executing;} }
+#endif
 public enum Side {Left=-1,Right=1}
 public enum EnemyType {TrollWeak,TrollMedium,ToughTroll,Archer=12,Boss=5}
 [Flags] public enum DamageSource {Troll=1,Knight=2,Fire=512,GreedProjectile=32768,Boulder=16,Arrow=8}
@@ -186,7 +232,7 @@ namespace KingdomEnhancedMod
 {
     internal class BoolConfig {internal bool Value=true;}
     internal static class ModConfig {internal static BoolConfig Enabled=new(),HeavyShieldEnabled=new();}
-    internal class Logger {internal int Warnings;internal void LogWarning(string s){Warnings++;} }
+    internal class Logger {internal int Warnings,Infos;internal void LogWarning(string s){Warnings++;}internal void LogInfo(string s){Infos++;} }
     internal class KingdomEnhancedPlugin {internal static KingdomEnhancedPlugin Instance=new();internal Logger LogSource=new();}
     internal static class HeavyShieldArt {internal static bool Available=true;internal static bool TryGetSoldierSprite(int n,out UnityEngine.Sprite sprite){sprite=Available?new():null;return Available;} }
     internal static class HeroArcherRuntime {internal static bool IsHero(Archer a)=>false;}

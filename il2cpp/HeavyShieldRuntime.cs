@@ -95,6 +95,15 @@ internal static class HeavyShieldRuntime
     private static int _activityLand = -1;
     private static readonly HashSet<string> ThreatFaults = new();
     private static bool _logged;
+#if ANDROID
+    /// <summary>
+    /// Android 2.4 player 未编译 <c>Animator.GetFloat(string)</c> 的 ICall（pinned native 注册名
+    /// <c>UnityEngine.Animator::GetFloatString_Injected</c> = 0/1）；int 重载
+    /// <c>UnityEngine.Animator::GetFloatID_Injected</c> = 1。缓存一次性 hash 后走 int 重载：string 重载
+    /// 在 Unity 托管层本即 StringToHash(参数名) + GetFloat(int)，参数语义相同。
+    /// </summary>
+    private static readonly int SpeedHash = Animator.StringToHash("Speed");
+#endif
     [ThreadStatic] private static int _carrierMutationDepth;
     [ThreadStatic] private static HeavyShieldIngressStack<NativeDemoteCapture> _nativeDemotes;
     private static HeavyShieldIngressStack<NativeDemoteCapture> NativeDemotes => _nativeDemotes ??= new();
@@ -262,7 +271,7 @@ internal static class HeavyShieldRuntime
             if (currentCount >= 4 || Entries.Count >= 64) return AttachResult.Failed;
             // Only native tower/knight/formation membership is relaxed. OnDisable, not field writes, exits these jobs.
             if (!carrier.enabled || !CleanCarrier(carrier, allowNativeJobs: true)
-                || !carrier._spriteRenderer.enabled || carrier._spriteRenderer.forceRenderingOff) return AttachResult.Deferred;
+                || !AndroidUnityCompat.WouldRender(carrier._spriteRenderer)) return AttachResult.Deferred;
             if (!HeavyShieldNativeHooks.Installed || Managers.Inst.targetCache == null) return AttachResult.Deferred;
             foreach (var row in Entries.Values)
                 if (row.Career.World == handle.World && (!row.Attached || !SameRoot(row)
@@ -307,7 +316,14 @@ internal static class HeavyShieldRuntime
         }
         catch (Exception ex)
         {
+#if ANDROID
+            var icall = ex as Il2CppInterop.Runtime.MissingIl2CppInternalCallException;
+            Log("attach held: " + ex.GetType().Name
+                + (icall == null ? string.Empty
+                   : " sig=" + (icall.Signature ?? "<null>") + " msg=" + (icall.Message ?? "<null>")));
+#else
             Log("attach held: " + ex.GetType().Name);
+#endif
             if (attempted) DetachCarrier(handle); // failed CAS/identity leaves the only credential in Entries
             return AttachResult.Failed;
         }
@@ -678,7 +694,13 @@ internal static class HeavyShieldRuntime
         // feeds zero while paused. Actual 2.4 interop independently confirms GetFloat/rigidbody.
         // ActualSpeed in the reference is moveSpeed*multiplier, not physical motion evidence.
         // Only the current carrier root's finite physical velocity may replace a failed sample.
+#if ANDROID
+        // The string overload's ICall (Animator::GetFloatString_Injected) is absent in this player; the
+        // cached int hash routes through the available GetFloat(int) hollow path with the same parameter.
+        try { if (e.Carrier._animator != null && e.Carrier._animator.enabled) speed = e.Carrier._animator.GetFloat(SpeedHash); } catch { }
+#else
         try { if (e.Carrier._animator != null && e.Carrier._animator.enabled) speed = e.Carrier._animator.GetFloat("Speed"); } catch { }
+#endif
         if (!float.IsFinite(speed))
         {
             try

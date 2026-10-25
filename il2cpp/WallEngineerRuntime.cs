@@ -61,7 +61,18 @@ internal static class WallEngineerRuntime
     }
 
     private static readonly OwnedWall[] Owned = new OwnedWall[2];
+#if ANDROID
+    /// <summary>
+    /// Android 2.4: <c>Physics2D.OverlapArea(..., ContactFilter2D, List&lt;Collider2D&gt;)</c> 的
+    /// <c>PhysicsScene2D::OverlapBoxList_Internal_*</c> ICall 在 pinned player 未注册；改用已验证的
+    /// 数组 overload（<c>OverlapBoxArray_Internal_Injected</c>）写这块复用缓冲。满缓冲 = 结果可能被
+    /// 截断 = 存疑 → 调用方按既有 fail-closed 保持 native flee（绝不当作"无危险"）。
+    /// </summary>
+    private const int AreaQueryCapacity = 256;
+    private static Il2CppReferenceArray<Collider2D> AreaQueryBuffer;
+#else
     private static readonly Il2CppSystem.Collections.Generic.List<Collider2D> QueryBuffer = new();
+#endif
 
     private static WallEngineerStatus _status = new(false, false, false, 0, 0, 0, WallEngineerUnavailableReason.Disabled);
     private static long _version;
@@ -1243,6 +1254,26 @@ internal static class WallEngineerRuntime
         return null;
     }
 
+#if ANDROID
+    /// <summary>
+    /// Android 2.4 区域查询替换：返回写入条数；负值 = 结果不完整/不可信（调用方保持 native flee）。
+    /// pinned player 无 <c>PhysicsScene2D::OverlapBoxList_Internal_*</c> 注册名，但有数组路径
+    /// <c>OverlapBoxArray_Internal_Injected</c>（已验证 1/1）；与 PC 的 List overload 使用同一个
+    /// <see cref="ContactFilter2D"/>。返回条数到达缓冲容量 = 真实 native 只写满即止、可能被截断
+    /// → 按"存疑"处理（绝不当作无危险，也绝不静默丢危险）。
+    /// </summary>
+    private static int QueryAreaAndroid(float ax, float ay, float bx, float by, ContactFilter2D filter)
+    {
+        if (AreaQueryBuffer == null || AreaQueryBuffer.Length != AreaQueryCapacity)
+            // Explicit long: the interop array has both IntPtr and Int64 ctors; Int64 is the length ctor.
+            AreaQueryBuffer = new Il2CppReferenceArray<Collider2D>((long)AreaQueryCapacity);
+        int count = Physics2D.OverlapArea(new Vector2(ax, ay), new Vector2(bx, by), filter, AreaQueryBuffer);
+        if (count < 0 || count > AreaQueryBuffer.Length) return -1;
+        if (count == AreaQueryBuffer.Length) return -1;   // 满 = 可能被截断：存疑
+        return count;
+    }
+#endif
+
     /// <summary>true = keep the native flee (danger or doubt).</summary>
     private static bool DangerInside(Worker worker, OwnedWall owned, EngineerSlot slot)
     {
@@ -1268,8 +1299,13 @@ internal static class WallEngineerRuntime
             {
                 slot.Epoch = epoch;
                 slot.EpochValid = false;
+#if ANDROID
+                int count = QueryAreaAndroid(ax, ay, bx, by, filter);
+                if (count < 0) return true;   // 不完整/不可信 → 保持 native flee
+#else
                 int count = Physics2D.OverlapArea(new Vector2(ax, ay), new Vector2(bx, by), filter, QueryBuffer);
                 if (count < 0 || count > QueryBuffer.Count) return true;
+#endif
                 // The one physical query of this epoch is reusable only if it crosses this wall and
                 // covers its inner side; otherwise this wall can never grant an outside-enemy break.
                 if (!WallEngineerRules.Straddles(rMinX, rMaxX, wallX)
@@ -1277,7 +1313,11 @@ internal static class WallEngineerRuntime
                     return true;
                 slot.QMinX = rMinX; slot.QMinY = rMinY; slot.QMaxX = rMaxX; slot.QMaxY = rMaxY;
                 slot.Hits.Clear();
+#if ANDROID
+                for (int i = 0; i < count; i++) slot.Hits.Add(AreaQueryBuffer[i]);
+#else
                 for (int i = 0; i < count; i++) slot.Hits.Add(QueryBuffer[i]);
+#endif
                 slot.ScannerPtr = Ptr(scanner);
                 slot.ObserverPtr = Ptr(scanner.observer);
                 slot.PlaneX = wallX;

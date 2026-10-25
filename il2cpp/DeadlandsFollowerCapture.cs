@@ -415,7 +415,13 @@ internal static class DeadlandsFollowerCapture
             if (!PatchRoles_KnightStyle.TryGetResolvedStyleIndex(knight, out int style)
                 || style != PatchRoles_DeadlandsPowers.DeadlandsStyleIndex) return "style";
             if (PatchRoles_Crossbowman.IsCrossbowman(archer)) return "crossbow";        // 独立守墙弩手（marker 群体）
+#if ANDROID
+            bool isNorse;
+            if (!PatchRoles_NorseSquad.TryGetNorseArcherIdentity(archer, out isNorse)) return "read-error";
+            if (isNorse) return "norse";
+#else
             if (PatchRoles_NorseSquad.IsNorseArcherInstance(archer)) return "norse";    // 有效风格是北境，单看骑士风格会选错
+#endif
             Damageable damageable = archer._damageable;
             if (damageable == null || damageable.isDead) return "dead";
             Animator current = archer._animator;                                        // 只认 Archer._animator（显式身份）

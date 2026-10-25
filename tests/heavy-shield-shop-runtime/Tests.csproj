@@ -3,11 +3,14 @@
     <OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><LangVersion>latest</LangVersion>
     <Nullable>disable</Nullable><ImplicitUsings>enable</ImplicitUsings>
     <DefineConstants>HERO_SHOP_CORE_ONLY</DefineConstants>
+    <DefineConstants Condition="'$(AndroidPixelTests)' == 'true'">$(DefineConstants);ANDROID</DefineConstants>
+    <ShopV2ArtSource Condition="'$(ShopV2ArtSource)' == ''">../../il2cpp/Patch_ShopV2Art.cs</ShopV2ArtSource>
     <NoWarn>CS0649;CS0414</NoWarn><EnableDefaultCompileItems>false</EnableDefaultCompileItems>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../../il2cpp/HeavyShieldShopShell.cs" Link="Production/HeavyShieldShopShell.cs" />
-    <Compile Include="../../il2cpp/Patch_ShopV2Art.cs" Link="Production/Patch_ShopV2Art.cs" />
+    <Compile Include="$(ShopV2ArtSource)" Link="Production/Patch_ShopV2Art.cs" />
+    <Compile Include="../../android/AndroidTexturePixels.cs" Condition="'$(AndroidPixelTests)' == 'true'" />
     <Compile Include="../../il2cpp/HeavyShieldShopPayment.cs" Link="Production/HeavyShieldShopPayment.cs" />
     <Compile Include="../../il2cpp/HeavyShieldContracts.cs" Link="Production/HeavyShieldContracts.cs" />
     <Compile Include="../../il2cpp/PatchRoles_HeavyShieldArt.cs" Link="Production/PatchRoles_HeavyShieldArt.cs" />

@@ -233,7 +233,12 @@ internal static class HeavyShieldActorVisuals
 
     private static readonly Dictionary<int, Visual> Active = new Dictionary<int, Visual>();
     private static readonly Dictionary<int, int> RootOwner = new Dictionary<int, int>();
+#if ANDROID
+    // Android 2.4 没有 Renderer 的 Get/SetPropertyBlock ICall，因此不创建每实例 block 用于复制。
+    private static bool _loggedPropertyBlockSkip;
+#else
     private static readonly MaterialPropertyBlock PropertyBlock = new MaterialPropertyBlock();
+#endif
     private static bool _driverRegistered;
     private static bool _loggedFailure;
 
@@ -256,7 +261,7 @@ internal static class HeavyShieldActorVisuals
         }
         SpriteRenderer native = FindNative(carrier);
         if (native == null) return false;
-        try { if (!native.enabled || native.forceRenderingOff) return false; }
+        try { if (!AndroidUnityCompat.WouldRender(native)) return false; }
         catch (Exception) { return false; }
         if (!HeavyShieldArt.TryGetSoldierSprite(0, out Sprite first) || first == null) return false;
         if (!EnsureDriver()) return false;
@@ -317,9 +322,9 @@ internal static class HeavyShieldActorVisuals
         {
             return state.Initialized && !state.Suspended && VisibilityProof(state, false)
                 && state.Root != null && state.Root.activeInHierarchy && state.Own != null && state.Own.enabled
-                && !state.Own.forceRenderingOff && state.Own.gameObject.Pointer == state.Root.Pointer
+                && !AndroidUnityCompat.IsHidden(state.Own) && state.Own.gameObject.Pointer == state.Root.Pointer
                 && state.Own.sprite != null && state.Own.sharedMaterial != null && state.LastFrame >= 0
-                && state.Native.enabled && state.HidNative && state.Native.forceRenderingOff;
+                && state.HidNative && AndroidUnityCompat.HideProof(state.Native);
         }
         catch { return false; }
     }
@@ -413,7 +418,7 @@ internal static class HeavyShieldActorVisuals
             // Initialize one complete safe frame during Register. Later invalidation cannot be silently repaired by LateUpdate.
             if (state.Initialized && !Qualified(state)) { state.Suspended = true; state.Own.enabled = false; return; }
             state.Pose.Tick(Time.deltaTime, SampleMotion(state, HeavyShieldRuntime.Playing));
-            bool nativeVisible = state.Native.enabled && (!state.Native.forceRenderingOff || state.HidNative);
+            bool nativeVisible = AndroidUnityCompat.NativeVisible(state.Native, state.HidNative);
             if (!nativeVisible)
             {
                 state.Own.enabled = false;
@@ -429,11 +434,11 @@ internal static class HeavyShieldActorVisuals
             if (state.LastFrame != frame) { state.Own.sprite = sprite; state.LastFrame = frame; }
             if (!state.HidNative)
             {
-                if (state.Native.forceRenderingOff) { state.Own.enabled = false; return; }
+                if (AndroidUnityCompat.IsHidden(state.Native)) { state.Own.enabled = false; return; }
                 state.HidNative = true; // record obligation before setter can partially succeed
-                state.Native.forceRenderingOff = true;
+                AndroidUnityCompat.Hide(state.Native);
             }
-            else if (!state.Native.forceRenderingOff)
+            else if (!AndroidUnityCompat.IsHidden(state.Native))
             {
                 // Another system restored native visibility: relinquish instead of fighting it.
                 state.HidNative = false;
@@ -490,7 +495,7 @@ internal static class HeavyShieldActorVisuals
         }
         return new HeavyShieldGaitSample
         {
-            Frame = Time.frameCount, UnscaledTime = Time.unscaledTimeAsDouble,
+            Frame = Time.frameCount, UnscaledTime = AndroidUnityCompat.UnscaledSeconds(),
             ParentId = parent != null ? parent.GetInstanceID() : 0,
             Facing = state.Facing, Playing = playing,
             LocalX = local.x, LocalY = local.y, LocalZ = local.z,
@@ -504,8 +509,12 @@ internal static class HeavyShieldActorVisuals
         try
         {
             if (!VisibilityProof(state, true)) return false;
-            if (state.Native != null && state.Native.forceRenderingOff)
-                state.Native.forceRenderingOff = false;
+            // PC original was exactly `state.Native != null && state.Native.forceRenderingOff`, which
+            // IsHidden reproduces verbatim on PC; on Android it is the shared `!enabled` field.
+            // HideProof additionally requires `enabled` on PC, so it would skip returning our flag
+            // when SetHideStatus disabled the native renderer; the ledger release uses IsHidden.
+            if (AndroidUnityCompat.IsHidden(state.Native))
+                AndroidUnityCompat.Show(state.Native);
             state.HidNative = false;
             return true;
         }
@@ -546,12 +555,35 @@ internal static class HeavyShieldActorVisuals
         float scaleX = own.transform.lossyScale.x;
         if (!float.IsFinite(scaleX) || scaleX == 0f) throw new InvalidOperationException("unknown world sprite facing");
         own.flipX = (state.Facing < 0) != (scaleX < 0f); // compensate the native Mover's mirrored parent chain exactly once
+#if ANDROID
+        // Android 2.4 的 UnityEngine.SpriteRenderer 没有 flipY getter（缺失 ICall）；
+        // 自有新 sprite 初始为未翻转，跳过这一个读取，颜色/层/排序/材质继续原路径复制。
+#else
         own.flipY = native.flipY;
+#endif
         own.color = native.color;
         own.gameObject.layer = native.gameObject.layer;
         if (native.sharedMaterial != null) own.sharedMaterial = native.sharedMaterial;
+#if ANDROID
+        // Android 2.4 没有 UnityEngine.Renderer 的 Internal_GetPropertyBlock / Internal_SetPropertyBlock
+        // ICall（metadata 无方法定义，libil2cpp.so 无对应名称串），无法复制每实例 MaterialPropertyBlock
+        // 属性。这里显式跳过而不是假装复制成功；只在首次跳过时记一次 info，之后静默避免刷屏。
+        // 颜色/层/排序/材质仍按上面的原路径复制。
+        if (!_loggedPropertyBlockSkip)
+        {
+            _loggedPropertyBlockSkip = true;
+            try
+            {
+                KingdomEnhancedPlugin.Instance?.LogSource?.LogInfo(
+                    "[HeavyShieldVisual] android: per-instance MaterialPropertyBlock not copied"
+                    + " (Renderer Get/SetPropertyBlock ICall missing)");
+            }
+            catch { }
+        }
+#else
         native.GetPropertyBlock(PropertyBlock);
         own.SetPropertyBlock(PropertyBlock);
+#endif
     }
 
     private static bool EnsureDriver()

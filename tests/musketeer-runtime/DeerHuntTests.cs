@@ -759,15 +759,34 @@ namespace MusketeerRuntimeTests
             GameObject deer = Fixture.NewDeer("list-deer");
             Collider2D body = Fixture.AddFlatBody(deer);
             archer._shootingTarget = deer;
-            Physics2D.Saturate = true;                   // 数组饱和 → 强制完整 List 路径
+            Physics2D.Saturate = true;                   // 每档都满 → PC 完整 List；Android 硬上限 fail-closed
             Check.True(MusketeerCombat.TryHandleShot(archer.ActiveArrowAttack, archer.gameObject), "suppressed");
             Fixture.QueueHit(body, 0.5f);
             MusketeerCombat.Tick(0.05f, true);
+#if ANDROID
+            // Android 2.4 没有完整 List ICall（生产改走已验证的数组 NonAlloc + 硬上限 fail-closed）：
+            // 饱和时必须保守消费、绝不触碰缺失的 List；随后一次真实鹿命中经数组路径结算。
+            Check.Equal(0, Physics2D.ListCastCount, "the missing complete-list overload is never called");
+            Check.Equal(0, DamageCount(deer), "android hard-cap saturation never fabricates a deer hit");
+            Check.Equal(0, MusketeerCombat.LiveCount, "bullet consumed conservatively");
+
+            Physics2D.Saturate = false;
+            Physics2D.QueuedHits.Clear();
+            Physics2D.CastCount = 0;
+            Time.time = 5f;
+            Fixture.QueueHit(body, 0.5f);
+            Check.True(MusketeerCombat.TryHandleShot(archer.ActiveArrowAttack, archer.gameObject), "suppressed again");
+            MusketeerCombat.Tick(0.05f, true);
+            Check.Equal(1, DamageCount(deer), "the deer hit resolves through the verified array path on Android");
+            Check.Equal(0, Physics2D.ListCastCount, "the missing complete-list overload is never called");
+            Check.Equal(0, MusketeerCombat.LiveCount, "bullet consumed on the deer");
+#else
             Check.Equal(1, Physics2D.ListCastCount, "the complete-list overload is authoritative at saturation");
             Check.Equal((1 << Fixture.EnemiesLayer) | (1 << Fixture.WildlifeLayer), Physics2D.LastListLayerMask,
                 "the list path queries enemies + wildlife");
             Check.Equal(1, DamageCount(deer), "the deer hit resolves through the complete-list path too");
             Check.Equal(0, MusketeerCombat.LiveCount, "bullet consumed on the deer");
+#endif
         }
 
         private static void ReleaseClearsTiltedDirection()

@@ -16,6 +16,13 @@
 //       归还失败（瞬时异常）保留凭据下次重试，绝不丢归还责任。
 //       原生本来已隐藏（enabled=false / forceRenderingOff=true）→ 英雄视觉不出现（不接管）。
 //
+// Android 2.4 兼容（#if ANDROID；映射集中在共享 AndroidUnityCompat，PC 分支保留原表达式）：
+//       Android player 无 Renderer.forceRenderingOff / Get+SetPropertyBlock ICall。隐藏改用共享
+//       Renderer.enabled（写后读回确认，失败抛异常走既有 catch/回滚，凭据纪律不变）；「原生隐藏」
+//       只有不是我们写下的不可见才算；若第三方把 enabled 改回可见则 relinquish（撤掉自有表现、
+//       交还原生，避免双重渲染），由 runtime 既有补挂载路径稍后重试。每实例 PropertyBlock 复制
+//       显式跳过（首次跳过记一次 info）。PC 路径逐字不变。
+//
 // 帧选择（2026-09-15 native-follow 修订 + 同日 live-fix）：不再自建时钟/六状态机，而是每帧读原生
 //       Animator 当前 current state 的 shortNameHash + normalizedTime + clip 长度（HeroArcherNativePose），
 //       转场时也不预取 next —— Stand 0..9 / Walk 10..15 / Run 16..21 循环取相位小数；
@@ -153,7 +160,13 @@ internal static class HeroArcherVisuals
 
     private static readonly Dictionary<int, VisualState> _visuals = new Dictionary<int, VisualState>(4);
     private static readonly List<int> _scratch = new List<int>(4);
+#if ANDROID
+    // Android 2.4 没有 Renderer 的 Internal_GetPropertyBlock / Internal_SetPropertyBlock ICall，
+    // 因此不创建每实例 block 用于复制；只在首次跳过时记一次 info，之后静默避免刷屏。
+    private static bool _loggedPropertyBlockSkip;
+#else
     private static readonly MaterialPropertyBlock _propertyBlock = new MaterialPropertyBlock();
+#endif
 
     private static AtlasState _atlasState = AtlasState.Unknown;
     private static Texture2D _atlas;
@@ -211,7 +224,9 @@ internal static class HeroArcherVisuals
         try
         {
             nativeVisible = native.enabled;
-            nativeForceOff = native.forceRenderingOff;
+            // PC 原表达式为 native.forceRenderingOff；Android 2.4 无该 ICall，映射为共享 enabled 的
+            // 「不可见」判定（see AndroidUnityCompat.IsHidden）。
+            nativeForceOff = AndroidUnityCompat.IsHidden(native);
         }
         catch (Exception)
         {
@@ -576,9 +591,11 @@ internal static class HeroArcherVisuals
     }
 
     /// <summary>
-    /// 只归还「我们写过的」原生 forceRenderingOff（CAS：凭据在 state.HidNative，写回只写 false）。
+    /// 只归还「我们写过的」原生隐藏（CAS：凭据在 state.HidNative，写回只写可见）。
     /// 挂起路径（未知状态/不可读/Animator 停用）与非挂起路径共用本方法：归还成功即丢凭据，
     /// 失败（瞬时异常）保留凭据下一帧重试 → 未知读取失败不丢所有权；也不覆盖第三方设置的隐藏。
+    /// Android 2.4 无 forceRenderingOff：隐藏写在共享 enabled 上，只有仍不可见才写回可见（第三方
+    /// 已恢复可见则 relinquish，不覆盖）。
     /// </summary>
     private static bool ReleaseNativeHide(VisualState state)
     {
@@ -603,7 +620,10 @@ internal static class HeroArcherVisuals
         {
             try
             {
-                if (state.Native.forceRenderingOff) state.Native.forceRenderingOff = false;
+                // PC 原表达式为 `if (state.Native.forceRenderingOff) state.Native.forceRenderingOff = false;`
+                // （IsHidden/Show 的 PC 分支逐字复现同一读写）。Android 2.4 无该 ICall：只有仍处于
+                // 不可见（即我们写下的共享隐藏位还在）才写回可见；第三方已恢复可见 → 不覆盖。
+                if (AndroidUnityCompat.IsHidden(state.Native)) AndroidUnityCompat.Show(state.Native);
             }
             catch (Exception)
             {
@@ -668,11 +688,23 @@ internal static class HeroArcherVisuals
         try
         {
             // 原生隐藏（SetHideStatus / 石化清理等）时英雄一并隐藏；原生恢复可见时跟着恢复。
+#if ANDROID
+            // Android 2.4：我们的隐藏写在共享 enabled 上。HidNative 表示当前不可见是我们写下的，
+            // 此时不能把它当成「原生隐藏」而把自有 renderer 也关掉；其余情况仍跟随 native.enabled
+            // （原生可见性 / SetHideStatus）。
+            own.enabled = state.HidNative || native.enabled;
+#else
             own.enabled = native.enabled;
+#endif
             own.sortingLayerID = native.sortingLayerID;
             own.sortingOrder = native.sortingOrder;
             own.flipX = native.flipX;
+#if ANDROID
+            // Android 2.4 的 UnityEngine.SpriteRenderer 没有 flipY getter（缺失 ICall）；
+            // 自有新 sprite 初始为未翻转，跳过这一个读取，其余同 try 内的颜色/层与后续材质完整复制。
+#else
             own.flipY = native.flipY;
+#endif
             own.color = native.color;
             // 层跟随原生（碰撞/渲染筛选与本体一致；层是 GameObject 属性，不是 renderer 独有）。
             GameObject ownObject = own.gameObject;
@@ -695,6 +727,18 @@ internal static class HeroArcherVisuals
         catch (Exception)
         {
         }
+#if ANDROID
+        // Android 2.4 没有 UnityEngine.Renderer 的 Internal_GetPropertyBlock / Internal_SetPropertyBlock
+        // ICall（metadata 无方法定义，libil2cpp.so 无对应名称串），无法复制每实例 MaterialPropertyBlock
+        // 属性。这里显式跳过而不是假装复制成功；只在首次跳过时记一次 info，之后静默避免刷屏。
+        // 颜色/层/排序/翻转/材质仍按上面的原路径复制。
+        if (!_loggedPropertyBlockSkip)
+        {
+            _loggedPropertyBlockSkip = true;
+            Log("android: per-instance MaterialPropertyBlock not copied"
+                + " (Renderer Get/SetPropertyBlock ICall missing)");
+        }
+#else
         try
         {
             native.GetPropertyBlock(_propertyBlock);
@@ -703,13 +747,15 @@ internal static class HeroArcherVisuals
         catch (Exception)
         {
         }
+#endif
     }
 
     /// <summary>
     /// 原生跟随（每帧一次，Sync 内调用）：读原生 Animator 当前（转场按策略取 next）state → atlas 帧；
     /// 据此接管（隐藏本体 + 显示自有帧）或挂起（未知状态/不可读/Animator 停用 → 自有隐藏，
-    /// 归还原生 forceRenderingOff 让原生显现；VisualState/身份保留，回到支持状态再安全接管）。
-    /// 只读原生（不写 Animator/参数/位置）；只写自有 renderer 与「我们写过 true」的原生 forceRenderingOff。
+    /// 归还原生隐藏让原生显现；VisualState/身份保留，回到支持状态再安全接管）。
+    /// 只读原生（不写 Animator/参数/位置）；只写自有 renderer 与「我们写下过」的原生隐藏。
+    /// Android 2.4 无独立 forceRenderingOff：隐藏/归还在共享 enabled 上完成（见共享 compat）。
     /// </summary>
     private static void ApplyNativePose(VisualState state, string source)
     {
@@ -745,7 +791,9 @@ internal static class HeroArcherVisuals
         try
         {
             nativeEnabled = native.enabled;
-            nativeForceOff = native.forceRenderingOff;
+            // PC 原表达式为 native.forceRenderingOff；Android 2.4 无该 ICall，映射为共享 enabled 的
+            // 「不可见」判定（诊断字段 forceoff 在 Android 上即该共享隐藏位，见 ReportNativeEvent）。
+            nativeForceOff = AndroidUnityCompat.IsHidden(native);
         }
         catch (Exception)
         {
@@ -758,7 +806,14 @@ internal static class HeroArcherVisuals
 
         // 「原生不可见」= 原生 renderer 被关，或被**第三方** forceRenderingOff。
         // 我们自己写下的隐藏（state.HidNative）不算原生不可见，否则会把自己也一起藏掉。
+#if ANDROID
+        // Android 2.4 没有独立的 forceRenderingOff：隐藏与原生可视共享 enabled，无法区分「我们写的
+        // 不可见」与第三方写的不可见，因此以 HidNative 凭据判定：只有不是我们写下的不可见才算
+        // 原生隐藏；第三方重新 enable 视为可见（由下方 relinquish 分支撤掉自有表现，避免双重渲染）。
+        bool nativeHidden = !nativeEnabled && !state.HidNative;
+#else
         bool nativeHidden = !nativeEnabled || (nativeForceOff && !state.HidNative);
+#endif
         HeroArcherNativeFallback reason = sample.Fallback;
         bool show = sample.Drawn && !nativeHidden;
         if (sample.Drawn && nativeHidden) reason = HeroArcherNativeFallback.NativeHidden;
@@ -774,7 +829,7 @@ internal static class HeroArcherVisuals
             try
             {
                 state.HidNative = true; // Record responsibility before a setter can partly apply then throw.
-                native.forceRenderingOff = true;
+                AndroidUnityCompat.Hide(native);
             }
             catch (Exception)
             {
@@ -782,6 +837,18 @@ internal static class HeroArcherVisuals
                 reason = HeroArcherNativeFallback.Unreadable;
             }
         }
+#if ANDROID
+        else if (show && state.HidNative && nativeEnabled)
+        {
+            // 共享启用位的语义差：Android 无独立 forceRenderingOff，我们记下 HidNative 后隐藏位被
+            // 第三方/原生改回可见（enabled=true），说明隐藏已被撤销。此时若继续显示自有 body 会与
+            // 原生双重渲染，因此 relinquish：丢弃凭据并按既有 RemoveByKey 结构撤掉自有表现、交还原生；
+            // 稍后由 HeroArcherRuntime 既有补挂载路径重试（不新增 retry 循环）。
+            state.HidNative = false;
+            RemoveByKey(state.GoId, "relinquish");
+            return;
+        }
+#endif
 
         if (show)
         {
@@ -846,6 +913,7 @@ internal static class HeroArcherVisuals
     /// 有界诊断（全局 ≤120 行；按 actor 的转场/可见性/原因变化记一行，非逐帧）：
     /// 时间/帧号/来源 phase/actor/life/native state hash/相位/clip 长度与 clip 时间/显示帧与原生帧/
     /// 有效窗口/朝向证据/世界 y/原生可用性+隐藏位/自有可见性/挂起原因/放箭标记。
+    /// forceoff 字段在 Android 上即 AndroidUnityCompat.IsHidden(native)（共享 enabled 取反），PC 为原值。
     /// 日志失败由 Log 吞掉，绝不影响渲染；每 actor 只占固定去重槽，不随 actor 数增长。
     /// </summary>
     private static void ReportNativeEvent(VisualState state, in HeroArcherNativePoseSample sample,
@@ -1200,7 +1268,11 @@ internal static class HeroArcherVisuals
                 return false;
             }
 
+#if ANDROID
+            Color32[] pixels = AndroidTexturePixels.ReadOwnedPng(texture, texture.width, texture.height);
+#else
             Color32[] pixels = texture.GetPixels32();
+#endif
             if (pixels == null || pixels.Length != AtlasWidth * AtlasHeight)
             {
                 LogOnceUnavailable("atlas pixel read failed");

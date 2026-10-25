@@ -79,7 +79,7 @@ namespace KingdomEnhancedMod
         }
 
         internal static RowMetrics MeasureRow(float width, string title, string value, string help,
-            bool badge, ModPanelStyles styles, float scale)
+            bool badge, ModPanelStyles styles, float scale, float minValueWidth = 0f, float minValueHeight = 0f)
         {
             float padX = 12f * scale;
             float padY = 9f * scale;
@@ -88,7 +88,7 @@ namespace KingdomEnhancedMod
             var valueContent = new GUIContent(value);
             var valueSize = ModPanelStyles.MeasureSize(styles.Value, valueContent);
             float valueWidth = badge
-                ? Mathf.Max(72f * scale, Mathf.Ceil(valueSize.x) + 16f * scale)
+                ? Mathf.Max(Mathf.Max(72f, minValueWidth) * scale, Mathf.Ceil(valueSize.x) + 16f * scale)
                 : Mathf.Max(48f * scale, Mathf.Ceil(valueSize.x) + 8f * scale);
             // 最长值也不允许徽章越出卡片边界（极小宽度下优先保证 inside bounds）。
             valueWidth = Mathf.Min(valueWidth, inner);
@@ -101,7 +101,7 @@ namespace KingdomEnhancedMod
             if (stacked) titleWidth = valueWidth = inner;
             float titleHeight = styles.NarrowLabel.CalcHeight(titleContent, Mathf.Max(0f, titleWidth));
             float valueHeight = badge
-                ? Mathf.Max(30f * scale, Mathf.Ceil(valueSize.y) + 8f * scale)
+                ? Mathf.Max(Mathf.Max(30f, minValueHeight) * scale, Mathf.Ceil(valueSize.y) + 8f * scale)
                 : Mathf.Max(24f * scale, stacked ? styles.Value.CalcHeight(valueContent, valueWidth) : Mathf.Ceil(valueSize.y));
             float valueY = stacked ? titleHeight + gap : 0f;
             float topHeight = stacked ? valueY + valueHeight : Mathf.Max(titleHeight, valueHeight);
@@ -114,6 +114,9 @@ namespace KingdomEnhancedMod
         internal static float RowHeight(in RowMetrics m)
             => Mathf.Ceil(Mathf.Max(m.MinHeight, m.PadY * 2f + m.TopHeight + (m.HelpHeight > 0f ? m.Gap + m.HelpHeight : 0f)));
 
+        internal static Rect RowValueRect(float x, float y, float width, in RowMetrics m)
+            => new Rect(x + width - m.PadX - m.ValueWidth, y + m.PadY + m.ValueY, m.ValueWidth, m.ValueHeight);
+
         /// <summary>按 MeasureRow 的几何绘制窄端行：卡片底/徽章底为 1x1 纯色 primitive，
         /// 文字 native Label；origin 为该 group 局部 (0,0) 的绝对位置，localClip 为同空间裁剪矩形。</summary>
         internal static void DrawRow(float x, float y, float width, float height,
@@ -123,7 +126,7 @@ namespace KingdomEnhancedMod
             GUIStyle valueStyle = valueOn ? styles.ValueOn : styles.Value;
             ImGuiCompat.DrawSolidTexture(new Rect(x, y, width, height), styles.CardTexture, origin, localClip);
             GUI.Label(new Rect(x + m.PadX, y + m.PadY, m.TitleWidth, m.TitleHeight), title, styles.NarrowLabel);
-            var valueRect = new Rect(x + width - m.PadX - m.ValueWidth, y + m.PadY + m.ValueY, m.ValueWidth, m.ValueHeight);
+            var valueRect = RowValueRect(x, y, width, m);
             if (badge)
             {
                 DrawControl(valueRect, value, valueStyle, valueOn ? styles.GoldTexture : styles.BackTexture, origin, localClip);

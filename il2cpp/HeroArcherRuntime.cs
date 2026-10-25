@@ -950,7 +950,12 @@ internal static class HeroArcherRuntime
         if (archer.inGuardSlot || archer._guardSlot != null) return false;   // 塔位/岗哨：射程由原生塔位路径管
         if (!OptionalQoLScope.IsCurrent(archer)) return false;
         if (PatchRoles_Crossbowman.IsCrossbowman(archer)) return false;
+#if ANDROID
+        bool isNorse;
+        return PatchRoles_NorseSquad.TryGetNorseArcherIdentity(archer, out isNorse) && !isNorse;
+#else
         return !PatchRoles_NorseSquad.IsNorseArcherInstance(archer);
+#endif
     }
 
     private static bool Alive(Archer archer)

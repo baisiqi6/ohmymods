@@ -23,12 +23,12 @@ public sealed class Probe : MelonMod
   var professionOwners = KingdomEnhancedMod.AndroidProfessionCombatHooks.ResolveOwners();
   foreach (var owner in professionOwners)
   {
-   var patched = HarmonyInstance.CreateClassProcessor(owner).Patch();
-   if (patched == null || patched.Count != 1)
-    throw new InvalidOperationException("Expected one profession target for " + owner.FullName);
+   var patched = HarmonyInstance.CreateClassProcessor(owner.Owner).Patch();
+   if (patched == null || patched.Count != owner.ExpectedTargets)
+    throw new InvalidOperationException("Expected " + owner.ExpectedTargets + " targets for " + owner.Owner.FullName);
   }
   LoggerInstance.Msg("ANDROID_PROFESSION_COMBAT_REGISTERED owners="+professionOwners.Length+" sharedSource=true");
-  LoggerInstance.Msg("OHMYMODS_ANDROID_PROBE_LOADED version=0.0.30 gameplay_features=optional_player_qol,hold_purchase,enemy_parameters,native_money,farm_cats,fast_build,steed_cooldown,boat_capacity,map_width,staff_base_cooldown,fast_forest_recede,deer_population,dense_thickets,night_departure,camp_population,pet_protection,combat_parameters,existing_role_scale,wall_engineers,world_layout,divine_parameters");
+  LoggerInstance.Msg("OHMYMODS_ANDROID_PROBE_LOADED version=0.0.30 gameplay_features=optional_player_qol,hold_purchase,enemy_parameters,native_money,farm_cats,fast_build,steed_cooldown,boat_capacity,map_width,staff_base_cooldown,fast_forest_recede,deer_population,dense_thickets,night_departure,camp_population,pet_protection,combat_parameters,existing_role_scale,wall_engineers,world_layout,divine_parameters,economy_core,auto_restock");
   LoggerInstance.Msg("ANDROID_REGISTRATION autoPatchDisabled="+MelonAssembly.HarmonyDontPatchAll);
   if(!MelonAssembly.HarmonyDontPatchAll)throw new InvalidOperationException("Android assembly must disable automatic patch scanning");
   var crownAwake=AccessTools.Method(typeof(Il2Cpp.CrownStealer),"Awake",Type.EmptyTypes)??throw new MissingMethodException("CrownStealer.Awake()");
@@ -296,6 +296,10 @@ public sealed class Probe : MelonMod
  public override void OnUpdate()
  {
   KingdomEnhancedMod.GreekScaleScope.Tick();
+  // Shared coordinator remains the only AutoRestock.Tick driver.
+  KingdomEnhancedMod.PatchEconomy_Banker.TickOwnedProfiles();
+  KingdomEnhancedMod.BankAssistantCoordinator.TickPendingCleanup();
+  KingdomEnhancedMod.CoinCourierTeleportFx.Tick(Time.deltaTime);
   KingdomEnhancedMod.WallEngineerRuntime.Tick(Il2Cpp.Managers.Inst,Time.time);
   MobileCalendar.Tick();
   MobilePopulation.Tick();
