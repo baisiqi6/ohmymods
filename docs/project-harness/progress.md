@@ -1,3 +1,7 @@
+## 2026-10-25 — #291 坐骑映射先于技能池消费（离线交付）
+
+旧InitPools postfix缺映射前置，原生日志四次回退普通马后误报无技能；当前2.4资源已核完整。候选在既有postfix先登记映射、逐definition primary就绪再消费，缺键不调用fallback getter且保留原Swap回读；不更改fresh授权/Harmony。真实source-linked新回归最终33/33、三套完整NoDeploy 0W0E及275资源一致，独立增量复审通过。旧adapter在同编译glue下对照37失败不增，不称全套绿；技能/死亡/复用/换岛/联机Native仍未验。正常档/包不动，未合并安装，详见[回执](tasks/issue-291/verification.md)。
+
 ## 2026-10-25 — #232/#262 代码范围已关闭（checklist done + GitHub closed）
 
 Coordinate 生命周期：`issue-232`、`issue-262` 依次 closeout packet → review approved（Operator self-review，用户授权）→ **mark-done**，checklist 状态均为 `done`；GitHub [#232](https://github.com/baisiqi6/ohmymods/issues/232) 与 [#262](https://github.com/baisiqi6/ohmymods/issues/262) 已关闭（代码范围），关闭说明附证据/边界/pending。合并物：PR #263 `e15d872`、收口记录 PR #288 `171bd08`。
