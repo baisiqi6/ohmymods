@@ -2,15 +2,115 @@
 
 用户选定仅Mac ARM64正式包；以当前正常安装0553对应fa545源码整理版本和出处元数据，未加入未安装候选。新发行DLL8b475377…、ZIP706363ab…；0W0E、Capital885、authoring图/帧/布局核验、精确IL/资源差与双打包/读回/check-only留证。production-source旧R1布局pin在修改前后同样失败，未记全绿。正常包/存档保持，未新增游戏实机；Windows/Android未随本批发布。详见[本批记录](tasks/issue-294/release.md)；最终tag与下载以[发布页](https://github.com/baisiqi6/ohmymods/releases/tag/v11.0.0)回执为准。
 
-## 2026-10-23 — #101 400u隔离完整往返通过，进入合并安装关口
+## 2026-10-25 — #232/#262 代码范围已关闭（checklist done + GitHub closed）
 
-R12完整隔离往返链已通过：真实10币/原生结算进入、400u/100Tile/452绘制，实际UI保存退出、新进程宫廷冷读、用户自然免费回程12→8（一次Reload、钱包128→128）、来源再次冷读与UI退出。最终独立19/19后像核验，Hero2席/原Knight身份与VisitCommitted rev9保持，加载raw35不变，随后Playing自然推进不误算宫廷漂移。两端旧P2静帧关闭；动画仅有限运动+Menu停帧采样，不冒称全部连续动画/跨平台/联机通过。R4四变体0W0E、Root cold81/0+Astra55/0、实际92资源/275检查不变。自动输入超时与Root菜单误投币等私人操作失败原样保留，未当产品修复。当前PR265仍Draft，最终合并/正常单DLL安装门正在收尾；正常存档/配置与DLL未替换。详见[连续检查点](tasks/issue-101/r12-runtime-foundation-20261023.md)。下文为历史记录。
+Coordinate 生命周期：`issue-232`、`issue-262` 依次 closeout packet → review approved（Operator self-review，用户授权）→ **mark-done**，checklist 状态均为 `done`；GitHub [#232](https://github.com/baisiqi6/ohmymods/issues/232) 与 [#262](https://github.com/baisiqi6/ohmymods/issues/262) 已关闭（代码范围），关闭说明附证据/边界/pending。合并物：PR #263 `e15d872`、收口记录 PR #288 `171bd08`。
+- 关闭依据：可达引擎缺口修复并复扫归零（P6–P8 不可达决策）；Android 构建/审查/全量测试/host 证据齐全；native 证据含 readiness、视觉接入、真实补货扣款 3 角色、原生保存写入、保存→读档两运行往返、prefs 内容级回读、读档后池重注册；PR 全部合并。
+- 如实 pending 并单列：换岛触发池重建、其余补货角色正例（world precondition missing/inconclusive）、付费职业/枪、手机/平板/多人/长期自然玩法与完整画面；已知语义差（PropertyBlock tint、P1 own-ledger、P5 AABB、MusketeerRights load ConfirmBaseline）已文档化。后续实机新问题另开 Issue/PR。
+
+## 2026-10-25 — #232/#262 代码范围收口：PR #263 合并后记录关闭依据
+
+PR #263 已于 2026-10-24T20:40:27Z 合并（merge commit `e15d872…`，base `release/v9.5.13`）；base 合并后 Android 候选 `d6113730…` 与已验证 `6b14879d…` IL 方法体完全一致（5880 methods 0 diff）。新增 `tasks/issue-232/closeout-20261025.md`：汇总可达引擎缺口=0（P1–P5 修复复扫归零、P6–P8 不可达决策）、构建/全量测试/审查、真实补货扣款（工人/农夫/投石车油桶）、保存写入、保存→读档两运行往返、prefs 内容级回读（CoinCourier/SharedBank/HeroRights 一致，MusketeerRights 为 load ConfirmBaseline 设计内重确认）、读档后 InitPools+池重注册；并如实 pending 换岛池重建、其余补货角色、付费职业/枪、手机/多人/长期玩法与已知语义差。按 issue 原文“范围 PR 合并 + 必要代码验证后关闭代码 Issue，不预付实机”，准备在 checklist 走 review/mark-done 并关闭 #232/#262 代码范围。
+
+## 2026-10-25 — 追上 release/v9.5.13：冲突解决、Android IL 等价确认、PR #263 可合并
+
+PR #263 原与 base `release/v9.5.13`（`98259af`）分叉 16/59 commits、mergeable=dirty；已将 base 合入分支（merge commit `9e7dda6`）。冲突三处：`il2cpp/CoinCourierPersistence.Hooks.cs`（保留 Palace palace capture 于 `#if !ANDROID` 内，Android bank `SharedBankNative.BeginSave/EndSave/Marker` 保持在条件外=与原 Android 行为一致）、`android/tests/Program.cs`（冻结 hash 表按合并后源码更新：MapWidthTerrain=`2b562fb4…`、ModPanelControls=`803ebedb…`）、`docs/project-harness/progress.md`（双方条目按日期保留）。合并后 Android 候选 `d611373097fa53772e98f0028b2858830bd19df9513280181f890b69f222e30e`（208/176/25、2,281,472B、noDeployment）；与合并前候选 `6b14879d…` 做 IL 方法体对比：**5880 methods，0 added/removed/different**（base 改动全部为 `#if !ANDROID`/palace 条件或元数据输入差异），因此既有 Android native 证据仍适用。合并树复跑全量 managed：22 组全绿（含 capture/recovery 5/5、5/5）+ missing 模式 13/34 + greek xunit 88/85。PR #263 现 mergeable=clean，准备合并。
+
+## 2026-10-25 — native prefs 内容级回读：银行/金币哥布林/英雄权利与存档完全一致（r13）
+
+新 probe `native-scene-control-0.0.2`（零 Harmony/零写，只读 `GlobalSaveData.loaded→prefs→contents` getter；DLL `9339efaa…`，receipt/review pinned）用于读档后内容级对照。r13（plan **`4d8caf33…`**，旧 r12 plan `89a36c64…` 正常 revise；零 Root；30min）加载 r9 捕获存档+sidecar：`evidenceReportable=true`、`loadClassification=loaded-identity-matched`、首 READY sha=`e6e6e81d…`、cleanup 经 reap 证明。host codec（gzip+UTF-8 JSON v16 `prefs.srzEntries`）解码捕获存档生成对照 manifest `ebc19fd8…`；probe 读取 4 key：**CoinCourier `7b28c96c…`/158、SharedBank `5691a131…`/71、HeroRights `62a0f6a3…`/15690 与 manifest 完全一致**；`MusketeerRights` 长度相同但内容不同——源码核因为 `MusketeerPersistence.LoadCapture.End(true)→Commit→ConfirmBaseline→MusketeerNativeSave.Stage` 在成功读档时按设计重确认 baseline（注释明确 load 栈调用；PC 共享逻辑），属 load-time 规范化而非 Android 失败。结论：**native save→load 内容级回读对银行账本/金币哥布林/英雄权利成立**；MusketeerRights 为已解释语义差；换岛触发池重建、其余补货角色、付费职业/枪、玩家实机/手机/多人/长跑仍未验证。记录：`tasks/issue-232/save-load-roundtrip-20261025.md`（r13 节）、`issue-262/verification.md` 增补。
+
+## 2026-10-25 — 原生保存→读档两运行往返成功（r9 save + r12 load）
+
+r12（plan **`89a36c64…`**，旧 r11 plan `b119b26b…` 正常 revise；gate 消费一次；零 Root 输入；30min window）以 r9 捕获的 `global-v35`（`e6e6e81d…`/263,366B）为 nativeFixture、4 个 ModSave sidecar 为 modArchiveSeed（seed 安装 byte-verified；hero v1 记录 `replaced-expected-baseline` 352a864c→9d90a109；其余 pushed），正常 boot 读档：controller exit0、`state=evidence-observed`、**`evidenceReportable=true`**、`controlValid=true`；`loadVerdict=loaded`、postflight **`loadClassification=loaded-identity-matched`**；首 READY/观察末/stop 三处设备 `global-v35` sha 均=输入 `e6e6e81d…`、`autosaveDuringWindow=false`、零 MissingICall；`[HeroRecruitment] loaded:paid:ctx=12b7195d:epoch=a16de6cc…`、`[MusketeerSync] staged:05cfd649:4bd85972…`、`[Musketeer] loaded:exact:records=12:bound=10…` 与冻结 seed token 匹配；cleanup 经 `qemuExitProvenByReap=true`（zombie 分类 + reaper 后进程缺席/端口空闲/AVD 清场，`closeReason=reap-cleanup-verified`）、`cleanupUnknown=false`；零 Root/PNG、资源交还通过；同段再次取得农夫/投石车油桶两次扣款。r10（seed 目标已存在 abort）与 r11（cleanup zombie 误判 + postflight 缺 `import re`，load 事实成功但 evidenceReportable=false）工具问题均如实保留并在 r12 修复。
+- 结论：**保存写入→读档加载两运行往返成立**（同一存档文件 + mod 身份 sidecar 回读；非同一进程 `Game.Reload`）。仍未证明：换岛/池重建、银行/助手 prefs 内容级回读（需 probe v2）、付费/角色/画面/手机/多人/长跑。记录：`tasks/issue-232/save-load-roundtrip-20261025.md`、`save-write-run-20261025.md`。
+
+## 2026-10-25 — 保存写入 r9 成功；load-run r10/r11 读档事实成功但受工具问题阻断
+
+load-run 连续两轮工具受挫并如实保留：**r10**（plan `b80f5893…`）seed 安装要求目标全不存在，但 AVD 基线已有 `hero-identities.v1.json`（`352a864c…`/562B，等于 seed 的 .bak）→ prepare abort 未 launch；**r11**（plan `b119b26b…`）改为冻结基线 allowlist 替换后，**读档事实面成功**——`loadVerdict=loaded`、首 READY/观察末/stop 三处 device `global-v35` sha 均为输入 `e6e6e81d…`、`autosaveDuringWindow=false`、零 MissingICall、`loadMarkers` 含 `[HeroRecruitment] loaded:paid:ctx=12b7195d:epoch=a16de6cc…`/`[MusketeerSync] staged:05cfd649:4bd85972…`/`[Musketeer] loaded:exact:records=12:bound=10…`（与冻结 seed token 匹配）、seed hero v1 记录 `replaced-expected-baseline`——但 controller exit1/`state=inconclusive`/`evidenceReportable=false`，因 cleanup `stop.error="Identity changed before signal"`（实际 qemu 已退、reaper 成功、端口空闲、AVD 无 holder）且 `root-postflight.py` 缺 `import re` 抛 NameError。均属工具问题，非产品失败；r11 load 事实未过 evidenceReportable 门，不能宣称保存-读档往返通过。r12 修复 cleanup 证明 + postflight import 后重跑。
+
+## 2026-10-25 — 首次 Android 原生保存写入证据（save-watch r9）；r8 工具故障如实保留
+
+- 新增 `tasks/issue-232/save-write-run-20261025.md`（Worker J host-only 派生 + Operator 执行）。
+- **r8**（plan `9c847ad2…`，gate 已消费）：save-watch 在 baseline 后 0.22s abort（`state=aborted/reason=not-run/error=ADB command failed/unknown`），无 capture；观察/资源链正常。根因：`case.shell()` 的 `shlex.join` 把 `&&` 引用成字面量（设备 `stat: '&&': No such file`）→ `check=True` 在 fallback 前抛错，且 fallback 未 latch statOnly → 循环再探再抛。属工具失败，不据此得产品结论，证据只读保留。
+- **r9**（plan **`9ffb0dba…`**，旧 `9c847ad2…` 正常 revise；gate 消费一次；零 Root 输入；observer STOP 后 game 继续运行、有界 save-watch 600s）：probe 改为单条正确引用 `adb shell -T "stat … && sha256sum …"` + `check=False`、stat-only latch、单次失败 bounded inconclusive 不 abort。结果 `saveWatch=completed/observed/reason=file-changed/watchSeconds=134.6/sampleMode=stat+sha`；**`Release/global-v35` 由 fixture `35faea07…`（260,337B）变为 `e6e6e81d…`（263,366B）**，在 owned stop 前捕获该文件与 `ModSave/{hero-identities.v1.json, hero-identities.v1.json.bak, musketeer-identities.v2.json, musketeer-pair-global-v35.json}`（inventory `d96b9750…`）；同段再次取得农夫/投石车油桶两次扣款；`MissingIl2CppInternalCallException` 0、零 Root/PNG、postflight `saveClassification=observed-captured`、资源/原盘交还通过。
+- 边界：证明**保存写入 + mod 保存钩子执行**，不是读档回读/同进程 reload/池重建/换岛；load-run（用 captured global-v35 + ModSave seed 作输入）已派生待执行，之后才能宣称保存-读档往返。r9 前还修正了派生链 old-plan 常量笔误（r8 的 66 字符 typo），修正后 packet/review/pins 重建，canonical 未被污染。
+
+## 2026-10-25 — 代码范围收口矩阵：可达引擎缺口归零、全量 managed 全绿、P6–P8 决策记录
+
+- 全量 managed 回归在当前 HEAD（产品 `9c81e63`）复跑全绿：heavy-shield 1144/6、hero-arrow 177(+13 missing)、crossbowman 34/311(+34 missing)、musketeer 121/122、wall-engineers 260/297、auto-restock 159、counts 86、coin-courier 33、bank-teleport 17、teleport-fx 15、greek-bank 73、bank-atlas 37、banker-fixed 31、hero-native-visuals 161/164、hero-scarf 41/49、cloth-view 38，另 greek xunit 88/85（此前的 missing-mode 与 xunit 仍有效）。
+- 新增 `tasks/issue-232/code-range-closure-matrix-20261025.md`：按 #232/#262 逐条列出代码/审查/静态/构建/运行证据与剩余边界。结论：**已知可达的 Android 兼容缺口已修复完毕**（P1–P5 集成+复扫归零；P6–P8 不可达，决策不修并记录；已知缺失族 0 引用）；构建/审查/host 测试全绿。剩余必要运行（232：付费激活/付费枪/保存-读档-换岛-池重建；262：其余补货正例/银行账本保存往返）受世界/输入前提限制，需要后期存档或扩展输入契约或明确归入玩家实机；headless fixture 世界无 identity baseline/sidecar，故火枪手自动采购为世界前提 inconclusive，不判失败。PR #263 仍 Draft，#232/#262 open；PLAN 状态由 canonical `1a3070ea…` 记录。
+
+## 2026-10-25 — 补货真实扣款扩到 3 个角色；火铳铺放置成功但火枪手自动采购仍 inconclusive
+
+r6（plan **`6cbd2a19…`**，restock6 cfg `b56d5a87…`：58 keys、6 类补货开、target 200）：fixture day32 世界再取得两次真实扣款 **`[AutoRestock] 农夫 补货成功 price=8 nativePrice=4 coins=8`**、**`[AutoRestock] 投石车油桶 补货成功 price=10 nativePrice=5 coins=10`**，postflight `paid-purchase-observed`、`MissingIl2CppInternalCallException` 0、资源交还通过；其余角色为世界/配置前提记录（狂战士 对象池未就绪/订单已满、村民 无可用目标、火塔罐 无可用目标、火枪手 请先开启火铳铺）。r7（plan **`1a3070ea…`**，restock7 cfg `feefad79…` 加 `MusketeerEnabled=true`）：`[MusketeerShop] ready x=20.21 native-payment=registered price=4` 成功放置、cfg gate 消失；同 run 再次取得农夫/投石车油桶两次扣款；但**火枪手自动采购仍 inconclusive**（唯一角色行 `火枪人数或身份尚未确认`，无 purchase/created 行；本候选 role-8 无通用补货成功行，判据为 `[MusketeerShop] purchase … result=created`），需源码级 gate 分析或带火枪手/枪架的后续世界。真实扣款累计覆盖 工人/农夫/投石车油桶 三角色；保存/读档/换岛/池重建、狂战士/火塔/火枪手正例仍未验证。记录：`tasks/issue-262/economy-restock-run-20261025.md`（r6/r7 节）、`tasks/issue-262/{plan,verification}.md` 增补；#232/#262 保持 open，PR #263 Draft。
+
+## 2026-10-25 — 首次取得 Android 真实补货扣款证据：fixture 世界 + restock cfg 单次通过
+
+Worker I（teammate）host-only 派生 fixture+restock 的 loader-control case（母本 visual-family 链），Operator 审查并执行 r5（case `controlled-candidate136-loader-restock-isolated-20261025-r5-single1`，plan **`bfca313c…299725`**，gate 消费一次，window `17:47:18–18:07:18Z`，lease `19:24:40Z`）：候选 `6b14879d…`（含 P1–P5 引擎修复）+ restock3 cfg `f0df327e…`（58 keys，仅 Workers/Archers/Ninjas AutoRestock 开）+ day32 fixture `35faea07…` + 609e zero-Harmony 探针，**零 Root 输入**。结果：controller exit0、`evidenceReportable/controlValid=true`、READY+STOP、world `islandLand=8/castleBuilt=true/wallsCount=7`；`[BankAssistants] Authority spawned deterministic 8-assistant pool`、live banker=1；**`[AutoRestock] 工人 补货成功 price=6 nativePrice=3 coins=6`**（native `Payable.TransactionComplete()` 后+shop 实物 +1 验证）；postflight `restockVerdict=paid-purchase-observed`、`restockPurchaseIsPaymentProof=true`、`MissingIl2CppInternalCallException` 0、资源/原盘交还通过（controller baseline PNG 因一次 2s ADB snapshot 超时未捕获，记录为证据限制）。边界：单角色单次采购事实；其余 6 类补货（狂战士/村民/农夫/投石车油桶/火塔罐/火枪手）、保存/读档/换岛/池重建、手机/多人/长跑/UI 手势与画面仍未验证。记录：`tasks/issue-262/economy-restock-run-20261025.md`、`tasks/issue-262/{plan,verification}.md` 增补；#262/#232 保持 open，PR #263 保持 Draft。
+
+## 2026-10-25 — 引擎缺口 P1–P5 集成并复扫归零；新候选 gameplay readiness 单次回归通过
+
+Worker G/H 的修复已由 Operator 审查集成并推送（`442faca` P1 wall-pierce own-ledger / P2 Animator int-hash；`b78b03a`+`9c81e63` P3–P5 数组 overload/Bounds.ClosestPoint + ANDROID-mode 测试；HEAD `9c81e63`）。新候选 **`6b14879d…a532b3`**（2,281,472 B；208/176/25、noDeployment）上 Operator 复跑全量受影响套件全绿：heavy-shield 1144/6、hero-arrow 177(+13 missing)、crossbowman 34/311(+34 missing)、musketeer 121/122、wall-engineers 260/297、greek-impact 88、hero-archer/greek 85，以及 coin-courier 33、bank-teleport 17、teleport-fx 15、greek-bank 73、hero-native-visuals 161/164、hero-scarf 41/49、cloth-view 38 回归。用同一 MemberRef sweeper 复扫新候选：仅剩 **P6–P8 不可达** 三条缺口，P1–P5 零引用；interop/ICall 名称串自证与 ANDROID-mode 测试均留证。
+
+候选链按规则整链重建（gameplay observer 0.0.11 仅重绑 Main metadata 并重编 `6e3f5599…`；controller/review/pins/case 全部更新），单次 case r3（plan **`48b96012…`**，gate 消费一次，window `17:18:25–17:43:25Z`）结果：controller exit0、`evidenceReportable/controlValid=true`（mainHash=candidate;app133=133;initContract=exact）、world/strictSurface、`terminal=input-stop`、`elapsed 238.8s`；候选 hash 实读、`MissingIl2CppInternalCallException`/`sig=` 0 次、PROFESSION 2/2/6/2/2、BANK 1/8/4、app133=133、V3 contract/stop 完整；Root 一次 swipe 实际路由（x -76→-19.619、coins 0→13，`DISCRETE_SIDE_EFFECT_STOP` 故 pay 未发）、Root PNG 0/controller PNG 1；postflight 资源/端口/ADB 交还通过。边界不变：非付款/placement/城堡/角色/存档/画面验收。记录：`tasks/issue-232/gameplay-profession-activation-run-20261025.md`（r3 节）、`tasks/issue-232/android-engine-api-gaps-20261025.md`（集成/复扫节）。
+
+## 2026-10-25 — Gameplay 门坎打通：职业/银行 readiness 单次通过（r2），并完成全量引擎 API 缺口扫描
+
+Worker E 只读派生 Codex-era `profession-input-routing` 模板为 DSH 单次 gameplay case（host-only），Operator 审查/登记/执行；候选/配置/重编 V3 0.0.11 addon（b1c9 binding `27e8945e…`）byte-verified。r1（plan `ede93628…`）gate 消费一次但场景加载期一次 2s `Latest.log` snapshot ADB 超时 → `inconclusive/evidenceReportable=false`，不据此得产品结论。r2（plan **`7d72dadf…`**，同候选/同 cfg/addon，仅日志快照超时 2s→8s 且 fresh case/gate/window）controller exit0、`evidenceReportable=true`、`controlValid=true`（mainHash=candidate;app133=133;initContract=exact）、world/input-surface 观测、`S1_INPUT_STOP time-budget elapsed=120.14 events=11`；同段 `ANDROID_PROFESSION_COMBAT_REGISTERED owners=133`、PROFESSION_SNAPSHOT/FLAGS/OWNER/WALLET/READINESS=2/2/6/2/2 且四开关+InfiniteMoney 一致、BANK_INIT_SNAPSHOT/SLOT/ATLAS=1/8/4（managed refs）、候选 hash 实读、旧 hash 0；Root 一次 27s swipe 实际路由成功（x -76→-20.934、coins 0→11，`DISCRETE_SIDE_EFFECT_STOP` 故 pay 未发、无 retry）；postflight 资源交还/root PNG 0/controller PNG 1 通过。边界：非付款/placement/城堡/角色/存档/画面验收。
+
+Worker F 全量 MemberRef 扫描（3,930 条；25 引擎 ICall 分发中 17 已注册、8 缺口）确认已知缺失族（forceRenderingOff/PropertyBlock/flipY/unscaledTimeAsDouble/GetPixels32/LineRenderer.useWorldSpace 等）在候选 IL 与字节中全 0 引用；新缺口 P1 `Physics2D.GetIgnoreCollision`（弩/英雄箭穿墙静默失效）、P2 `Animator.GetFloat(string)` 已由 Worker G 分支 `dsh/engine-api-gaps-wallpierce-20261025`@`e90423f` 修复（P1 显式 Android 唯一写者/own-ledger 契约+有界 info，P2 StringToHash+GetFloat(int)；PC 逐字；产物 `d5223bec…`，待集成），P3–P5（MusketeerCombat Linecast List、WallEngineer OverlapArea List、GreekImpact ClosestPoint）在 Worker H 分支修复中，P6–P8 当前不可达仅记录。记录：`tasks/issue-232/gameplay-profession-activation-run-20261025.md`、`tasks/issue-232/android-engine-api-gaps-20261025.md`。
+
+## 2026-10-24 — 视觉族（HeroArcher/Musketeer）renderer ICall 迁移完成：r3 同段首次出现 HeroArcher visual=True、attach 2 次无 detach，三个特性零缺失 ICall
+
+Agent Teams 两名 teammate（DeepSeek flash）并行完成并集成（commit `d1d6ef2` HeroArcherVisuals+HeroArcherCloth、`0845682` MusketeerVisuals+MusketeerGunVisuals，已推送 `codex/android-economy-262`，HEAD `0845682`）：两族 `forceRenderingOff`/`Get·SetPropertyBlock` 全部走既有 `AndroidUnityCompat`（共享 `Renderer.enabled` + 写后读回确认 + `HidNative`/`Owned` 凭据纪律；PC 逐字/等价保留）；HeroArcher cloth alpha 改烘进已有 vertex colors alpha（PC PropertyBlock 逐字）；Gun visible 改由 Owned/Parked 凭据并消除 parked 抖动；PropertyBlock 复制在三个特性均显式跳过并一次性 info。Operator 复跑 13 组 managed 套件全绿；Android 构建 `b1c9b623…`（2,281,472 B，208 输入保持、noDeployment）。
+
+单次 Native（case135，plan **`b36e707c…`**，gate 消费一次，window `11:51:50–12:11:50Z`、lease 覆盖）：controller exit0、`evidenceReportable=true`、候选归属/controlValid/READY+STOP/`Playing/2`/第 8 岛、无同船 NRE、`InitPools returned count=109`；负向 `MissingIl2CppInternalCallException`/`sig=`/`attach held`/`effect group create failed`/`renderer copy failed`/`apply failed`/`cloth build failed`/`hide·show write unconfirmed`/`belongs to another owner`/`relinquish` 全部 0 次；正向 HeroArcher/Musketeer/HeavyShield 三条 PropertyBlock 一次性 info 各 1、CoinCourier mesh ready 仍 1，且 **HeroArcher attach 2 次、detach 0、`[HeroArcher] selected … visual=True`（r2 同场景为 visual=False）**、`[HeroArcherNative] … forceoff=1` 持续——body+cloth 在 Android 首次实际 attach。Root postflight/资源交还通过，postrun F 仅 READ。边界：画面观感（cloth alpha/tint/双重 sprite/Gun park-unpark）、游戏 SetHideStatus 写频率、保存/读档/换岛/池复用、支付/玩法/手机/多人仍待后批；已知共享 enabled 语义差、PropertyBlock tint 不复制、HeroArcher relinquish 与 Musketeer 无 relinquish 的差异均已记录。下一步 gameplay 场景批次（职业弓弩/火铳/银行补货/付费枪）。Issue/PR 保持 open/Draft。
+
+## 2026-10-24 — Renderer ICall 族 producer 修复完成：两处 MissingICall 在 r2 单次同段内消失，且两路径有正向成功证据
+
+Operator 派发内置 subagent（DeepSeek flash max）并行完成两个 producer 修复并集成（commit `c219546`/`a0b0226`/`d52e6ac` + Operator 诊断 `b1abc95`，已推送 `codex/android-economy-262`）：HeavyShield attach/visual 全路径改用共享 `AndroidUnityCompat`（ANDROID 以 `Renderer.enabled` + 写后读回确认替代缺失的 `forceRenderingOff`；`Get/SetPropertyBlock` 显式跳过并一次性 info；`unscaledTimeAsDouble`→`(double)Time.unscaledTime`；PC 表达式等价）；CoinCourierTeleportFx 的 ANDROID 分支用每 dash MeshFilter+MeshRenderer+8 顶点/18 索引 ribbon（顶点色、宽度曲线断面、1×1 白纹理、共享 Sprites/Default、固定 bounds、池复用零逐帧分配）替代不可用的 LineRenderer 子集，PC LineRenderer 逐字保留。Android 构建 `da2240ee…`（2,280,960 B，208 输入保持、noDeployment）；三组 HeavyShield + 四组 coin-courier/teleport managed 回归 Operator 复跑全绿。
+
+单次 Native：r1（plan `af705d11…`）gate 消费一次，但客机加载两 mod 后 QEMU 崩溃（macOS qemu SIGSEGV in hang detector、emulator.log QEMU2 main loop hanging、ADB `error: closed`），`init-missing`/`log-stat-unknown`/`evidenceReportable=false`，不据此得产品结论。派生 r2（plan **`af633872…`**）gate 消费一次、window `08:56:22–09:16:22Z`、lease 覆盖：controller exit0、`evidenceReportable=true`、候选 `da2240ee` 归属/`controlValid`/READY+STOP/`Playing/2`/第 8 岛、无同船 NRE、同段 `InitPools returned count=109`；`attach held`/`effect group create failed`/`MissingIl2CppInternalCallException`/`sig=`/tick/register 异常全部 0 次；正向 `[HeavyShieldVisual]` PropertyBlock 一次性 info 与 `HeavyShieldVisualDriver` 注册证明 attach 越过旧抛点并完成 CopyLook，`[CoinCourierTeleportFx] android mesh dashes ready count=16` 紧邻旧失败同触发点 `BankAssistants first assignment/submission`。Root postflight/资源交还通过，postrun F 仅 READ。边界：只证明同段启动/加载与两条旧触发路径不再缺 ICall，画面观感、共享 enabled 写冲突、PropertyBlock tint、保存/玩法/手机/多人仍待后续批次与玩家实机；同族 HeroArcher/Musketeer 缺失另列。Issue/PR 保持 open/Draft。
+
+## 2026-10-24 — ICall 精确 Signature 已实读：HeavyShield=forceRenderingOff、CoinCourierTeleportFx=LineRenderer.useWorldSpace
+
+Operator 自审并执行诊断批次（commit `60fa5ec` 仅在两个既有 catch 的 ANDROID 分支加 Signature/Message 日志，PC 文本不变）：候选 `aac037c0…`（Android net6 Release，408 输入保持、未部署）一次性 Native，plan `cff3f574…`、gate 消费一次、window/lease 有效；controller exit0/evidenceReportable true，候选归属/controlValid/READY/Playing-2/第8岛正常、无同船 NRE，产品 InitPools returned count=109；Root postflight/资源交还通过，F 仅 READ。日志实读两处精确签名：`UnityEngine.Renderer::get_forceRenderingOff_Injected`、`UnityEngine.LineRenderer::set_useWorldSpace_Injected`，与静态候选一致；运行期无第三个 sig 行。下一步按 producer 集中修复，先核对 HeavyShield 同族 Get/SetPropertyBlock 与 Time 缺失；CoinCourier 需按表现契约选择 mesh/替代线实现，PC 保持。修复后新 build + 新单次 case 复验；不把本条当 Native 兼容或玩法验收。
+
+## 2026-10-24 — 零额外 Hook 加载对照完成：init 正常返回 109，第 8 岛 Playing，无同船 NRE
+
+用户给予完全访问后 `ps` 阻塞解除；发现正常 Mac 包被其它任务更新（`055368a3…`，package-manifest/SHA256SUMS 有据），按 Operator 自审 R5 刷新 protection pin，并让 register 支持续窗 OLD plan。新 plan `0f6e69a5…` 已重新登记，lease `08:24:19Z`，单次 gate 消费一次。唯一 Native：c1e43/cfg16b/609e/F35fae，controller exit0、evidenceReportable true；候选归属/609e controlValid/READY 正常 STOP/无同船 NRE，且同段产品 `[AndroidPoolLifecycle] native InitPools returned count=109`。观察 249.3s，world Playing/2、island/campaign/game 8；Root postflight fullOriginal/sourceThree true、reap proven、root inputs 0/PNGs 0、baseline PNG 1；postrun F 仅 READ。BankAssistants 观察到八池 spawn 与一次 accepted，CrossbowBolt 池注册；HeavyShieldRuntime 与 CoinCourierTeleportFx 两条 MissingICall 警告仍在，运行 Signature 未取。结论限定为启动期无该 NRE + InitPools 自然返回；不证九自定义池正确、Native 兼容、保存/支付/玩法/手机。PR263 仍 Draft，232 继续 doing。
+
+## 2026-10-23 — Android 零额外 Hook 加载对照：packet 已批准、plan 已登记，Native 启动被 DSH 沙箱 ps 权限阻止
+
+DSH 已完成 Batch A 最小工具派生与两级 source 增量复审（R3 资源身份、R4 正常包 protection pin），Codex 批准 source 与 packet 草案；packet/reviewed-source/source-review/gate/window 已冻结（manifest `26dbd6f0…`、gate `382b3058…`），新 case plan `a8e4b771…` 已按现有 Coordinate lifecycle 完成 revise/approve 并登记到 canonical，lease 刷新至 19:48:30Z，单次 gate 未消费。
+
+实际启动两次均在 VM/设备动作前 host-only 拒绝，原件保留：第一次为操作者预建空 `actual/` 目录触发“new host case directory required; no reuse”，第二次为 `PermissionError: [Errno 1] Operation not permitted: ps`——DSH 沙箱拒绝控制器执行 `ps` 进行 ADB/进程身份 preflight。两次均未启动 VM、未写设备、gate 未消费；资源保持（ADB 85922、端口空闲）。本单次窗口（endsAt 18:13:16Z）不执行即失效；继续需新窗口/plan 登记，并解决执行入口的 `ps` 权限：请求一次性 sandbox 例外，或由用户/Codex 在沙箱外执行冻结的 root-launch（同一实例单一实际操作者）。R2 判定边界不变，采集 exit0 不等于加载成功。
+
+## 2026-10-23 — DSH 正式承接 Android 专项，主线 f2b6dc 合并入候选分支
+
+按用户 2026-10-23 原会话授权（readback 已存），DSH 原桌面会话经原生 envelope 完成正式交接；Coordinate #232/#262 已按 DSH 身份 `mac-dsh-ohmymods-android-operator`（session `dsh-android-profession-archery-20261023`）完成 assignment request/accept，canonical checklist 的 owner/session/workflow/lease 已更新，旧 owner 记录保留。原 Codex 转为增量 Reviewer，不再并行修改 Android 产品。
+
+DSH 新写入工作树从精确 200a793 派生（`dsh/android-economy-262-20261023`，路径 `.local/worktrees/android-economy-262-dsh`）；原 W5 工作树保持 200a793 供旧回执路径解析。本批将主线 `release/v9.5.13`=`f2b6dcaa` 合并入分支：双方改动文件交集仅 `docs/project-harness/progress.md`，冲突按两侧条目时间序合并解决；主线 52 个变化文件与本 Android 工程 249 个显式编译输入无交集，本合并无 Android 产品源码变化，c1e43/cfg16b/F35fae 候选绑定保持有效。
+
+下一步：以 609e control-only 观察器准备零额外 Pool/Boat hook 的单次加载对照（新 plan/source review/运行门），并取两处 MissingICall 精确 Signature；随后按依赖验证职业/弓弩与银行补货的付款、保存、池生命周期。构建、原生运行和审查证据分别记账，未变化证据不重复复核。
+## 2026-10-23 — #101 400u宫廷已合并并安装到正常ARM64包
+
+PR #265 merge `fa54574426a528f135e79b2f9d9bf4c1c9a80e15`，Issue #101 已关闭；R12素材PR #279的精确binary补丁已纳入 #265 后关闭，保留作者分支，未另合入master。Mac ARM64 2.4.0单机隔离链通过：自然10币进入→400u/100Tile/452绘制→UI保存退出→新进程宫廷冷读→免费返回来源岛→UI退出→来源冷读及UI退出；19/19终态核验、英雄两席/骑士身份附档/原付费凭据保持。两端截边静帧已复核；动画仅有限运动与Menu停帧采样，不代验全部连续观感、Windows、Android或联机。
+
+`2026-10-23T19:15:01.156608+00:00` 安装default-net6 DLL `055368a3964d307b9a3155160d6a2036cd554f8765c7ea79bdac198b6e59fcaf`，仅更新独立ARM64正常包DLL、package-manifest.json和SHA256SUMS。安装前旧DLL/两份包记录/15份正常数据备份保留；写后恰3键变化、15份存档/配置/偏好及71个物理游戏文件保持，原launcher只读预检退出0且运行树无额外写入，未自动开正常游戏。实机用diagnostic `62a5fa1f…27b7`；default来自同623项冻结源/资源及实际build/embed证据，未称default已独立Native验。未发release/tag，下次正式版宫廷只计一次+0.3。详见[本轮回执](tasks/issue-101/r12-runtime-foundation-20261023.md)；下文保留历史。
 
 ## 2026-10-22 — #260 已交付修复收尾，旧 PR #264 撤回
 
 首次登岛生成、地图剪影/船位/配色与保存冷读已由 #271/#273/#274 合并并安装；当前正常 Mac DLL 仍为 `25d9ffef…f4c156`，本轮只读核对一致。用户明确选择撤回未完成原生验收的旧空岛恢复 PR #264，保留分支，将“已访问空岛原位回填”完整转入 [#277](https://github.com/baisiqi6/ohmymods/issues/277) 延期待办；#264 关闭未合并，不称旧档回填已完成或实装。#260 按已交付替代方案收尾，详情见 [收尾记录](tasks/issue-260/closeout.md)。
 
 本次无产品修改、游戏启动、正常数据写入或 DLL 安装；复核成功源与主线 `il2cpp/tests` 无差异，沿用仍有效的构建/原生证据。第二岛、旧档回填、Windows/Android/联机边界保持；新“开启开关后航行全岛不可选”另行保留排期。下文为各历史时点，不覆盖旧失败记录。
+
+## 2026-10-21 UTC — Android 池初始化交接修复进入 Playing，保存 Draft 检查点后暂停
+
+修复原提前注册处：自定义角色/工具、北境弓手、弩箭与银行助手只在 native InitPools 正常返回的同一当前 PM 上注册，World 仅消费该事实；删除 Android 旧外层 Init 弩箭登记，银行原账务收尾顺序保留。北境身份改读 prefab/实例 Persistent.path，所有 Android 消费者把未知保留为未知，PC 有效代码保持。Root 19 条生命周期回归、默认 net6 双构建、两实际 DLL 各 Adapter1504/0、独立源码审查通过。
+
+新候选 c1e43 在唯一一次 Native 中记录原生池 0→109、自定义登记后118，九具名池与 syncID 匹配；船池在 Apply 已存在，三次自然 FastSpawn 非空，世界进入第8岛 Playing 并观察120秒。独立 actual 审查允许 Draft 代码检查点；诊断32池上限及 mode-schema 使两个聚合目标仍 false，原始异常传播/无额外探针兼容、完整职业经济保存及玩家验收不记通过。Root 确认真实 wait/reap、八原件和完整 metadata、自有 AVD/端口保持；未写 Steam 或持久 AVD。按用户要求在本批暂停，不开下一 Native。PR263 Draft，232/262 OPEN；下一步先无额外 detour 加载核对，再按真实依赖处理两处已观察的缺失引擎调用与玩法。详见[本次记录](tasks/issue-262/verification.md#g20-native-definitions-fix)。
 
 ## 2026-10-20 — 坐骑岛显示修复已合并、安装，正常存档未替换
 
@@ -30,9 +130,65 @@ A35真实稳定详情快照已取得有效native坐标：8图标均有尺寸、�
 
 A21 实际确认后原生返回 focusedLand(UI10)，旧补丁只写 landResult11，Campaign 因而落10并由守卫终止，不能称已证游戏崩溃。当前窄修复在 exact BaseShow 完成处一次交接物理编号；不改 UI focus/Campaign/hasValue，不制造 None。最终 Root net6/net8 0W0E、22测试/230断言与独审通过，具体专属结果cell已静态核验；真实布局/hook、出航11/八设施、Save+Quit及同实际后像冷重进尚未通过。正常存档/配置/DLL未改，Issue270开放、未合并安装；详情岛形另项未修。见[tasks/issue-270/receipts/root-verification.md](tasks/issue-270/receipts/root-verification.md)。
 
+## 2026-10-19 UTC — Android 已观察到船件入口NULL，完整根因仍待上游字段补证
+
+独立参数诊断确认CopyProperties第一次调用的receiver非空、loosePart为空、dummyPart=false；真实代码RVA/安装/mode与完整sample均核验，独审仅接受入口事实。新Harmony边界会捕获原异常，已明确不验原传播/场景兼容；世界仍Loading，未把观测当修复。按360s预算收尾，Root八原件/metadata与自身资源归还保持，postread同输入仅为读取。静态更正prefab为Wharf.boatPartPrefab，旧+0x140 prefab解释撤回；直接Android偏移与现场pool/parent仍待证，不补假对象或重建池。当前plan54d58d1b，PR263 Draft、232/262开放。详见[入口样本及限制](tasks/issue-262/verification.md#g20-boat-entry-arguments)。
+
+## 2026-10-19 UTC — Android 候选在相同观察器与关闭配置下仍复现船坞加载异常
+
+当前2e55候选换用同一609e观察器后，完整cfg与四项关闭文件两例均出现相同BoatPart.CopyProperties/Wharf.StackPart NRE，均未记Native加载或玩法通过。关闭配置仅文件级四值已证，现场只有moneyFalse，另三职业entry未独立采样，不等于卸载保存/身份/池模块。两例postread同原始输入只证明读取；masked例raw退出身份unknown保持，Root独立确认八原件与自身资源已归还。重复Root objective字面检查已清理，Core统一责任仍严格校验。当前正常plan bcd0fd9a，必要审查与10host已留证；继续核实真实实参/Native目标契约，不做下游业务补偿。PR263 Draft、232/262开放。详见[隔离结果与退出边界](tasks/issue-262/verification.md#g20-config-isolation)。
+
+## 2026-10-19 UTC — Android 同档旧版Main进入场景，无Main对照因启动器补回失效
+
+同一原生测试档在旧Main0.0.30下进入Playing8、墙7并完成120秒只读观察；APK启动部署自动补回已移出的Main，故无Main对照INVALID，不能据此定案主Mod/loader/平台。存档postread逐字节同输入，只证明读取，不代保存验收。候选Main仍有船体恢复NRE，继续同observer的候选完整配置对照后按差异分组。八原件/metadata与自身资源保持经完整字段复核；保留Root投影漏uid/gid的原失败记录。Source/Exact/actual独审完成，当前plan c4bda32a；PR263 Draft、232/262开放。详见[本轮结果与边界](tasks/issue-262/verification.md#g20-original-main-baseline)。
+
+## 2026-10-19 UTC — Android 原生测试档已导入，加载阻断定位到船体恢复链
+
+封存测试档按原字节导入临时overlay并读回匹配，原生已到land8，但BoatPart.CopyProperties经Wharf恢复船件时报空引用，Game保持Loading，未接受读档/角色/保存通过。原900s用例收尾，wait1/reap-9与fresh八原件/自身资源保持已核，独审仅接受失败证据。现准备同档同loader、无主Mod的最小对照；不修改存档字段或下游吞错。PR263 Draft，232/262开放，详见[失败与归因边界](tasks/issue-262/verification.md#g20-fixture-native-load-failure)。
+
+## 2026-10-19 UTC — Android 单机输入观测已修正，继续建立玩法测试前置
+
+私有诊断按原生COOP/online分支选择唯一处理器并实读手势阈值，清掉旧路由缓存；产品Main保持。新单次已观察真实水平输入与27秒移动（-76→-32.830），仍离营地20.83，付款前置拒绝、实际仅1输入，未记消费通过。Source/Exact/actual独审分别完成，120.01s STOP、wait0/reap-9、fresh八原件及自身资源保持。主Operator已交接封存的原生已发展存档，codec与Android基座一致，内嵌Mod prefs契约核对及隔离导入仍待；角色/银行/保存/池继续必要验证，PR263 Draft、232/262开放。详见[本次记录](tasks/issue-262/verification.md#g20-input-route-repair)。
+
+## 2026-10-19 UTC — Android 新候选具名资源解析与移动原生验证通过观察门
+
+2e55/.10e128在新overlay单次启动；五knight/五soldier具名controller槽含Norse均解析，旧partial缺口消失，不代实际角色/style4或sync池。Root首帧自动调度两真实输入：5秒右滑原生X -76→-64.386后停止；下滑无新消费证据记Unknown且不重试，未到camp/未付款。120.11s STOP、controller wait0/QEMUreap-9、Root fresh八原件与自身资源保持，actual独审只过启动/输入观察。剩余FX/角色/保存/池仍待，现定位原生pay生产条件；PR263 Draft，详见[当前记录](tasks/issue-262/verification.md#g20-compat-startup-input)。
+
+## 2026-10-18 UTC — Android 像素/北境资源 producer 合批源码完成
+
+已据实际GetPixels解析差异复用ownedPNG helper，并按当前APK prefab置换责任补北境骑士controller，仅Android边界。原bbox/cache算法复用，清理重复FindAll调用；三份PC完整active逐字相同。Root默认net6D/R0E1旧W、各Adapter1504/0、实际旧API调用清零及正负host/独审通过；新2e55/993e尚未装载。必要Native路径、触屏/交易/保存/池验证继续，PR263保持Draft，见[本批记录](tasks/issue-262/verification.md#g20-pixel-norse-batch)。
+
+## 2026-10-18 UTC — Android 剩余像素接口与原生建造前置已定位
+
+新 `.9r2` 在独立临时 overlay 观察到 GetPixels 精确名解析0、Animator正对照非0；两点 ordinary边界-20.75/-3.25、intact0/0、castle未建/墙0、camp-12，未放宽共享选址。实际浮球几何改用现有managed字段，避免安全区/坐标镜像。Root移动脚本因剩余预算不足在intent前拒绝，实际0输入，未记触屏/付款通过；原120.12秒STOP、controller wait0、QEMU reap-9与Root fresh八原件/自身资源保持已留证，独立actual仅接受观察范围。现按已证接口差异与Norse prefab注册责任合批修复，必要业务与保存/池验证继续，PR263 Draft、232/262开放。详见[当前边界](tasks/issue-262/verification.md#g20-native-readiness)。
+
+## 2026-10-18 UTC — Android 共享选址参数已观察，四处 flipY 兼容边界完成源码验证
+
+私有0.0.8在原两固定时点读到完整城墙边界0/0、半宽2/2.75/2，当前区间不足以选址；实际图集为Greek，未套用“biome0即非Greek”的推断。Root fresh八项保持，进程已退出，独立actual只批准当前参数观察；边界为何为0及有效原生测试场景继续定位，不强制创建商店。四处在编flipY调用已在原共享源Android边界集中适配，PC完整有效源码逐字相同，旧源真实接口异常反例及新host、默认net6双构建、实际两产物get/set调用清零和独立审查通过；新候选尚未装载，Coin的GetPixels调用仍待核。PR263继续Draft，完整交易、生成攻击回收、保存装载与池重建待验。详见[参数观察](tasks/issue-262/verification.md#g20-placement-parameters)与[接口修复](tasks/issue-262/verification.md#g20-flipy-boundary)。
+
+## 2026-10-18 UTC — Android 三职业自然启用，选址前置继续定位
+
+Main `0cd53939…` 保持；新单次临时 overlay 仅相对58键受控基座打开无限金币、火铳、盾卫、英雄弓手四项，其余54项保持。两固定时点均读到配置及原生钱包标志一致；三个商店的 managed 注册标志为真，但对象/付款点为空、状态均为共享选址返回失败，不能记为商店创建或玩法通过。原120秒观察结束，实际wait/reap为0，Root fresh八项字节和metadata保持。独立actual审查只批准配置与选址状态观察；下一步读真实边界/半宽，区分参数不足与原生候选拒绝，不放宽选址或强制创建。PR263 Draft、#232/#262 OPEN；真实付款、生成攻击回收、保存装载和池重建仍待兼容验证。详见[自然启用结果](tasks/issue-262/verification.md#g20-profession-activation)。
+
+## 2026-10-18 — Android 七张图集的原生像素观察与自身资源验证收口
+
+默认候选 `0cd53939…` 在新临时overlay单次中记录七张ARGB32图集、十四固定像素与独立PNG oracle匹配，三类商店cache Ready及银行八模板/池匹配；独立actual审查只批准具名资源/选定CPU像素观察。新headless候选已用ownAVD/FD/端口/ADB身份检查替代全机game/VM互斥，66 host/7真实系统边界通过；正常登记与独立fresh完成，进程已退出，八项原文件保持。画面仍暗，不记视觉或真实交易/保存/池重建通过。PR263 Draft、#232/#262开放，下一步继续真实业务与生命周期兼容，手机多人长期另列。详见[本次边界与结果](tasks/issue-262/verification.md#g20-ownedpng-native)。
+
+## 2026-10-18 — Android 银行初始化已观察，继续公共图像接口适配
+
+用户已恢复推进。默认候选 `807e5b95…` 在新单次模拟器诊断中完成四张图集解码，记录128个精灵存储引用、八个助手模板/同步池及缓存匹配，当前新日志没有先前的接口异常；实际助手生成、交易、保存装载与池重建仍未验证。画面仍暗，未记视觉通过。本次进程已退出、保护文件与环境已核对并归还。独立审查仅批准初始化观察；PR263保持Draft，#232/#262开放。同批已将九处自有PNG像素读取集中到一个Android helper，八份PC有效源保持；默认net6双构建、实际产物旧调用清零、银行/商店host及独立源码审查通过，新产物尚未安装。手机、平板和多人验收继续单列。详见[初始化观察](tasks/issue-262/verification.md#g20-bank-init-actual)与[公共适配](tasks/issue-262/verification.md#g20-shared-owned-png)。
+
+## 2026-10-18 — Android API适配离线检查点，按用户要求暂停
+
+银行二维模板与图集像素读取在原共享源的Android边界适配，保持PC active字节和原校验/池/保存职责。Root独立银行85/73、图集40/37回归通过并保留旧源反例；默认net6 D/R0错误/1既有warning，Adapter各1504/0、其余405产品输入保持。两组独立代码审查均通过，保存为Draft暂停检查点；新候选未安装，后续登记/Native申请已撤回，不开下一组。#232/#262 OPEN、PR263 Draft；八模板池、真实业务保存及玩家验收如实待验，见[本批记录](tasks/issue-262/verification.md#g20-android-api-checkpoint)。
+
 ## 2026-10-18 — Android 133面板实际打开/关闭，诊断收口；银行初始化与完整UI仍未通过
 
 `controlled-economy133-ui-api-20261018-single1` 在独立临时 overlay 中达到 133-owner、world 与严格 touch surface；Root 3 输入/3 PNG：swipe 附近有 moving/位置响应，浮球 tap 后 open=True、ENTER/COMPLETE frame 709、open PNG 实际见面板，再 tap 后 closed PNG 无面板。四个 bank controller 已 Resolved、旧 AOC 首错消失，但 flipY ICall 与 clerk atlas decode 仍 MissingICall，`bankInitializationPassed=false`；不是 NativeBanker/完整 UI 通过。actual 独审 `APPROVE_DIAGNOSTIC_UI_OPEN_CLOSE_ACTUAL_ONLY`（报告SHA `05bc264c…`），Root disposition `ACCEPT_…`。计划 `5384d902…` 正常登记，185/169 readback 与 184/168 保护保持，validator 0、doctor 旧 3E/56 且 232 无 block；QEMU56614/controller56556 真实 reap/wait 0，fresh8/进程/端口保持，无 restore 层。无 intentional pay/save/RPC，自然临时 overlay 写入可能。232/262 OPEN、263 Draft；真实付款/保存/装载与池兼容仍待验，详见[G19记录](tasks/issue-232/g5-main106-preflight.md#g19-ui-open-close-actual)。
+
+## 2026-10-18 — Android 银行AOC首错调用已移除，实际控制器/池仍待复测
+
+复用现有资源图与基类查询，Android去掉两处缺失AOC getter及重复专用查询，PC完整active源保持。Root独立PC73/0、Android78/0、旧源75/3预期失败；默认net6 D/R各0错误、Adapter1504/0，真实DLL getter调用由2降0。独立源码/host审查通过，候选b9dc/3a39未部署；四名实际加载、池、交易保存及UI可见性仍未验，PR263与262保持进行中。详见[本批记录](tasks/issue-262/verification.md#g20-aoc-getter)。
 
 ## 2026-10-18 — Android 133注册与输入响应已观察，银行API和面板仍待修复核对
 
@@ -41,6 +197,10 @@ A21 实际确认后原生返回 focusedLand(UI10)，旧补丁只写 landResult11
 ## 2026-10-18 — Android G19 世界状态实际达到，聚合目标保持未通过
 
 旧106-owner net6候选在单次SDK临时overlay中实际进入RunningGame/Playing，玩家/wallet存在；旧V2的commerce+截图目标未达到，900秒后仍inconclusive、0PNG，不补成玩法通过。原生核对定位通用商店门/付款数组容量的语义问题，未来私有V3仅保留world/input目的，实际编译与独审通过、未安装；旧失败/源码/raw/spent保留。QEMU真实reap与Root8文件/进程/端口fresh保持，正常登记/续租和无关旧doctor边界分别留证。232真实交易保存及池兼容仍待必要验证，PR263未由本例代验；详见[G19记录](tasks/issue-232/g5-main106-preflight.md#g19-world-state)。
+
+## 2026-10-18 — Android 经济与九类补货源码接入（Issue #262）
+
+复用17份PC经济共享源、原协调器、八助手sync池与四张atlas，接齐18个真实配置和触屏经济子页；保留小浮球与PC中文风格。原106 owner及动态目标保持，133 owner/141关联不混作唯一原生方法。实际net6 D/R编译、各1504 Adapter、旧cfg661及载入边界821通过；前阶段PC全源net6/net8通过；补查在原Msk owner处恢复银行ID/装载/世界确认五桥，PC预处理保持，修前五条红转绿。独审及必要运行边界见[本批记录](tasks/issue-262/verification.md)。原源码阶段未安装；后续诊断与AOC修复见上方记录。真实扣款、保存/读档/池重建未验，Issue保持开放；#232仍有具名原生兼容场景，不能用本批编译代替。
 
 ## 2026-10-17 — 钱袋全世界视觉复核（PR #249）
 
@@ -2262,3 +2422,9 @@ PR229发布后仅进展文档追加段冲突；已保留主线与Android两端�
 
 
 2026-10-23 #101 / R12 宫廷：400u 配方/100×4u 地面与收费布局记录已接线；本轮又接入冻结 R12 的 92 项资源、452 个绘制节点和唯一 CourtScene 生命周期。资源一次完整校验后发布，CanPay 不读文件；新布局不回退旧44，旧44/Legacy路径保留。创建失败对象所有权、world/view 深度、失活借用对象、Level/镜头绑定与 outer-root 清理已补定向回归；最终增量复审通过。当前完整源 default/diagnostic × net6/net8 四构建均0W0E，实际DLL新92项逐字节核对/275检查通过；旧DLL缺包负例及Android资源边界独立复核通过，均不代替实机。当前尚未启动这一完整候选的自然10币进入→保存退出→新进程重进→免费返回流程；水线/人物比例是待实机初值。#101与PR265仍进行中/Draft，未合并安装，正常存档/配置与正常DLL保持，Windows性能测试继续暂停。详见[任务记录](tasks/issue-101/r12-runtime-foundation-20261023.md)。
+
+- 2026-10-21 Android #232/#262：Boat 上游实际 FieldInfo 已确认0x20/0x140/0x148；prefab/parent有效，raw-key池entry缺失、learningMode=false、cachedPools=9。当前ELF证明SpawnGO先swap后查池且会调用FastSpawn，已撤回旧“船路径不经过FastSpawn”判断；raw-key与缺postfix均不代实际swap-key根因。原生OnLevelLoaded Count门控及Norse1+Bank8源码候选存在，入口九池身份仍未取到，不加force-init/补池。私有0.0.4独立构建0W0E/67checks；修复控制器把同PID `<pre-initialized>` 误判退出的产生处，启动+parser28/控制器37回归通过，无新启动/宽限/重试。single2 fresh归属及同Boat失败成立，但入口探针maps-line-limit安装前拒绝，diagnosticGoalReached=false，Native/玩法未验；更名分支该例未重现，不冒充实测。停止/wait已合为同Popen单一owner，两新例真wait0/all8完整metadataheld；N9原cleanupUnknown保留，后读F一致仅READ。正常计划d2a751f4受管登记/独立镜像，其他184rows/168plans保持、validator0；旧doctor247/251错误不冒称全绿。产品Main2e55不变、PR263 Draft、232/262 OPEN。详见[上游与入口观测记录](tasks/issue-262/verification.md#g20-boat-upstream-pool-phase)。
+
+- 2026-10-21 Android #232/#262 N11增量：私有0.0.5以单次dladdr代全maps遍历，删除旧预检和重复地址检查；Root0W0E/17地址ABI host，未变67复用、controller37/parser启动28通过。实际模块/RVA及两个target安装成立，无entry/九池身份；单条日志快照2秒超时令局部facts未合并，raw保留，不定挂死。F后读未执行；严格owner TERM→KILL/wait-9与独立八项完整metadata/资源交还另证，旧postflight失败保留。正常计划fbbe4a7d受管登记/镜像、其他184rows/168plans保持；仅接受有限安装和物理事实，产品Main未变、Pool目标与根因未知。继续修只读snapshot阶段预算/错误交接，详见[同一记录](tasks/issue-262/verification.md#g20-boat-upstream-pool-phase)。
+
+- 2026-10-21 Android #232/#262 N12入口诊断：保持Main2e55/cfg16b/F35fae与私有0.0.5 c58；修正单次日志读取固定2秒上限及错误交接后，新的受控单例完整采到同PM的OnLevelLoaded入口9池：银行助手8个30120..30127、北境Archer30000；随后Apply同PM/Count9、raw-prefab-key缺entry，仍同Boat NRE/Loading。入口diagnosticGoal/entryFactsValid=true，仅该诊断目标；无InitPools entry继续unknown，不把静态Count分支当运行分支证明，也不宣称实际swap-key或完整根因。原生加载/玩法/手机仍未验。后读F一致仅READ，严格owned TERM/wait0，Root八项bytes/完整metadata和自身AVD/端口保持；独审接受入口身份与物理事实。旧ADB1490消失后明确一次同SDK前台nodaemon重获86762，身份重新冻结并增量审查；中断消失的W4由同4bb3提交恢复为W5，原始失败保留。新正常plan cea19dc6受管登记/独立镜像、其他184行168计划保持/validator0；产品未改，PR263 Draft、232/262 OPEN。下一阶段收拢提前注册writer，先闭合保存/网络/晚到资产/重建依赖，不加forceInit或下游补池。详见[本次现场与边界](tasks/issue-262/verification.md#g20-boat-upstream-pool-phase)。
