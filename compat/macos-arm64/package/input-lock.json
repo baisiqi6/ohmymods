@@ -283,29 +283,29 @@
     {
       "mode": "0644",
       "path": "BepInEx/plugins/KingdomEnhancedMod/KingdomEnhancedMod.dll",
-      "sha256": "8f89959de555f72f6c53b71cf1d98a0da415b8577b91d825177d6f05bf6d623f",
-      "size": 1156608,
+      "sha256": "8b47537731c0c166ac22634729f73a29d4f7cde0733ed7105015f0561d380b85",
+      "size": 9100288,
       "source": "input-root"
     },
     {
       "mode": "0644",
       "path": "README.md",
-      "sha256": "d2e1026df734431adce89b1af22a52944ada29e843f8d44df91c6c59f434acc4",
-      "size": 28135,
+      "sha256": "1cd6c3d9cc0941b4b0c2a3cbf09f3ebf4ec1f7a5cf23af0fd5b6c86b985a2fd1",
+      "size": 30019,
       "source": "package-material"
     },
     {
       "mode": "0644",
       "path": "REBUILD.md",
-      "sha256": "2b1fb23f68ed296def822c0e7bfbd7803000cc50f2a8366990732d20f3bda0a8",
-      "size": 6761,
+      "sha256": "b3d97879bcc99cd917e11a651015facfca52f40fe13d4c0e6d53ab23a65228f7",
+      "size": 13222,
       "source": "package-material"
     },
     {
       "mode": "0644",
       "path": "VALIDATION.md",
-      "sha256": "35efc32efefb6173cbed1489eb4d01b117c21097a27f4d4b842e4da2a90ad01a",
-      "size": 5052,
+      "sha256": "6624a565421e9623471f853e66a0c34bb2fdea8dd1f3043886281ebc38d34e6b",
+      "size": 17362,
       "source": "package-material"
     },
     {
@@ -1647,6 +1647,20 @@
     },
     {
       "mode": "0644",
+      "path": "metadata-sanitization-receipts/mod-v11.0.0-authoring-paths.json",
+      "sha256": "462e92c2acbe902dabdb3aca8c6a5cb30c910b5b8191d355f13aab971ed58820",
+      "size": 1669,
+      "source": "package-material"
+    },
+    {
+      "mode": "0644",
+      "path": "metadata-sanitization-receipts/mod-v11.0.0-codeview.json",
+      "sha256": "f4014c5f99f605c2fe3f7f97a761adb44e3ce24ccefdacbbec04b94498fc77fd",
+      "size": 1133,
+      "source": "package-material"
+    },
+    {
+      "mode": "0644",
       "path": "third-party/NOTICE.md",
       "sha256": "fc275f075eb942a2e73fe79014db774fe91f556935c5a6e49481f8fec0908605",
       "size": 5881,
@@ -1885,6 +1899,13 @@
     },
     {
       "mode": "0644",
+      "path": "tools/PluginInfo-v11.0.0.cs.txt",
+      "sha256": "bb9dbb725d6160ef0fe5152bfda9ff68b6088017c0d7d462531b18056c967e06",
+      "size": 220,
+      "source": "package-material"
+    },
+    {
+      "mode": "0644",
       "path": "tools/console-filter.awk",
       "sha256": "8296fbbed73ac2970b8d9ce2a6f055cfa9d718c4b228dfbd1f1b01947ff72094",
       "size": 11440,
@@ -1892,16 +1913,37 @@
     },
     {
       "mode": "0644",
+      "path": "tools/mod-build-net6.csproj",
+      "sha256": "f8d1d4da8e75a363629174c22ed563fd5a5454aa44945f69d131f254ae3dc4d7",
+      "size": 21889,
+      "source": "package-material"
+    },
+    {
+      "mode": "0644",
+      "path": "tools/mod-inputs-v11.0.0.json",
+      "sha256": "afd86d6b5e24784d419c21261ff54b18976865914b5d6e1a67b91f316f7bf798",
+      "size": 99835,
+      "source": "package-material"
+    },
+    {
+      "mode": "0644",
+      "path": "tools/mod-references-v11.0.0.json",
+      "sha256": "15ed7d3bc225130cc2174459a54af8870357f4009575ea4bbb9e17067d1e6c68",
+      "size": 24077,
+      "source": "package-material"
+    },
+    {
+      "mode": "0644",
       "path": "tools/sanitize_codeview.py",
-      "sha256": "a9b6869c7b078b045c4b06ba547a002c54189251294e3b6ac3516f50dc00a1da",
-      "size": 21075,
+      "sha256": "fff580f5fba5307df9351d639c5fef8aa11ef43bd2f4dbbf709da2836458180f",
+      "size": 21262,
       "source": "package-material"
     },
     {
       "mode": "0644",
       "path": "tools/test_sanitize_codeview.py",
-      "sha256": "63833657446eb0b686994e3ae8faeb6464cd7a7f14b4ce960fd110076499aac5",
-      "size": 24378,
+      "sha256": "0d366d1754c9f6748f41b9bfa586901e22b385d901079da05e4974fa0c14f98c",
+      "size": 24533,
       "source": "package-material"
     }
   ],
@@ -1918,9 +1960,9 @@
     "arch": "arm64",
     "folder": "OhMyMods-Mac-ARM64",
     "framework_archive": "9027335541b64621a0b8cf277bb07974bdc518b6",
-    "mod_dll_sha256": "8f89959de555f72f6c53b71cf1d98a0da415b8577b91d825177d6f05bf6d623f",
+    "mod_dll_sha256": "8b47537731c0c166ac22634729f73a29d4f7cde0733ed7105015f0561d380b85",
     "mod_plugin_dir": "KingdomEnhancedMod",
-    "version": "9.5.13-mac-arm64-preview.1"
+    "version": "11.0.0"
   },
   "schema": "ohmymods-arm64-package-input-lock/2"
 }

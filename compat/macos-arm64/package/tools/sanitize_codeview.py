@@ -59,6 +59,9 @@ PINS: Dict[str, List[str]] = {
         ["OhMyMods.MacCompatibility.pdb"],
     "162046f77e025d90b3d6c9b5ea25d92835cb0609c26563885898ae93dfc9fb8a":
         ["KingdomEnhancedMod.pdb"],
+    # 11.0.0 Mac ARM64: version-only rebuild of the installed gameplay source.
+    "73e76e2886cc37b82826996fac2e8a9e47119623c930cce3d5434b69f9144982":
+        ["KingdomEnhancedMod.pdb"],
 }
 
 # 家路径标记（macOS/Unix 与 Windows 形态）；出现在定位字段之外即拒绝。

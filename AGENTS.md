@@ -29,7 +29,7 @@ Mac 开发入口 `~/projects/ohmymods`；Windows `C:/Users/ADMIN/Projects/ohmymo
 | Mono 维护 | [runbook 的 Mono 章节](docs/project-harness/runbook.md#mono-自用线)，含 C# 5、Harmony 1.2、bash 编译与 doorstop 注入限制。 |
 | 委派、模型选择或 ZCode operator 决策 | [协作协议](docs/project-harness/collaboration-protocol.md)；读取北京时间，按协议派发并核验实际模型事件，不静默换模型。 |
 | 商店素材制作与接入 | [商店素材准则](docs/development/shop-material-standard.md)；人物独立动画层，按同世界成年居民比例接地，逐帧核验层序、脚线、footprint 和付款点。 |
-| 发版与版本账目 | 根目录 [VERSIONING.md](VERSIONING.md)；按最近正式版核差异，修复/优化按完整条目 patch +1～5，新增功能 minor +1～3；同一问题返修不重复计数，不因改动多擅自跳 major。 |
+| 发版与版本账目 | 根目录 [VERSIONING.md](VERSIONING.md)；按整批发布的最高变更类型递增一次（修复 PATCH、兼容新功能 MINOR、不兼容改动 MAJOR），递增高位时低位归零；不按条目计分，历史版本不重编号。 |
 
 ## 协作与交付
 

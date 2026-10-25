@@ -1,3 +1,7 @@
+## 2026-10-25 — 11.0.0 Mac ARM64 发布批次 #294
+
+用户选定仅Mac ARM64正式包；以当前正常安装0553对应fa545源码整理版本和出处元数据，未加入未安装候选。新发行DLL8b475377…、ZIP706363ab…；0W0E、Capital885、authoring图/帧/布局核验、精确IL/资源差与双打包/读回/check-only留证。production-source旧R1布局pin在修改前后同样失败，未记全绿。正常包/存档保持，未新增游戏实机；Windows/Android未随本批发布。详见[本批记录](tasks/issue-294/release.md)；最终tag与下载以[发布页](https://github.com/baisiqi6/ohmymods/releases/tag/v11.0.0)回执为准。
+
 ## 2026-10-23 — #101 400u隔离完整往返通过，进入合并安装关口
 
 R12完整隔离往返链已通过：真实10币/原生结算进入、400u/100Tile/452绘制，实际UI保存退出、新进程宫廷冷读、用户自然免费回程12→8（一次Reload、钱包128→128）、来源再次冷读与UI退出。最终独立19/19后像核验，Hero2席/原Knight身份与VisitCommitted rev9保持，加载raw35不变，随后Playing自然推进不误算宫廷漂移。两端旧P2静帧关闭；动画仅有限运动+Menu停帧采样，不冒称全部连续动画/跨平台/联机通过。R4四变体0W0E、Root cold81/0+Astra55/0、实际92资源/275检查不变。自动输入超时与Root菜单误投币等私人操作失败原样保留，未当产品修复。当前PR265仍Draft，最终合并/正常单DLL安装门正在收尾；正常存档/配置与DLL未替换。详见[连续检查点](tasks/issue-101/r12-runtime-foundation-20261023.md)。下文为历史记录。

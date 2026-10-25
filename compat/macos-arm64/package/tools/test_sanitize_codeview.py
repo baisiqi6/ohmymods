@@ -338,7 +338,9 @@ class TestStructuralSanitize(unittest.TestCase):
             sc.parse_debug_records(b"MZnotape" + bytearray(0x200))
 
     def test_pins_table_shape(self):
-        self.assertEqual(len(sc.PINS), 4)
+        self.assertEqual(len(sc.PINS), 5)
+        self.assertEqual(sc.PINS["73e76e2886cc37b82826996fac2e8a9e47119623c930cce3d5434b69f9144982"],
+                         ["KingdomEnhancedMod.pdb"])
         for sha, names in sc.PINS.items():
             self.assertEqual(len(sha), 64)
             self.assertEqual(len(names), 1)
