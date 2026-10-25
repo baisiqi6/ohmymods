@@ -69,6 +69,7 @@ internal static class Program
         deps.GetField("_poolManagerPointer", PrivateStatic).SetValue(null, 0UL);
         deps.GetField("_allPoolsReady", PrivateStatic).SetValue(null, false);
         deps.GetField("_poolCollections", PrivateStatic).SetValue(null, null);
+        deps.GetField("_inDependencyScope", PrivateStatic).SetValue(null, false);
         deps.GetField("_receiptCampaignPointer", PrivateStatic).SetValue(null, 0UL);
         deps.GetField("_receiptReignIndex", PrivateStatic).SetValue(null, int.MinValue);
         deps.GetField("_receiptLandDataPointer", PrivateStatic).SetValue(null, 0UL);
@@ -90,6 +91,9 @@ internal static class Program
         Pool.CreatePoolForCalls = 0;
         Pool.InitCalls = 0;
         BiomeData.SteedSwap = null;
+        BiomeSpecificAssets.PrefabSwap = null;
+        BiomeSpecificAssets.SteedFallbacks = 0;
+        BiomeSpecificAssets.SteedMissingKeyReads = 0;
 
         var poolManager = new PoolManager { gameObject = new GameObject("PoolManager") };
         Managers.Inst = new Managers { game = new Managers.Game(), pools = poolManager };
@@ -1320,20 +1324,283 @@ internal static class Program
             !ReferenceEquals(Resolve(assets, 6, unicorn), unicorn));
     }
 
-    private static void Main()
+    // ------------------------------------------------------------------ issue-291: native pool rebuild ordering
+
+    private static bool InDependencyScope()
+        => (bool)typeof(CrossWorldMountDependencies).GetField("_inDependencyScope", PrivateStatic).GetValue(null);
+
+    /// <summary>五个原生同步池按 native 定义登记，三缓存 + static 池表一致。</summary>
+    private static bool FivePoolsCurrent(PoolManager pm)
     {
+        if (pm == null || pm.cachedSyncIdPoolPairs.Count != SyncPoolsById.Count
+            || pm.cachedPools.Count != SyncPoolsById.Count
+            || pm.cachedNamePoolPairs.Count != SyncPoolsById.Count) return false;
+        foreach (KeyValuePair<int, Pool> pair in SyncPoolsById)
+        {
+            if (!pm.cachedSyncIdPoolPairs.TryGetValue(pair.Key, out Pool pool)) return false;
+            if (!ReferenceEquals(pool.prefab, pair.Value.prefab)) return false;
+            if (!ReferenceEquals(Pool.GetPoolFromPrefabAsset(pair.Value.prefab), pool)) return false;
+            if (!pool.sync || pool.syncID != pair.Key) return false;
+            if (!pm.cachedNamePoolPairs.TryGetValue(pair.Value.prefab.name, out Pool named)
+                || !ReferenceEquals(named, pool)) return false;
+        }
+        return true;
+    }
+
+    private static void ClearPoolCaches(PoolManager pm)
+    {
+        Pool.PoolsByPrefab.Clear();
+        pm.cachedPools.Clear();
+        pm.cachedNamePoolPairs.Clear();
+        pm.cachedSyncIdPoolPairs.Clear();
+    }
+
+    private static void Contract10_PoolInitOrder()
+    {
+        // A. 原生 InitPools 重建时映射尚未登记（无 EnsureAll 预热）：实际 PoolInit.Postfix 必须
+        //    先登记映射、再按 definition 补池；缺键不得读 Horse 回退。
+        Reset();
+        BiomeSpecificAssets assets = BiomeHolder.Inst.curBiomeAssets;
+        PoolManager pm = Managers.Inst.pools;
+        Check("C10 fixture starts with pool steed types genuinely unmapped",
+            !assets.objectSteedTypePairs.ContainsKey((SteedType)22)
+            && !assets.objectSteedTypePairs.ContainsKey((SteedType)25)
+            && !assets.objectSteedTypePairs.ContainsKey((SteedType)15)
+            && !assets.objectSteedTypePairs.ContainsKey((SteedType)14)
+            && assets.biomeSteeds.Count == 1);
+
+        BiomeSpecificAssets.SteedFallbacks = 0;
+        BiomeSpecificAssets.SteedMissingKeyReads = 0;
+        Steed preFallback = assets.GetSteedByType((SteedType)22);
+        Check("C10 raw getter faithfully yields the native Horse before mapping",
+            preFallback != null && (int)preFallback.steedType == 8
+            && ReferenceEquals(preFallback, assets.GetSteedByType((SteedType)8))
+            && BiomeSpecificAssets.SteedFallbacks == 1);
+
+        BiomeSpecificAssets.SteedFallbacks = 0;
+        BiomeSpecificAssets.SteedMissingKeyReads = 0;
+        InvokePrivate(typeof(PatchRide_CrossWorldMount_PoolInit), "Postfix");
+        Check("C10 pool-init postfix registers mappings and all five pools in one pass",
+            CrossWorldMountDependencies.AllSteedsReady && FivePoolsCurrent(pm));
+        Check("C10 all four pool definitions become ready",
+            IsReady(Def(22)) && IsReady(Def(25)) && IsReady(Def(15)) && IsReady(Def(14)));
+        Check("C10 pool rebuild consumed no Horse fallback",
+            BiomeSpecificAssets.SteedFallbacks == 0 && BiomeSpecificAssets.SteedMissingKeyReads == 0);
+        Check("C10 registration stays idempotent (one entry per type)",
+            assets.biomeSteeds.Count == 18 && UniqueSteedTypes(assets.biomeSteeds));
+        Check("C10 reentry scope flag returned after the rebuild", !InDependencyScope());
+
+        // B. 连续三代原生清池 → postfix：累计 0 fallback、条目不重复。
+        for (int generation = 1; generation <= 3; generation++)
+        {
+            ClearPoolCaches(pm);
+            InvokePrivate(typeof(PatchRide_CrossWorldMount_PoolInit), "Postfix");
+            Check("C10 generation " + generation + " re-registers all five pools",
+                FivePoolsCurrent(pm) && IsReady(Def(22)) && IsReady(Def(25))
+                && IsReady(Def(15)) && IsReady(Def(14)));
+        }
+        Check("C10 three rebuild generations consume zero fallbacks",
+            BiomeSpecificAssets.SteedFallbacks == 0 && BiomeSpecificAssets.SteedMissingKeyReads == 0);
+        Check("C10 three rebuild generations do not duplicate steed entries",
+            assets.biomeSteeds.Count == 18 && UniqueSteedTypes(assets.biomeSteeds));
+        Check("C10 reentry scope flag returned after three generations", !InDependencyScope());
+
+        // C. 同 assets 清映射重建（InitializeAssets 语义）：仍在原实例上恢复，0 fallback。
+        Steed horse = assets.objectSteedTypePairs[(SteedType)8];
+        assets.biomeSteeds.Clear();
+        assets.objectSteedTypePairs.Clear();
+        assets.biomeSteeds.Add(horse);
+        assets.objectSteedTypePairs[(SteedType)8] = horse;
+        BiomeSpecificAssets.SteedFallbacks = 0;
+        BiomeSpecificAssets.SteedMissingKeyReads = 0;
+        InvokePrivate(typeof(PatchRide_CrossWorldMount_AssetsInit), "Postfix");
+        Check("C10 same-asset reinit restores mappings without a getter fallback",
+            CrossWorldMountDependencies.AllSteedsReady && CrossWorldMountDependencies.ReadySteedCount == 20
+            && BiomeSpecificAssets.SteedFallbacks == 0);
+        Check("C10 same-asset reinit does not duplicate entries",
+            assets.biomeSteeds.Count == 18 && UniqueSteedTypes(assets.biomeSteeds));
+        ClearPoolCaches(pm);
+        InvokePrivate(typeof(PatchRide_CrossWorldMount_PoolInit), "Postfix");
+        Check("C10 pool rebuild after same-asset reinit restores five pools with zero fallback",
+            FivePoolsCurrent(pm) && BiomeSpecificAssets.SteedFallbacks == 0);
+
+        // D. 映射容器暂缺：fail-closed，不调用 getter（不制造 Horse 回退）；恢复后自愈。
+        Reset();
+        assets = BiomeHolder.Inst.curBiomeAssets;
+        pm = Managers.Inst.pools;
+        Il2CppSystem.Collections.Generic.Dictionary<SteedType, Steed> pairsContainer =
+            assets.objectSteedTypePairs;
+        assets.objectSteedTypePairs = null;
+        BiomeSpecificAssets.SteedFallbacks = 0;
+        BiomeSpecificAssets.SteedMissingKeyReads = 0;
+        InvokePrivate(typeof(PatchRide_CrossWorldMount_PoolInit), "Postfix");
+        Check("C10 null mapping container fails closed without reading a Horse fallback",
+            BiomeSpecificAssets.SteedFallbacks == 0 && BiomeSpecificAssets.SteedMissingKeyReads == 0
+            && !CrossWorldMountDependencies.AllSteedsReady
+            && !IsReady(Def(22)) && pm.cachedSyncIdPoolPairs.Count == 0);
+        Check("C10 scope flag returned after container failure", !InDependencyScope());
+        assets.objectSteedTypePairs = pairsContainer;
+        InvokePrivate(typeof(PatchRide_CrossWorldMount_PoolInit), "Postfix");
+        Check("C10 container recovery registers five pools with zero fallback",
+            FivePoolsCurrent(pm) && CrossWorldMountDependencies.AllSteedsReady
+            && BiomeSpecificAssets.SteedFallbacks == 0);
+
+        // E. 单条 primary 资源暂缺：只挡自己的池，其他 definition 独立就绪且不读 Horse。
+        Reset(new Scenario { MissingSteeds = { 22 } });
+        assets = BiomeHolder.Inst.curBiomeAssets;
+        pm = Managers.Inst.pools;
+        BiomeSpecificAssets.SteedFallbacks = 0;
+        BiomeSpecificAssets.SteedMissingKeyReads = 0;
+        InvokePrivate(typeof(PatchRide_CrossWorldMount_PoolInit), "Postfix");
+        Check("C10 missing primary blocks only its own pool without a Horse read",
+            !IsReady(Def(22)) && IsReady(Def(25)) && IsReady(Def(15)) && IsReady(Def(14))
+            && pm.cachedSyncIdPoolPairs.Count == 4 && !pm.cachedSyncIdPoolPairs.ContainsKey(80)
+            && BiomeSpecificAssets.SteedFallbacks == 0 && BiomeSpecificAssets.SteedMissingKeyReads == 0);
+        AddSteed(22, Def(22).SteedPrefabPath, new Scenario());
+        InvokePrivate(typeof(PatchRide_CrossWorldMount_PoolInit), "Postfix");
+        Check("C10 repaired primary registers the fifth pool with zero fallback",
+            FivePoolsCurrent(pm) && IsReady(Def(22)) && BiomeSpecificAssets.SteedFallbacks == 0);
+
+        // F. P2 别名暂缺：primary/技能池独立就绪，但定义授予门仍拒绝。
+        Reset(new Scenario { MissingSteeds = { 27 } });
+        assets = BiomeHolder.Inst.curBiomeAssets;
+        pm = Managers.Inst.pools;
+        BiomeSpecificAssets.SteedFallbacks = 0;
+        BiomeSpecificAssets.SteedMissingKeyReads = 0;
+        InvokePrivate(typeof(PatchRide_CrossWorldMount_PoolInit), "Postfix");
+        Check("C10 missing P2 alias keeps the primary pools independent",
+            FivePoolsCurrent(pm) && IsReady(Def(22)) && IsReady(Def(15)) && IsReady(Def(14))
+            && !IsReady(Def(25)) && BiomeSpecificAssets.SteedFallbacks == 0);
+        Check("C10 grant gate still rejects the alias-pending definition",
+            CrossWorldMountDependencies.DefinitionNotReadyReason(Def(25))
+                .StartsWith("alias 27", StringComparison.Ordinal));
+
+        // G. 精确键存在但 Unity-null：不得把 raw 字典存在当成功，替换后仍唯一、0 fallback。
+        Reset();
+        CrossWorldMountDependencies.EnsureAll();
+        assets = BiomeHolder.Inst.curBiomeAssets;
+        pm = Managers.Inst.pools;
+        Steed beetle = assets.objectSteedTypePairs[(SteedType)14];
+        assets.objectSteedTypePairs[(SteedType)14] = null;
+        BiomeSpecificAssets.SteedFallbacks = 0;
+        BiomeSpecificAssets.SteedMissingKeyReads = 0;
+        ClearPoolCaches(pm);
+        InvokePrivate(typeof(PatchRide_CrossWorldMount_PoolInit), "Postfix");
+        Check("C10 Unity-null exact entry is replaced without a getter fallback",
+            BiomeSpecificAssets.SteedFallbacks == 0 && BiomeSpecificAssets.SteedMissingKeyReads == 0
+            && assets.objectSteedTypePairs.TryGetValue((SteedType)14, out Steed repaired)
+            && ReferenceEquals(repaired, beetle));
+        Check("C10 Unity-null repair keeps entries unique and pools ready",
+            assets.biomeSteeds.Count == 18 && UniqueSteedTypes(assets.biomeSteeds)
+            && FivePoolsCurrent(pm) && IsReady(Def(14)));
+
+        // G2. 精确键整体缺失：StillResolved 必须早退，不调用 getter 制造 Horse 回退。
+        Steed golem = assets.objectSteedTypePairs[(SteedType)15];
+        assets.objectSteedTypePairs.Remove((SteedType)15);
+        BiomeSpecificAssets.SteedFallbacks = 0;
+        BiomeSpecificAssets.SteedMissingKeyReads = 0;
+        ClearPoolCaches(pm);
+        InvokePrivate(typeof(PatchRide_CrossWorldMount_PoolInit), "Postfix");
+        Check("C10 missing exact key is re-registered without calling the native getter",
+            BiomeSpecificAssets.SteedFallbacks == 0 && BiomeSpecificAssets.SteedMissingKeyReads == 0
+            && assets.objectSteedTypePairs.TryGetValue((SteedType)15, out Steed regolem)
+            && ReferenceEquals(regolem, golem)
+            && assets.biomeSteeds.Count == 18 && UniqueSteedTypes(assets.biomeSteeds)
+            && FivePoolsCurrent(pm));
+
+        // G3. raw 精确键指向 B，而 native GetPrefabSwap(B)=A（A 是本条 Ready 实例）：
+        // StillResolved 不得在真实 getter 前按 raw 指针提前判 false（会误入冲突分支）。
+        Reset();
+        CrossWorldMountDependencies.EnsureAll();
+        assets = BiomeHolder.Inst.curBiomeAssets;
+        pm = Managers.Inst.pools;
+        Steed readyA = assets.objectSteedTypePairs[(SteedType)22];
+        var bGo = new GameObject("SleipnirSwappedB");
+        var swappedB = new Steed { gameObject = bGo, steedType = (SteedType)22 };
+        bGo.Components.Add(swappedB);
+        assets.objectSteedTypePairs[(SteedType)22] = swappedB;
+        int swapSawB = 0;
+        BiomeSpecificAssets.PrefabSwap = s =>
+        {
+            if (ReferenceEquals(s, swappedB)) swapSawB++;
+            return ReferenceEquals(s, swappedB) ? readyA : s;
+        };
+        BiomeSpecificAssets.SteedFallbacks = 0;
+        BiomeSpecificAssets.SteedMissingKeyReads = 0;
+        ClearPoolCaches(pm);
+        InvokePrivate(typeof(PatchRide_CrossWorldMount_PoolInit), "Postfix");
+        Check("C10 swap-preserved raw mapping keeps Ready and runs the native getter",
+            swapSawB > 0 && IsReady(Def(22))
+            && ReferenceEquals(assets.objectSteedTypePairs[(SteedType)22], swappedB)
+            && FivePoolsCurrent(pm));
+        Check("C10 swap-preserved raw mapping is not treated as a fallback",
+            BiomeSpecificAssets.SteedFallbacks == 0 && BiomeSpecificAssets.SteedMissingKeyReads == 0);
+        BiomeSpecificAssets.PrefabSwap = null;
+
+        // H. 正确类型确实无能力：保留真实错误（不是 warning/隐藏），且不走 Horse 回退。
+        Reset();
+        CrossWorldMountDependencies.EnsureAll();
+        assets = BiomeHolder.Inst.curBiomeAssets;
+        pm = Managers.Inst.pools;
+        GameObject sleipnirGo = (GameObject)Resources.Items[Def(22).SteedPrefabPath];
+        int removed = sleipnirGo.Components.RemoveAll(c => c is SpitSteedAbility);
+        ClearPoolCaches(pm);
+        InvokePrivate(typeof(PatchRide_CrossWorldMount_PoolInit), "Postfix");
+        Check("C10 correct type with genuinely no ability keeps the real failure",
+            removed > 0 && !IsReady(Def(22))
+            && CrossWorldMountDependencies.DefinitionNotReadyReason(Def(22)).Contains("no pressed-ability")
+            && pm.cachedSyncIdPoolPairs.Count == 4 && !pm.cachedSyncIdPoolPairs.ContainsKey(80)
+            && BiomeSpecificAssets.SteedFallbacks == 0 && BiomeSpecificAssets.SteedMissingKeyReads == 0);
+
+        // I. 总开关 OFF 期间原生重建：只失效不登记；重新 ON 后完整恢复且 0 fallback。
+        Reset();
+        CrossWorldMountDependencies.EnsureAll();
+        pm = Managers.Inst.pools;
+        Check("C10 OFF fixture starts fully ready", FivePoolsCurrent(pm));
+        ModConfig.Enabled.Value = false;
+        ClearPoolCaches(pm);
+        InvokePrivate(typeof(PatchRide_CrossWorldMount_PoolInit), "Postfix");
+        Check("C10 master OFF rebuild invalidates without registering pools",
+            pm.cachedSyncIdPoolPairs.Count == 0 && !IsReady(Def(22)));
+        Check("C10 scope flag returned on the OFF path", !InDependencyScope());
+        ModConfig.Enabled.Value = true;
+        BiomeSpecificAssets.SteedFallbacks = 0;
+        BiomeSpecificAssets.SteedMissingKeyReads = 0;
+        InvokePrivate(typeof(PatchRide_CrossWorldMount_PoolInit), "Postfix");
+        Check("C10 ON after the OFF rebuild restores five pools with zero fallback",
+            FivePoolsCurrent(pm) && IsReady(Def(22)) && BiomeSpecificAssets.SteedFallbacks == 0);
+    }
+
+    private static void Main(string[] args)
+    {
+        bool depsOnly = args != null && args.Contains("--deps");
+        bool c10Only = args != null && args.Contains("--c10-only");
         try
         {
-            Contract1_Publish();
-            Contract2_Registration();
-            Contract2_GrantGate();
-            Contract3_Pools();
-            Contract4_VariantOverride();
-            Contract5_SeasonalEligibility();
-            Contract6_OwnerIdentityAndScope();
-            Contract7_PayRoute();
-            Contract8_EarlyOwnerGate();
-            Contract9_ReceiptLandBoundary();
+            if (c10Only)
+            {
+                Contract10_PoolInitOrder();
+            }
+            else if (depsOnly)
+            {
+                Contract2_Registration();
+                Contract3_Pools();
+                Contract10_PoolInitOrder();
+            }
+            else
+            {
+                Contract1_Publish();
+                Contract2_Registration();
+                Contract2_GrantGate();
+                Contract3_Pools();
+                Contract4_VariantOverride();
+                Contract5_SeasonalEligibility();
+                Contract6_OwnerIdentityAndScope();
+                Contract7_PayRoute();
+                Contract8_EarlyOwnerGate();
+                Contract9_ReceiptLandBoundary();
+                Contract10_PoolInitOrder();
+            }
         }
         catch (Exception e)
         {

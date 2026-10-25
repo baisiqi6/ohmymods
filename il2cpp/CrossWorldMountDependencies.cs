@@ -238,6 +238,10 @@ internal static class CrossWorldMountDependencies
             // lookup/readiness before the gate; loading/registration remain gated below.
             InvalidatePoolLookupState();
             if (!ModConfig.Enabled.Value) return;
+            // Mapping registration is the write-responsibility predecessor of pool consumption:
+            // a same-generation asset reinit can have cleared objectSteedTypePairs, and the native
+            // getter would otherwise fall back to Horse Regular (non-null) for the pool definitions.
+            EnsureRegistered(true);
             EnsurePools(true);
         }
         catch (Exception e)
@@ -318,11 +322,18 @@ internal static class CrossWorldMountDependencies
         }
     }
 
-    /// <summary>就绪后每次热路径的廉价复核：映射仍指向同一实例。</summary>
+    /// <summary>就绪后每次热路径的廉价复核：精确映射仍指向同一实例。</summary>
     private static bool StillResolved(BiomeSpecificAssets assets, SteedState state)
     {
         try
         {
+            // 先按精确键确认映射存在且非 Unity-null：缺键时不能调用原生 getter（会回退 Horse，
+            // 日志/语义都会把回退当真实映射）。字典容器本身缺失同样按未解析处理。
+            Il2CppSystem.Collections.Generic.Dictionary<SteedType, Steed> pairs = assets.objectSteedTypePairs;
+            if (pairs == null) return false;
+            if (!pairs.TryGetValue((SteedType)state.TypeId, out Steed mapped) || mapped == null) return false;
+
+            // 精确键存在后仍走真实 getter 回读（含 BiomeData.GetPrefabSwap），不把 raw 字典当最终成功。
             Steed current = assets.GetSteedByType((SteedType)state.TypeId);
             return current != null && PointerOf(current) == state.ResolvedPointer;
         }
@@ -881,6 +892,16 @@ internal static class CrossWorldMountDependencies
                 if (state.Ready && !force && !managerChanged) continue;
                 if (!force && !managerChanged && state.NextRetryTick > now)
                 {
+                    allReady = false;
+                    continue;
+                }
+                // 每个 definition 只在本条 primary mapping Ready 后调用 native getter：缺键时
+                // getter 回退 Horse Regular（非 null），会把回退能力当成该定义的能力。缺前置保持
+                // pending，不设冷却，也不阻塞其他 definition。
+                if (!IsSteedTypeReady(definition.SteedTypeId))
+                {
+                    state.Ready = false;
+                    state.Failure = "primary steed mapping pending for type " + definition.SteedTypeId;
                     allReady = false;
                     continue;
                 }

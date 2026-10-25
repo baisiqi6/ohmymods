@@ -46,7 +46,7 @@ namespace Il2CppInterop.Runtime.InteropTypes
 
 namespace Il2CppInterop.Runtime.InteropTypes.Arrays
 {
-    public class Il2CppArrayBase<T> : IEnumerable<T>
+    public class Il2CppArrayBase<T> : Il2CppObjectBase, IEnumerable<T>
     {
         protected T[] Data;
         public Il2CppArrayBase(T[] items) { Data = items ?? Array.Empty<T>(); }
@@ -202,6 +202,12 @@ public class LevelBlock : UnityEngine.Component
 public class Level : Il2CppInterop.Runtime.InteropTypes.Il2CppObjectBase { }
 public class LevelLayout { public void GetBlocks() { } }
 
+/// <summary>测试专用：生产 Frame 记录的原生生成配置；adapter 走旧兼容 Open()，恒为 null。</summary>
+public class LevelConfig : Il2CppInterop.Runtime.InteropTypes.Il2CppObjectBase { }
+
+/// <summary>测试专用：issue-200 fresh 票据的空实现（adapter 不接入 fresh 观察）。</summary>
+public sealed class MountIslandFrameTicket { }
+
 public class Steed : UnityEngine.Component
 {
     public SteedType steedType;
@@ -281,6 +287,11 @@ public class BiomeSpecificAssets : Il2CppInterop.Runtime.InteropTypes.Il2CppObje
     /// <summary>测试专用：模拟原生 BiomeData.GetPrefabSwap 的最终替换（默认恒等；返回不同实例即读回不同）。</summary>
     public static Func<Steed, Steed> PrefabSwap;
 
+    /// <summary>测试专用：精确键缺失/Unity-null 时回退 Horse Regular 的累计次数（根因回归计数）。</summary>
+    public static int SteedFallbacks;
+    /// <summary>测试专用：精确键缺失/Unity-null 的 getter 读取累计次数（含无 Horse 可回退的容器缺失）。</summary>
+    public static int SteedMissingKeyReads;
+
     public Steed GetSteedByType(SteedType type)
     {
         // 原生语义（native-stage1 @72c9d0）：只按精确键查 objectSteedTypePairs；缺键或 Unity-null
@@ -288,8 +299,16 @@ public class BiomeSpecificAssets : Il2CppInterop.Runtime.InteropTypes.Il2CppObje
         Steed result = null;
         if (objectSteedTypePairs != null && objectSteedTypePairs.TryGetValue(type, out Steed pair) && pair != null)
             result = pair;
-        else if (objectSteedTypePairs != null)
-            objectSteedTypePairs.TryGetValue((SteedType)8, out result);
+        else
+        {
+            SteedMissingKeyReads++;
+            if (objectSteedTypePairs != null && objectSteedTypePairs.TryGetValue((SteedType)8, out Steed horse)
+                && horse != null)
+            {
+                SteedFallbacks++;
+                result = horse;
+            }
+        }
         return PrefabSwap != null ? PrefabSwap(result) : result;
     }
 }
@@ -374,7 +393,19 @@ public class CampaignSaveData : Il2CppInterop.Runtime.InteropTypes.Il2CppObjectB
         set => _currentReign = value;
     }
     public Il2CppSystem.Collections.Generic.List<int> visitedIslands = new Il2CppSystem.Collections.Generic.List<int>();
-    public IslandSaveData island = new IslandSaveData();
+    /// <summary>raw _islands 槽（issue-200 receipt 读取面）；按 land 索引。</summary>
+    public Il2CppSystem.Collections.Generic.List<IslandSaveData> _islands =
+        new Il2CppSystem.Collections.Generic.List<IslandSaveData>();
+    /// <summary>测试专用：当前岛的 objects 记录容器（映射到 _islands[currentLand]）。</summary>
+    public IslandSaveData island
+    {
+        get
+        {
+            int index = currentLand >= 0 ? currentLand : 0;
+            while (_islands.Count <= index) _islands.Add(new IslandSaveData());
+            return _islands[index];
+        }
+    }
     public IslandSaveData GetIsland(int index) => island;
 
     public class ReignInfo : Il2CppInterop.Runtime.InteropTypes.Il2CppObjectBase
@@ -465,5 +496,267 @@ namespace KingdomEnhancedMod
     {
         public void LogInfo(string message) => Console.WriteLine("INFO  " + message);
         public void LogError(string message) => Console.WriteLine("ERROR " + message);
+    }
+
+    // ------------------------------------------------------------------ issue-200 编译粘连（不参与本任务断言）
+    // Adapter 只 link 生产 4 源；Runtime/Data 对 issue-200 新类型的引用在此提供最小真实语义，
+    // 让 dependency/pool 契约可编译运行。fresh ticket 恒 null（旧兼容 Open 路径），新授予门关闭。
+
+    internal static class MountIslandSplitPolicy
+    {
+        internal const int PrimaryLand = 11;
+        internal const int SecondaryLand = 13;
+        internal static bool IsExtensionLand(int land) => land == PrimaryLand || land == SecondaryLand;
+        /// <summary>adapter 只在原生岛（2/4/6）跑契约；真实映射目标 11/13 对这些岛等同 -1。</summary>
+        internal static int GetTargetLand(string definitionId) => -1;
+    }
+
+    internal static class ExtensionIslandPlan
+    {
+        /// <summary>仅编译/旧 runtime 路径；dependency/pool 契约不经附加岛接缝。</summary>
+        internal static int[] DistributeSeams(int innerSeamCount, int count)
+        {
+            var seams = new int[count > 0 ? count : 0];
+            if (count <= 0 || innerSeamCount <= 0) return seams;
+            for (int i = 0; i < count; i++)
+                seams[i] = 1 + (int)((long)(i + 1) * innerSeamCount / (count + 1));
+            return seams;
+        }
+    }
+
+    internal readonly struct MountIslandCurrentTransitionTime
+    {
+        internal bool IsCurrent => false;
+    }
+
+    internal static class ExtensionIslandRuntime
+    {
+        internal static bool TryResolveRawOwner(out GlobalSaveData global, out int selected,
+            out CampaignSaveData owner)
+        {
+            global = GlobalSaveData.loaded;
+            owner = null;
+            selected = -1;
+            if (global == null) return false;
+            selected = global.currentCampaign;
+            if (selected < 0) return false;
+            owner = global.CurrentCampaignProvider;
+            return owner != null;
+        }
+
+        internal static bool TryEnsureExtensionLandDataSlots(CampaignSaveData campaign, int land)
+        {
+            if (campaign == null || !MountIslandSplitPolicy.IsExtensionLand(land)) return true;
+            if (!TryResolveRawOwner(out _, out _, out CampaignSaveData owner)
+                || !ReferenceEquals(owner, campaign) || campaign.currentLand != land) return false;
+            CampaignSaveData.ReignInfo reign = campaign.currentReign;
+            if (reign == null || reign.landData == null) return false;
+            while (reign.landData.Count <= land) reign.landData.Add(new CampaignSaveData.LandMapData());
+            return true;
+        }
+    }
+
+    internal static class MountIslandFreshObservation
+    {
+        internal static MountIslandFrameTicket ClaimForFrame(CrossWorldMountRuntime.Frame frame) => null;
+        internal static void OnFrameClosed(CrossWorldMountRuntime.Frame frame) { }
+        internal static bool BeginCommitBatch(CrossWorldMountRuntime.Frame frame, out string reason)
+        { reason = "adapter glue: no fresh ticket"; return true; }
+        internal static bool IsCommitBindingAuthorized(CrossWorldMountRuntime.Frame frame, int land, out string reason)
+        { reason = "adapter glue: no fresh ticket"; return false; }
+        internal static bool EndCommitBatch(CrossWorldMountRuntime.Frame frame, out string reason)
+        { reason = string.Empty; return true; }
+        internal static bool IsPlacementAuthorized(CrossWorldMountRuntime.Frame frame, Level level, out string reason)
+        { reason = "adapter glue: no fresh ticket"; return false; }
+        internal static bool IsGrantAuthorized(CrossWorldMountRuntime.Frame frame, int land, out string reason)
+        { reason = "adapter glue: no fresh ticket"; return false; }
+        internal static bool TryGetCurrentTransitionTime(CrossWorldMountRuntime.Frame frame, int land,
+            out MountIslandCurrentTransitionTime time)
+        { time = default; return false; }
+    }
+
+    internal struct MountIslandBatchGrant
+    {
+        internal string DefinitionId;
+        internal int Land;
+        internal int SteedTypeId;
+        internal bool Authorized;
+        internal bool Placed;
+    }
+
+    internal struct MountIslandMarkerWrite
+    {
+        internal string DefinitionId;
+        internal int Land;
+        internal int SteedTypeId;
+    }
+
+    internal sealed class MountIslandCommitSession
+    {
+        private readonly bool _batchVerified;
+        internal MountIslandCommitSession(bool batchVerified, string batchReason)
+        { _batchVerified = batchVerified; BatchReason = batchReason ?? string.Empty; }
+        internal bool BatchVerified => _batchVerified;
+        internal string BatchReason { get; }
+
+        internal bool PlanGrant(MountIslandBatchGrant grant, bool bindingOk, int frameLand,
+            out MountIslandMarkerWrite write)
+        {
+            write = default;
+            if (grant.Land != frameLand || !grant.Placed) return false;
+            if (grant.Authorized && (!_batchVerified || !bindingOk)) return false;
+            write = new MountIslandMarkerWrite
+            { DefinitionId = grant.DefinitionId, Land = grant.Land, SteedTypeId = grant.SteedTypeId };
+            return true;
+        }
+    }
+
+    internal static class MountIslandGrantFacts
+    {
+        internal static bool AllowsGrantPublish(bool authorityCurrent, bool ownerCurrent)
+            => authorityCurrent && ownerCurrent;
+    }
+
+    internal sealed class MountIslandGrantAuthority
+    {
+        internal sealed class Snapshot
+        {
+            private readonly ulong _campaignPointer;
+            private readonly int _reignIndex;
+            private readonly ulong _landDataPointer;
+            private readonly Dictionary<string, bool> _receipts;
+
+            internal Snapshot(ulong campaignPointer, int reignIndex, ulong landDataPointer,
+                Dictionary<string, bool> receipts)
+            {
+                _campaignPointer = campaignPointer;
+                _reignIndex = reignIndex;
+                _landDataPointer = landDataPointer;
+                _receipts = receipts;
+            }
+
+            internal bool ReceiptInCampaign(CrossWorldMountDefinition definition)
+                => definition != null && _receipts.TryGetValue(definition.Id, out bool found) && found;
+
+            internal bool MatchesCurrent(CampaignSaveData campaign)
+                => MatchesOwner(campaign, _reignIndex, _landDataPointer);
+
+            internal bool MatchesOwner(CampaignSaveData campaign, int reignIndex, ulong landDataPointer)
+            {
+                if (campaign == null || reignIndex < 0 || reignIndex != _reignIndex) return false;
+                if (landDataPointer != _landDataPointer) return false;
+                if ((ulong)campaign.Pointer.ToInt64() != _campaignPointer) return false;
+                if (!ExtensionIslandRuntime.TryResolveRawOwner(out _, out _, out CampaignSaveData owner)
+                    || !ReferenceEquals(owner, campaign)) return false;
+                if (!ReferenceEquals(CampaignSaveData.current, campaign)) return false;
+                CampaignSaveData.ReignInfo reign = campaign.currentReign;
+                if (reign == null || reign.landData == null) return false;
+                return CrossWorldMountDependencies.PointerOfList(reign.landData) == _landDataPointer;
+            }
+        }
+
+        internal static bool TryCapture(CampaignSaveData campaign, CampaignSaveData.ReignInfo reign,
+            Il2CppSystem.Collections.Generic.List<CampaignSaveData.LandMapData> landData,
+            out Snapshot snapshot)
+        {
+            snapshot = null;
+            if (campaign == null || reign == null || landData == null) return false;
+            Il2CppSystem.Collections.Generic.List<IslandSaveData> islands = campaign._islands;
+            if (islands == null || !ExtensionIslandRuntime.TryResolveRawOwner(out _, out _, out CampaignSaveData owner))
+                return false;
+            if (!ReferenceEquals(owner, campaign) || campaign.currentLand < 0) return false;
+            var receipts = new Dictionary<string, bool>(StringComparer.Ordinal);
+            for (int d = 0; d < CrossWorldMountCatalog.Definitions.Length; d++)
+                receipts[CrossWorldMountCatalog.Definitions[d].Id] = false;
+            for (int i = 0; i < islands.Count; i++)
+            {
+                IslandSaveData island = islands[i];
+                if (island == null || island.objects == null) continue;
+                for (int j = 0; j < island.objects.Count; j++)
+                {
+                    IslandSaveData.ObjectData record = island.objects[j];
+                    if (record == null) continue;
+                    for (int d = 0; d < CrossWorldMountCatalog.Definitions.Length; d++)
+                    {
+                        CrossWorldMountDefinition definition = CrossWorldMountCatalog.Definitions[d];
+                        if (receipts[definition.Id]) continue;
+                        if (definition.ReceiptMatches(record.prefabPath)
+                            || definition.ReceiptMatches(record.name)
+                            || definition.ReceiptMatches(record.hierarchyPath))
+                            receipts[definition.Id] = true;
+                    }
+                }
+            }
+            snapshot = new Snapshot((ulong)campaign.Pointer.ToInt64(), campaign.reign,
+                CrossWorldMountDependencies.PointerOfList(landData), receipts);
+            return true;
+        }
+
+        internal static bool TryReadIslandReceipt(CampaignSaveData campaign, int land,
+            CrossWorldMountDefinition definition, out bool found)
+        {
+            found = false;
+            try
+            {
+                if (campaign == null || definition == null || land < 0) return false;
+                Il2CppSystem.Collections.Generic.List<IslandSaveData> islands = campaign._islands;
+                if (islands == null) return false;
+                if (land >= islands.Count) return true;
+                IslandSaveData island = islands[land];
+                if (island == null || island.objects == null) return true;
+                for (int i = 0; i < island.objects.Count; i++)
+                {
+                    IslandSaveData.ObjectData record = island.objects[i];
+                    if (record == null) continue;
+                    if (definition.ReceiptMatches(record.prefabPath)
+                        || definition.ReceiptMatches(record.name)
+                        || definition.ReceiptMatches(record.hierarchyPath))
+                    {
+                        found = true;
+                        return true;
+                    }
+                }
+                return true;
+            }
+            catch (Exception) { return false; }
+        }
+    }
+
+    internal static class MountIslandMarkerRuntime
+    {
+        internal static bool TryWriteMarker(CampaignSaveData campaign, int reignIndex,
+            ulong landDataPointer, CrossWorldMountDefinition definition, int land, out string reason)
+        {
+            reason = string.Empty;
+            try
+            {
+                if (campaign == null || reignIndex < 0 || landDataPointer == 0UL) { reason = "owner unknown"; return false; }
+                if (!ExtensionIslandRuntime.TryResolveRawOwner(out _, out _, out CampaignSaveData owner)
+                    || !ReferenceEquals(owner, campaign)) { reason = "owner changed"; return false; }
+                CampaignSaveData current = CampaignSaveData.current;
+                if (!ReferenceEquals(current, campaign) || current.reign != reignIndex)
+                { reason = "owner/container changed"; return false; }
+                CampaignSaveData.ReignInfo reign = current.currentReign;
+                Il2CppSystem.Collections.Generic.List<CampaignSaveData.LandMapData> landData =
+                    reign != null ? reign.landData : null;
+                if (landData == null
+                    || CrossWorldMountDependencies.PointerOfList(landData) != landDataPointer)
+                { reason = "owner/container changed"; return false; }
+                if (definition == null || land < 0 || land >= landData.Count)
+                { reason = "landData unavailable"; return false; }
+                CampaignSaveData.LandMapData entry = landData[land];
+                if (entry == null) { reason = "landData unavailable"; return false; }
+                int[] next = CrossWorldMountPolicy.AppendMarker(
+                    CrossWorldMountRuntime.ToIntArray(entry.steedSpawns), definition.SteedTypeId);
+                var typed = new SteedType[next.Length];
+                for (int i = 0; i < next.Length; i++) typed[i] = (SteedType)next[i];
+                entry.steedSpawns = typed;
+                landData[land] = entry;
+                CrossWorldMountDependencies.InvalidateGrantCache();
+                reason = "marker written";
+                return true;
+            }
+            catch (Exception e) { reason = "marker write failed: " + e.Message; return false; }
+        }
     }
 }
