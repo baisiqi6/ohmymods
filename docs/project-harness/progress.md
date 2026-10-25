@@ -1,3 +1,9 @@
+## 2026-10-25 — 离线对齐盾卫验收边界，图层和坐骑池责任分类
+
+本岛登记恢复后再次真实保存/冷载Exact；选址两轮各504原候选及166临界候选全被原生拒绝，未截断/未诊断异常，因此不能把相切缺口当本岛NoSpace根因。自动操作未完成场地准备，已正常保存关闭私有窗口、归档检查点并撤凭据；用户有空后协助扩墙/清树，再验购买/领取/换岛/购后冷读。正常存档/运行包不变，PR287继续Draft。
+
+离线复核纠正旧“缺Stencil”及_DstBlend查询；入口与六小盾仍缺失败像素有效pass/MPB，未采纳猜测性排序/材质修复。五轮10条Error逐行一致，四条技能池错误已闭合为映射前置缺失（原生回退普通马），非资源没技能；NoEnvelope冷读分类与Harmony权限错误独立留界。选址临界点与池顺序分别由#290/#291独立处理，不混入本岛修复或预付Native。详情见既有[登记回执](tasks/issue-286/receipts/normal-registration-repair.md)与[图层回执](tasks/issue-286/receipts/mac-layer-observation.md)。
+
 ## 2026-10-24 — #286 正常岛登记副本通过保存冷载，购买仍受选址门阻挡
 
 精确原始副本一次性新增11空登记并正确重建Musk配对，原17输入未变；真实ARM64首Load/Save及新进程冷载均Exact、Unknown/QuotaUnknown解除、0/errors[]退出。当前另一阻挡已实证为Create Find无店位，付款/领取/换岛/购后冷载未验，继续最薄原调用取样；不凭登记恢复声称购买完成。正常数据/DLL/Steam未改，未合并安装，PR287保持Draft。详见[副本恢复回执](tasks/issue-286/receipts/normal-registration-repair.md)。

@@ -15,3 +15,12 @@
 本机原始证据 `.local/tasks/heavy-shield-shop-20261024/mac-layer-observation/` 中的 `native-outcome.json`、`native-render-samples.txt`、`visual-native-review.md`、两张ordinary-near.png和私有后像；不提交玩家原始存档/日志/身份数据。私有Probe/prepare增量独立审查及GLM5.3/max Native窗口审查已留证。准备边界只精确采纳了正常目录新增Finder .DS_Store的6148字节前像，未忽略/删除该文件；Stage后原全量守卫继续执行。
 
 结论：本轮完成Mac图层可复核取样，**未确认遮挡根因、未合并或安装图层修复**。后续先由用户指认本次目标槽位，再对齐同一目标的普通经过/离开画面；不凭好画面关闭#285/#286。
+
+## 2026-10-25 离线增量复核（不启动游戏）
+
+- 用户红框已精确对应六个独立小盾；入口与24条A/B小盾快照的shared stencil Comp/Op/Ref均8/0/1、Pow-Diffuse、mask None、layer0且无SortingGroup链。旧“尚缺这三个stencil字段”的说法已过时；把已Always的Comp改Always没有区分力。
+- 当前Mac匹配shader blob与Metal fragment按offset表核对；在已采shared keyword未被实际draw改变的条件下，普通候选片元执行_MainTex alpha×vertex alpha的discard。不能泛称透明texel一律写深度，也不能把shader名字或shared material当作该像素的GPU证据。固定ZWrite/ZTest等缓存解析仍是静态线索。
+- 发现旧probe读错混合属性：ShaderLab用`DstBlend`（无下划线，默认10），查询`_DstBlend`的not-present不证明混合值为0；`_ZWrite/_ZTest`不存在也不证明固定pass关闭。下一次取证应修正读取名称，不能据此改材质。
+- 重新核源PNG：入口192×192、alpha0/255=16865/19999、透明RGB全0且可见纯黑0；小盾19×30、alpha0/255=103/467，未烘入黑弧。只排除这些源像素假设，运行时纹理/MPB仍未知。
+- A/B源码仅marker order差异，但A未稳定复现且截图位置/时段不同，B画面正常不足以定因。仍需失败像素同帧有效pass/variant、正确Blend/MPB纹理alpha与depth/stencil前后写入者；不批准猜测order/Z/material或逐帧覆写。默认图层源码未采纳、正常包未更新。
+- 详细只读计算、shader/PNG/截图和源码哈希留本机`offline-20261025/layer-audit.md`，原始玩家资料不提交。Issue #285/#286保留开放。
