@@ -1,3 +1,7 @@
+## 2026-10-25 — #281 代码已推送；Windows2813安装因连接超时未执行
+
+修复提交d3da7c9已进PR282；新的stage、完整25数据指纹、独审、守卫19/19和实际PS5.1 Parser均已准备，但唯一Apply发送时SSH连接超时exit255，命令未送达，脚本未执行。没有本轮成功安装／备份／实机结论，最后核对的正常Windows仍是.281.2；未动正常存档，不复用本次旧执行窗口。恢复连接后重新核对并准备新具体安装审查，PR仍Draft/Issue开放。详见[安装尝试回执](tasks/issue-281/receipts/windows-2813-install-attempt-20261025.md)。
+
 ## 2026-10-25 — #281 火枪手留守规则代码验收，Windows新候选已准备
 
 用户明确选择不上船／异常已登船转普通，替代此前完整付费运输方向；弩手不改。三个登船边界与源保存前精确转换、strict战斗/视觉归还、旧补偿最后witness保护均经独立反证和修正复审。Root联合identity728/diag926、保存链258、Runtime128、archive21/补偿507/legacy gate405全过；四种Win240/243与Mac完整源码编译0W0E，Android probe0error（1条旧警告）/Adapter1265/0，非设备。基于实际Windows.281.2冻结源的.281.3候选63d43ff1…0f32ae已构建，38资源不变。安装单列，原生出航/登岛/保存冷重进仍待玩家，不称已经实机修好；PR282仍Draft/Issue281开放。见[代码回执](tasks/issue-281/receipts/no-boarding-code-20261025.md)。下文保留此前阶段，完整运输方向已被本次用户选择替代。

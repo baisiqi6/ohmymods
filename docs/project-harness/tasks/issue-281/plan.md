@@ -57,3 +57,5 @@
 状态：代码与回归审查进行中，尚未构建或安装新的游玩候选。已安装 Windows 仍是诊断 .281.2；正常存档不由 Agent 修改。PR #282 保持 Draft，Issue #281 保持开放。
 
 代码与候选已完成独立复审及本机联合验证，详见[代码回执](receipts/no-boarding-code-20261025.md)。下一步按新具体安装窗口的guard/备份/审查准备Windows手动实测，绝不复用.281.2旧TTL或凭据。
+
+本轮安装Apply因SSH连接阶段超时未执行，没有新备份或成功receipt，见[安装尝试回执](receipts/windows-2813-install-attempt-20261025.md)。连接恢复后重建具体窗口，保留当前正常数据，不复用one-shot批准。
