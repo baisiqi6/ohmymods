@@ -1,3 +1,7 @@
+## 2026-10-26 — #281 首航额外错误已定位机制，具体触发来源待取证
+
+只读当前2.4.3原生实现确认：Knight登船协程跨yield持有真实HashSet枚举器，成员变更可中止协程；Norse恢复链只是可达候选，现场写者未证，新禁船gate不能仅按同窗日志归责。Forest错误来自固定8格野猪候选缓存，满后拒绝Add并记错，没有越界写；布局扩宽与实际合格region数量尚缺运行时关联。冷读可因boar状态跳过填充，0错误不代表修复。未启动游戏、连接Windows或改正常数据/DLL；无产品补丁/安装/合并，PR282仍Draft、Issue开放。见[静态调查回执](tasks/issue-281/receipts/windows-2813-residual-analysis-20261026.md)。
+
 ## 2026-10-25 — #281 Windows首座坐骑岛出航／保存冷读通过，额外错误待核
 
 玩家正常2.4.3/.281.3：源8捕获15/15、applied1/missing0，首岛11八设施marker生成并Playing；UI保存退出后新PID冷读继续，用户确认仍在坐骑岛、坐骑/剪影正常。第二实例未见旧保存拒绝，另一次UI保存/pair也有记录；只读采集正常退出，无人工改档。首航2次Knight集合变更异常＋50条Forest容量错误仍需核根因，冷读未重现不等于修好；第二岛/返源/forced降级/联机未验。PR282仍Draft、Issue开放，未合并。见[原生回路回执](tasks/issue-281/receipts/windows-2813-native-loop-20261025.md)。
