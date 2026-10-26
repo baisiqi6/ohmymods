@@ -1,3 +1,7 @@
+## 2026-10-25 — #281 Windows首座坐骑岛出航／保存冷读通过，额外错误待核
+
+玩家正常2.4.3/.281.3：源8捕获15/15、applied1/missing0，首岛11八设施marker生成并Playing；UI保存退出后新PID冷读继续，用户确认仍在坐骑岛、坐骑/剪影正常。第二实例未见旧保存拒绝，另一次UI保存/pair也有记录；只读采集正常退出，无人工改档。首航2次Knight集合变更异常＋50条Forest容量错误仍需核根因，冷读未重现不等于修好；第二岛/返源/forced降级/联机未验。PR282仍Draft、Issue开放，未合并。见[原生回路回执](tasks/issue-281/receipts/windows-2813-native-loop-20261025.md)。
+
 ## 2026-10-25 — #281 Windows2813已备份安装，等待玩家原生出航存读档
 
 用户授权重试后连接成功，fresh游戏0/旧pair/25数据/Native匹配，使用新具体窗口审查完成.281.3 DLL63d43ff1…0f32ae＋清单2a51b8da…40cf5配套替换。实际Apply exit0、原launcher CheckOnly exit0；独立读回444固定输入、25数据及全部备份一致，未改正常档/配置、未自动开游戏。备份在E:\ohmymods-backups\issue281\install-2813-retry-20261026T053309Z；仍用原ohmymods-win243-preview.cmd。原生出航→生成→保存退出→新进程重进交玩家，尚未验，不合并PR282或关闭281。见[实际安装回执](tasks/issue-281/receipts/windows-2813-installed-20261025.md)。下文旧失败窗口保留。

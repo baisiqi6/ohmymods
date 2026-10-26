@@ -61,3 +61,5 @@
 本轮安装Apply因SSH连接阶段超时未执行，没有新备份或成功receipt，见[安装尝试回执](receipts/windows-2813-install-attempt-20261025.md)。连接恢复后重建具体窗口，保留当前正常数据，不复用one-shot批准。
 
 新的连接与安装窗口已完成实际备份/配套安装/独立读回，见[Windows实装回执](receipts/windows-2813-installed-20261025.md)。下一项为玩家原生出航与保存冷重进；不将安装通过记作玩法通过。
+
+本轮Windows正常首岛出航／保存／新进程重进回路已由玩家与有效日志共同确认通过；另有首航Knight集合变更与Forest容量错误待核，见[原生回路证据](receipts/windows-2813-native-loop-20261025.md)。保持Draft/Open，不外推第二岛、异常降级或全部玩法。
