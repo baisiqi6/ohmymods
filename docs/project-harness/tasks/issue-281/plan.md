@@ -59,3 +59,5 @@
 代码与候选已完成独立复审及本机联合验证，详见[代码回执](receipts/no-boarding-code-20261025.md)。下一步按新具体安装窗口的guard/备份/审查准备Windows手动实测，绝不复用.281.2旧TTL或凭据。
 
 本轮安装Apply因SSH连接阶段超时未执行，没有新备份或成功receipt，见[安装尝试回执](receipts/windows-2813-install-attempt-20261025.md)。连接恢复后重建具体窗口，保留当前正常数据，不复用one-shot批准。
+
+新的连接与安装窗口已完成实际备份/配套安装/独立读回，见[Windows实装回执](receipts/windows-2813-installed-20261025.md)。下一项为玩家原生出航与保存冷重进；不将安装通过记作玩法通过。

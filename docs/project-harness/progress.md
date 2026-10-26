@@ -1,3 +1,7 @@
+## 2026-10-25 — #281 Windows2813已备份安装，等待玩家原生出航存读档
+
+用户授权重试后连接成功，fresh游戏0/旧pair/25数据/Native匹配，使用新具体窗口审查完成.281.3 DLL63d43ff1…0f32ae＋清单2a51b8da…40cf5配套替换。实际Apply exit0、原launcher CheckOnly exit0；独立读回444固定输入、25数据及全部备份一致，未改正常档/配置、未自动开游戏。备份在E:\ohmymods-backups\issue281\install-2813-retry-20261026T053309Z；仍用原ohmymods-win243-preview.cmd。原生出航→生成→保存退出→新进程重进交玩家，尚未验，不合并PR282或关闭281。见[实际安装回执](tasks/issue-281/receipts/windows-2813-installed-20261025.md)。下文旧失败窗口保留。
+
 ## 2026-10-25 — #281 代码已推送；Windows2813安装因连接超时未执行
 
 修复提交d3da7c9已进PR282；新的stage、完整25数据指纹、独审、守卫19/19和实际PS5.1 Parser均已准备，但唯一Apply发送时SSH连接超时exit255，命令未送达，脚本未执行。没有本轮成功安装／备份／实机结论，最后核对的正常Windows仍是.281.2；未动正常存档，不复用本次旧执行窗口。恢复连接后重新核对并准备新具体安装审查，PR仍Draft/Issue开放。详见[安装尝试回执](tasks/issue-281/receipts/windows-2813-install-attempt-20261025.md)。
