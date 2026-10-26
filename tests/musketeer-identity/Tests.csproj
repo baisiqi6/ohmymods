@@ -24,6 +24,7 @@
     <Compile Include="../../il2cpp/MusketeerIdentity.cs" Link="Production/MusketeerIdentity.cs" />
     <Compile Include="../../il2cpp/MusketeerPersistence.cs" Link="Production/MusketeerPersistence.cs" />
     <Compile Include="../../il2cpp/MusketeerVoyageSaveDiagnostics.cs" Link="Production/MusketeerVoyageSaveDiagnostics.cs" />
+    <Compile Include="../../il2cpp/Patch_MusketeerBoardingPolicy.cs" Link="Production/Patch_MusketeerBoardingPolicy.cs" />
     <Compile Include="../musketeer-boundary/MusketeerNativeSaveStub.cs" Link="Boundary/MusketeerNativeSaveStub.cs" />
   </ItemGroup>
 

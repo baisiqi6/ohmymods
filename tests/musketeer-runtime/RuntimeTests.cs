@@ -26,6 +26,7 @@ namespace MusketeerRuntimeTests
             Case.Run("knight and tower jobs are blocked, other jobs stay native", JobGates);
             Case.Run("a slotted musketeer is evicted through native ExitGuardSlot", SlotEviction);
             Case.Run("feature off unwinds the whole package", FeatureOffUnwinds);
+            BoardingDemotionTests.Run();   // Issue281 B：登船降级 helper（真实 Runtime 源码路径）
         }
 
         private static Archer PrepareArcher()

@@ -320,14 +320,16 @@ internal sealed class MusketeerArchive
     }
 
     // The same native snapshot cannot describe two conflicting career histories. A duplicate id
-    // for one hash is refused instead of silently rewritten; the pinned baseline is never evicted.
+    // for one hash is refused instead of silently rewritten; the pinned baseline is never evicted
+    // and neither is the last real snapshot witness of a compensation grant (FindEvictable).
     internal bool Record(string scope, string hash, IReadOnlyList<MusketeerCareer> records)
     {
         if (!HashValid(scope) || !HashValid(hash) || !ValidRecords(records)) return false;
+        bool freshScope = false;
         if (!Scopes.TryGetValue(scope, out var list))
         {
             if (Scopes.Count >= MaxScopes) return false;
-            list = new(); Scopes.Add(scope, list);
+            list = new(); Scopes.Add(scope, list); freshScope = true;
         }
         var old = list.Find(x => x.Hash == hash);
         if (old != null)
@@ -339,10 +341,65 @@ internal sealed class MusketeerArchive
         if (list.Count > MaxSnapshots)
         {
             Baselines.TryGetValue(scope, out string pinned);
-            int evict = list.FindLastIndex(x => x.Hash != pinned);
-            if (evict >= 0) list.RemoveAt(evict);
+            int evict = FindEvictable(scope, list, pinned);
+            if (evict < 0)
+            {
+                // Capacity is fail-closed: Decode refuses any scope above MaxSnapshots, so a
+                // temporary ninth snapshot is not a storable state either. When every old
+                // snapshot is the pinned baseline or a last grant witness, roll this insertion
+                // back unchanged and refuse: returning true without the just-inserted snapshot
+                // would strand Stage without its exact hash, and evicting a witness would leave
+                // a ledger Encode refuses to write.
+                list.RemoveAt(0);
+                if (freshScope) Scopes.Remove(scope);
+                return false;
+            }
+            list.RemoveAt(evict);
         }
         return true;
+    }
+
+    // Oldest eviction candidate: not the pinned baseline, not the last real snapshot witness of
+    // any ledger grant in this exact migration scope, and never the snapshot Record just
+    // inserted at index 0. Grants of other scopes never protect snapshots here, and an empty
+    // ledger keeps the historical baseline-only rotation unchanged. Obligations are read from
+    // the receipts already in the ledger (persisted receipts are always Complete) at Record
+    // time: production records the granting capture rows first and adds the receipt afterwards,
+    // so the granting snapshot is already the witness when its obligations appear. This only
+    // keeps ValidCompensations satisfiable for every list Record returns true from; it does not
+    // decide whether a retired career may return (LatestReservations still scans down to the
+    // baseline and keeps its own unknown-hash contract).
+    private int FindEvictable(string scope, List<MusketeerSnapshot> list, string pinned)
+    {
+        HashSet<Guid> grants = null;
+        foreach (var receipt in Compensations.Values)
+            if (receipt.Complete && receipt.MigrationEpoch == scope)
+            {
+                grants ??= new HashSet<Guid>();
+                foreach (Guid id in receipt.GrantIds) grants.Add(id);
+            }
+        for (int i = list.Count - 1; i >= 1; i--)
+        {
+            if (list[i].Hash == pinned) continue;
+            if (grants != null && LastWitness(list, i, grants)) continue;
+            return i;
+        }
+        return -1;
+    }
+
+    // True when snapshot[index] holds a ledger grant that no other snapshot in the list holds;
+    // evicting it would leave ValidCompensations without that grant's last real witness.
+    private static bool LastWitness(List<MusketeerSnapshot> list, int index, HashSet<Guid> grants)
+    {
+        foreach (var record in list[index].Records)
+        {
+            if (!grants.Contains(record.Id)) continue;
+            bool witnessed = false;
+            for (int j = 0; j < list.Count && !witnessed; j++)
+                if (j != index && list[j].Records.Any(row => row.Id == record.Id)) witnessed = true;
+            if (!witnessed) return true;
+        }
+        return false;
     }
 
     internal static bool Same(IReadOnlyList<MusketeerCareer> a, IReadOnlyList<MusketeerCareer> b)

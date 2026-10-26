@@ -1,3 +1,7 @@
+## 2026-10-25 — #281 火枪手留守规则代码验收，Windows新候选已准备
+
+用户明确选择不上船／异常已登船转普通，替代此前完整付费运输方向；弩手不改。三个登船边界与源保存前精确转换、strict战斗/视觉归还、旧补偿最后witness保护均经独立反证和修正复审。Root联合identity728/diag926、保存链258、Runtime128、archive21/补偿507/legacy gate405全过；四种Win240/243与Mac完整源码编译0W0E，Android probe0error（1条旧警告）/Adapter1265/0，非设备。基于实际Windows.281.2冻结源的.281.3候选63d43ff1…0f32ae已构建，38资源不变。安装单列，原生出航/登岛/保存冷重进仍待玩家，不称已经实机修好；PR282仍Draft/Issue281开放。见[代码回执](tasks/issue-281/receipts/no-boarding-code-20261025.md)。下文保留此前阶段，完整运输方向已被本次用户选择替代。
+
 ## 2026-10-25 — #281 已证首错单位在主船且已登船，转修付费身份交接
 
 .281.2真实首错确认begin/apply同根boatChild1/embarked1/penabled1、active1而reg/pinstance0，GetID未观测，无读取丢失；source8→target11交接成功后仍由source保存要求拒绝。主档与Musk四件不变，Hero/Knight仅快照轮转，cfg57值相同仅版本注释。Astra独核与GLM阶段定案通过；后续收窄paid GUID source→carry→destination承接，不再重复本资格诊断、不放宽Guard。25数据/日志/截图全留存，无输入/安装/restore，PR282仍Draft/Issue281开放。见[本轮回执](tasks/issue-281/receipts/windows-2812-first-failure-20261025.md)。

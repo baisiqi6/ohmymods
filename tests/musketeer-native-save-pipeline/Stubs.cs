@@ -64,7 +64,30 @@ public class Character : UnityEngine.Component
     public Damageable _damageable = new();
     public Character Promote(DroppableTool tool, IUnitController unitController) => this;
 }
-public class Archer : UnityEngine.Component { }
+public class Embarkee : UnityEngine.Component
+{
+    private bool _isEmbarked;
+    public bool IsEmbarked { get => _isEmbarked; set => _isEmbarked = value; }
+    // Native owner reference double: the interop surface exposes TryCast<T> (HeroRecruitment form).
+    public UnitOwnerRef _owner;
+    // Native boundary shapes the Harmony attributes name (nameof); doubles stay no-op.
+    public void SetEmbarkableTarget(Embarkable target, int slot) { }
+    public void Embark() { }
+}
+public class Embarkable : UnityEngine.Component { }
+public sealed class UnitOwnerRef
+{
+    private readonly UnityEngine.Component _value;
+    public UnitOwnerRef(UnityEngine.Component value) { _value = value; }
+    public T TryCast<T>() where T : UnityEngine.Component => _value as T;
+}
+public class Archer : UnityEngine.Component
+{
+    public Embarkee _embarkee;
+    // Native CanEmbark getter double: the policy postfix only ever tightens an actor's own value.
+    public bool NativeCanEmbark = true;
+    public bool CanEmbark => NativeCanEmbark;
+}
 public class Droppable : UnityEngine.Component { public bool pickedUp; public UnityEngine.GameObject enemyClaimer; public UnityEngine.GameObject dropper; }
 public class DroppableTool : Droppable { }
 public class Persistent : UnityEngine.Component { public string path; public bool ShouldPersist() => false; }
@@ -122,8 +145,35 @@ namespace KingdomEnhancedMod
         internal static bool Enabled { get => TrackAllowed && enabled; set => enabled = value; }
         internal static bool Playing { get => Enabled && playing; set => playing = value; }
         internal static bool InWorldResult = true;
+        internal static UnityEngine.Transform World;
         internal static bool InWorld(UnityEngine.GameObject root) => InWorldResult && root != null;
         internal static bool InWorld(UnityEngine.Component component) => InWorldResult && component != null && component.gameObject != null;
+    }
+
+    /// <summary>
+    /// 边界 double：真实 TryPrepareBoardingDemotion 由 B worker 的 il2cpp/MusketeerRuntime.cs 提供
+    /// （本套件不链接该文件）。这里只证明 BoardingPolicy 的调用边界与按返回值行动（计数/故障注入），
+    /// 绝不能宣称真实字段/视觉归还已在本套件通过。
+    /// </summary>
+    internal static class MusketeerRuntime
+    {
+        internal static int PrepareCalls;
+        internal static Archer LastActor;
+        internal static bool NextResult = true;
+        internal static bool ThrowOnPrepare;
+
+        internal static bool TryPrepareBoardingDemotion(Archer actor)
+        {
+            PrepareCalls++;
+            LastActor = actor;
+            if (ThrowOnPrepare) throw new InvalidOperationException("prepare fault");
+            return NextResult;
+        }
+
+        internal static void ResetBoardingDouble()
+        {
+            PrepareCalls = 0; LastActor = null; NextResult = true; ThrowOnPrepare = false;
+        }
     }
 
     internal class KingdomEnhancedPlugin

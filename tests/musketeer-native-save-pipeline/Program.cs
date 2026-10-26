@@ -213,6 +213,7 @@ class Program
                 case "r2-explicit-raw0-hooks": R2ExplicitRawZeroHookTests(); break;
                 case "preimage-ambiguity": PreimageAmbiguityTests(); break;
                 case "p2-cross-epoch": P2CrossEpochTests(); break;
+                case "boarding-voyage": BoardingVoyageTests(); break;
                 default: throw new Exception("unknown case " + only);
             }
             Console.WriteLine("CASE PASS " + only + " assertions=" + assertions);
@@ -562,6 +563,9 @@ class Program
         ClearIdentity();
         MusketeerNativeSave.ResetForTests();
         P2CrossEpochTests();
+        MusketeerRuntime.ResetBoardingDouble();
+        MusketeerNativeSave.ResetForTests();
+        BoardingVoyageTests();
         Console.WriteLine("ALL PASS producer integration: " + assertions + " assertions");
     }
 
@@ -1106,5 +1110,146 @@ class Program
         MusketeerIdentity.OnGunPickupEnd(actor, promotion);
         MusketeerIdentity.OnGunPickupAbort(promotion);
         Check(MusketeerIdentity.IsUnit(archer), "actual career promotion preserves role");
+    }
+
+    // Issue281 boarding policy on the real producer/writer pipeline（真实 Identity/Persistence/
+    // NativeSave；Runtime helper 用边界 double——真实字段归还由 runtime 套件证明）：异常已登船
+    // musketeer 在显式当前源保存捕获前降级，出航保存完成、无 CaptureFault；未完成降级时原
+    // missed-row Guard 与真实 writer gate 拒绝保持；拒绝的物理写不动旧磁盘；无 Reserved 幽灵。
+    static void BoardingVoyageTests()
+    {
+        ClearIdentity();
+        MusketeerNativeSave.ResetForTests();
+        MusketeerRuntime.ResetBoardingDouble();
+
+        var home = new IslandSaveData { land = 0, isNew = true, playTimeDays = 0, Json = IslandJsonAt(0, 0) };
+        var campaign = BuildCampaign(home, null);
+        GlobalSaveData.loaded = new GlobalSaveData { currentCampaign = 0, currentChallenge = 0, CurrentCampaign = campaign };
+        GlobalSaveData.filename = "global-v35";
+        GlobalSaveData.loaded.campaigns.Add(campaign);
+        CampaignSaveData.current = campaign;
+        Managers.Inst = new Managers { world = new World { gameLayer = new GameObject().Add(new Transform()) } };
+        MusketeerAccess.World = Managers.Inst.world.gameLayer;
+        var virgin = new MusketeerPersistence.VirginCapture();
+        virgin.Begin(campaign);
+        virgin.Complete(campaign);
+        Time.frameCount++;
+        MusketeerIdentity.Tick();
+        Check(MusketeerIdentity.CanPurchase, "boarding fixture baseline ready");
+
+        // paid careers：unit 的枪（转换后消失）、货架枪（stock slot 0 保留）、普通付费枪（留守）。
+        var unitGunGo = new GameObject { tag = "Bow" };
+        var unitGun = unitGunGo.Add(new DroppableTool());
+        Check(MusketeerIdentity.TryRegisterPaidGun(unitGun), "unit career gun registered");
+        MusketeerIdentity.OnGunPickupBegin(unitGun, out var promotion);
+        var unitGo = new GameObject();
+        var unitCharacter = unitGo.Add(new Character());
+        var unitArcher = unitGo.Add(new Archer());
+        var unitEmbarkee = unitGo.Add(new Embarkee());
+        unitArcher._embarkee = unitEmbarkee;
+        unitEmbarkee._owner = new UnitOwnerRef(unitArcher);
+        MusketeerIdentity.OnGunPickupEnd(unitCharacter, promotion);
+        var rackGunGo = new GameObject { tag = "Bow" };
+        var rackGun = rackGunGo.Add(new DroppableTool());
+        Check(MusketeerIdentity.TryRegisterPaidGun(rackGun, 0), "rack gun registered with stock slot 0");
+        var plainGunGo = new GameObject { tag = "Bow" };
+        Check(MusketeerIdentity.TryRegisterPaidGun(plainGunGo.Add(new DroppableTool())), "plain paid gun registered");
+        Check(MusketeerIdentity.IsUnit(unitArcher), "unit musketeer is known before boarding");
+        var unitCareer = MusketeerIdentity.Current.Careers.Find(c => c.Kind == MusketeerCareer.KindUnit);
+        Check(unitCareer != null, "unit career located");
+        Guid unitCareerId = unitCareer.Id;
+        var before = MusketeerIdentity.Current.Careers
+            .OrderBy(x => x.Id).Select(x => (x.Id, x.Kind, x.StockSlot)).ToList();
+
+        // forced aboard（异常状态：原生 registrar 已经接受登船）。
+        unitEmbarkee.IsEmbarked = true;
+
+        // 三入口 gate 对已登船者同样拒绝；纯 gate 绝不触发降级 helper。
+        bool gate = true;
+        MusketeerBoardingPolicy.RefineCanEmbark(unitArcher, ref gate);
+        Check(!gate, "aboard musketeer still fails CanEmbark");
+        var target = new GameObject().Add(new Embarkable());
+        Check(!MusketeerBoardingPolicy.AllowSetEmbarkableTarget(unitEmbarkee, target),
+            "aboard musketeer gets no new boarding target");
+        Check(!MusketeerBoardingPolicy.AllowEmbark(unitEmbarkee), "aboard musketeer cannot re-embark");
+        Check(MusketeerRuntime.PrepareCalls == 0, "pure gates never invoke the demotion helper");
+
+        // 对照：降级未完成（helper false）→ 显式当前源保存仍撞原 missed-row Guard，
+        // 真实 writer gate 以 CaptureFault 拒绝。
+        MusketeerRuntime.NextResult = false;
+        MusketeerBoardingPolicy.DemoteConfirmedEmbarkedBeforeSave(0, 0, 0);
+        Check(MusketeerRuntime.PrepareCalls == 1, "demotion helper consulted exactly once");
+        Check(MusketeerIdentity.Current.Careers.Count == before.Count,
+            "incomplete field return keeps every paid identity");
+        home.Json = IslandJsonAt(0, 1, Row("rack-gun", ToolBowPath), Row("plain-gun", ToolBowPath));
+        home.objects = new List<IslandSaveData.ObjectData>
+        {
+            new() { uniqueID = "rack-gun" }, new() { uniqueID = "plain-gun" }
+        };
+        IslandSaveData.CurrentlySavingIsland = home; IslandSaveData.isSavingGame = true;
+        var blocked = new MusketeerPersistence.SaveCapture { Campaign = 0, Land = 0, Challenge = 0 };
+        blocked.Begin();
+        blocked.Capture(rackGunGo.Add(new Persistent()), "rack-gun");
+        blocked.Capture(plainGunGo.Add(new Persistent()), "plain-gun");
+        blocked.Apply();
+        FinishSave(blocked);
+        Check(!blocked.Applied, "un-demoted aboard musketeer keeps the missed-row refusal");
+        var faultGate = MusketeerNativeSave.GatePayload(Filer.folder, GlobalSaveData.filename, Payload(), false, out _, out string faultWhy);
+        Check(faultGate == MusketeerNativeSave.WriterVerdict.Fail && faultWhy == MusketeerNativeSave.ReasonCaptureFault,
+            "real writer gate keeps the capture fault until a complete capture: " + faultWhy);
+
+        // 真实降级路径（边界 double 返回 true；真实字段归还由 runtime 套件证明）。
+        MusketeerRuntime.NextResult = true;
+        Check(MusketeerBoardingPolicy.TryDemoteConfirmedEmbarked(unitArcher),
+            "aboard unit demotes through the shared proof");
+        Check(MusketeerIdentity.Current.Careers.Count == before.Count - 1,
+            "exactly the unit career left the roster");
+        var after = MusketeerIdentity.Current.Careers
+            .OrderBy(x => x.Id).Select(x => (x.Id, x.Kind, x.StockSlot)).ToList();
+        Check(before.FindAll(b => b.Kind != MusketeerCareer.KindUnit).TrueForAll(b => after.Contains(b)),
+            "staying paid identities and the rack slot are untouched");
+        Check(after.TrueForAll(a => a.Kind != MusketeerCareer.KindUnit), "no unit career remains on the roster");
+        Check(!MusketeerIdentity.IsUnit(unitArcher), "demoted unit is no longer a musketeer");
+
+        // 幂等：save-path 降级对已移除的 career 无操作。
+        int demoteCalls = MusketeerRuntime.PrepareCalls;
+        MusketeerBoardingPolicy.DemoteConfirmedEmbarkedBeforeSave(0, 0, 0);
+        Check(MusketeerRuntime.PrepareCalls == demoteCalls, "save-path demotion is idempotent");
+
+        // 同形状显式当前源保存：真实 Apply 完成、真实 gate 通过（无 CaptureFault）。
+        var completed = SaveExplicit(home, 0, home.Json,
+            ("rack-gun", rackGunGo), ("plain-gun", plainGunGo));
+        Check(completed.Applied, "demoted voyage save completes through the real capture path");
+        var passGate = MusketeerNativeSave.GatePayload(Filer.folder, GlobalSaveData.filename, Payload(), false,
+            out var passCall, out string passWhy);
+        Check(passGate == MusketeerNativeSave.WriterVerdict.Pass && passCall != null,
+            "no capture fault after the demotion: " + passWhy);
+        File.WriteAllBytes(DiskPath, Payload());
+        MusketeerNativeSave.WriterStarted(passCall,
+            new Il2CppSystem.Threading.Tasks.Task<SaveLoadResult> { IsCompleted = true });
+
+        // 物理写保护（措辞限定：本 case 不调用真实 writer，证明的是真实 gate 拒绝时旧磁盘不动；
+        // 真实 writer I/O 故障注入不在本套件）：无新捕获的变更内容 payload 被真实 gate 拒绝，
+        // 磁盘 bytes 不动。
+        byte[] diskBaseline = File.ReadAllBytes(DiskPath);
+        home.Json = IslandJsonAt(0, 2, Row("rack-gun", ToolBowPath), Row("plain-gun", ToolBowPath),
+            Row("stowaway", ArcherPath));
+        var stale = MusketeerNativeSave.GatePayload(Filer.folder, GlobalSaveData.filename, Payload(), false,
+            out _, out string staleWhy);
+        Check(stale == MusketeerNativeSave.WriterVerdict.Fail,
+            "changed native content without a new capture is still refused at the real gate: " + staleWhy);
+        Check(File.ReadAllBytes(DiskPath).SequenceEqual(diskBaseline),
+            "gate refusal without invoking the writer keeps the old disk bytes");
+
+        // 无 Reserved 幽灵：磁盘 archive 的任何 snapshot 都不再携带被转换 unit 的 career 行。
+        var disk = MusketeerArchiveStore.Load(MusketeerPersistence.ArchivePath).Archive;
+        bool ghost = false;
+        foreach (var snapshots in disk.Scopes.Values)
+            foreach (var snapshot in snapshots)
+                foreach (var record in snapshot.Records)
+                    if (record.Id == unitCareerId) ghost = true;
+        Check(!ghost, "no reserved ghost row for the demoted unit career");
+
+        Console.WriteLine("BOARDING-VOYAGE demoted-save pipeline complete: unit career " + unitCareerId.ToString("N"));
     }
 }

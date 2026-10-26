@@ -42,6 +42,15 @@ internal static class Program
                     case "r4-pins": DeferredBoundaryPinTests(); break;
                     case "r4d-witness-world": WitnessWorldFreezeTests(); break;
                     case "r4d-virgin-exact": VirginExactOnlyTests(); break;
+                    case "boarding-gate": BoardingGateTests(); break;
+                    case "boarding-proof-faults": BoardingProofFaultTests(); break;
+                    case "boarding-demote": BoardingDemoteTests(); break;
+                    case "boarding-save-guard": BoardingSaveGuardTests(); break;
+                    case "astra-foreign": AstraForeignTests(); break;
+                    case "astra-disembark": AstraDisembarkTests(); break;
+                    case "astra-life": AstraLifeTests(); break;
+                    case "boarding-own-embarkee-swap": BoardingOwnEmbarkeeSwapTests(); break;
+                    case "boarding-post-fallback-foreign": BoardingPostFallbackForeignTests(); break;
 #if VOYAGE_SAVE_DIAGNOSTICS
                     case "voyage-diag": VoyageSaveDiagnosticsTests(); break;
                     case "voyage-boat-scope": VoyageCurrentBoatScopeTests(); break;
@@ -82,6 +91,7 @@ internal static class Program
             StockRestoreNotInWorldAbandonTests();
             PoolLifeTests();
             CapacityTests();
+            BoardingPolicyTests();
 #if VOYAGE_SAVE_DIAGNOSTICS
             VoyageSaveDiagnosticsTests();
 #else
@@ -156,6 +166,8 @@ internal static class Program
         BepInEx.Paths.ConfigPath = Path.Combine(Root, "config");
         if (!keepFile && Directory.Exists(BepInEx.Paths.ConfigPath)) Directory.Delete(BepInEx.Paths.ConfigPath, true);
         Managers.Inst = new Managers { world = new World { gameLayer = new GameObject().Add(new Transform()) } };
+        MusketeerAccess.World = Managers.Inst.world.gameLayer;
+        MusketeerRuntime.ResetBoardingDouble();
         GlobalSaveData.filename = "global-v35";
         var home = new IslandSaveData { land = 1, isNew = false, playTimeDays = 1, Json = Raw("current") };
         var campaign = BuildCampaign(1, home);
@@ -3506,5 +3518,400 @@ internal static class Program
         Check(MusketeerIdentity.DescribeForTests().Contains("records=" + MusketeerArchive.MaxRecords), "no paid reference evicted at capacity");
         Check(MusketeerIdentity.IsGun(firstRoot.GetComponent<DroppableTool>()), "the first paid career is still tracked");
         Check(DiskBytes().SequenceEqual(before), "capacity failure writes nothing");
+    }
+
+    // ---- Issue281 boarding policy: no-boarding gate, proof boundaries, source-save demotion ----
+
+    static void BoardingPolicyTests()
+    {
+        BoardingGateTests();
+        BoardingProofFaultTests();
+        BoardingDemoteTests();
+        BoardingSaveGuardTests();
+        BoardingDeltaTests();
+    }
+
+    // policy-delta 审查注入用例（原 Astra 3 RED + 补 2）：foreign 入参别名、mid-helper 并发写。
+    static void BoardingDeltaTests()
+    {
+        AstraForeignTests();
+        AstraDisembarkTests();
+        AstraLifeTests();
+        BoardingOwnEmbarkeeSwapTests();
+        BoardingPostFallbackForeignTests();
+    }
+
+    static (GameObject go, Character character, Archer archer, Embarkee embarkee) MusketeerUnit()
+    {
+        var unit = Unit();
+        var embarkee = unit.go.Add(new Embarkee());
+        unit.archer._embarkee = embarkee;
+        embarkee._owner = new UnitOwnerRef(unit.archer);
+        return (unit.go, unit.character, unit.archer, embarkee);
+    }
+
+    // A real paid musketeer through the real identity flow (gun purchase -> promotion transfer).
+    static MusketeerIdentity.Career PromotePaidMusketeer()
+    {
+        var gun = Gun();
+        if (!TryRegister(gun.tool)) throw new Exception("boarding fixture: gun registration failed");
+        MusketeerIdentity.OnGunPickupBegin(gun.tool, out var pickup);
+        var unit = MusketeerUnit();
+        MusketeerIdentity.OnGunPickupEnd(unit.character, pickup);
+        var career = MusketeerIdentity.BoundAt(MusketeerIdentity.Current, unit.go);
+        if (career == null || !MusketeerIdentity.IsUnit(unit.archer))
+            throw new Exception("boarding fixture: unit career not established");
+        return career;
+    }
+
+    static void BoardingGateTests()
+    {
+        Reset();
+        var career = PromotePaidMusketeer();
+        var archer = career.Archer;
+
+        // 正常 Msk：native true → false；三入口全部拒绝；gate 绝不触发降级 helper。
+        bool native = true;
+        MusketeerBoardingPolicy.RefineCanEmbark(archer, ref native);
+        Check(!native, "known paid musketeer cannot embark");
+        var target = new GameObject().Add(new Embarkable());
+        Check(!MusketeerBoardingPolicy.AllowSetEmbarkableTarget(archer._embarkee, target),
+            "non-null boarding target refused for a known musketeer");
+        Check(!MusketeerBoardingPolicy.AllowEmbark(archer._embarkee), "embark refused for a known musketeer");
+        Check(MusketeerRuntime.PrepareCalls == 0, "gate never invokes the demotion helper");
+
+        // native false 保持 false（postfix 只收紧，不放宽）。
+        bool refused = false;
+        MusketeerBoardingPolicy.RefineCanEmbark(archer, ref refused);
+        Check(!refused, "native refusal stays refused");
+
+        // 普通/无 career 单位（含无 career 弩手形状）：沿原生结果。
+        var plain = MusketeerUnit();
+        bool plainNative = true;
+        MusketeerBoardingPolicy.RefineCanEmbark(plain.archer, ref plainNative);
+        Check(plainNative, "ordinary unit keeps native eligibility");
+        var plainTarget = new GameObject().Add(new Embarkable());
+        Check(MusketeerBoardingPolicy.AllowSetEmbarkableTarget(plain.embarkee, plainTarget),
+            "ordinary unit keeps target assignment");
+        Check(MusketeerBoardingPolicy.AllowEmbark(plain.embarkee), "ordinary unit keeps embark");
+
+        // null 是原生清理：已知付费火枪手也放行，且不触发 helper。
+        Check(MusketeerBoardingPolicy.AllowSetEmbarkableTarget(archer._embarkee, null),
+            "null cleanup stays available for a known musketeer");
+        Check(MusketeerRuntime.PrepareCalls == 0, "cleanup path never invokes the demotion helper");
+
+        // 已登船（异常状态）时资格门同样拒绝。
+        archer._embarkee.IsEmbarked = true;
+        bool aboardNative = true;
+        MusketeerBoardingPolicy.RefineCanEmbark(archer, ref aboardNative);
+        Check(!aboardNative, "aboard musketeer still fails the eligibility gate");
+        Check(MusketeerRuntime.PrepareCalls == 0, "eligibility gate never invokes the demotion helper");
+    }
+
+    static void BoardingProofFaultTests()
+    {
+        // otherworld：绑定世界与当前世界不一致 → 未确认 → 原生放行、不转换。
+        Reset();
+        var career = PromotePaidMusketeer();
+        var archer = career.Archer;
+        Managers.Inst.world.gameLayer = new GameObject().Add(new Transform());
+        bool native = true;
+        MusketeerBoardingPolicy.RefineCanEmbark(archer, ref native);
+        Check(native, "foreign world keeps the native result");
+        archer._embarkee.IsEmbarked = true;
+        Check(!MusketeerBoardingPolicy.TryDemoteConfirmedEmbarked(archer), "foreign world never demotes");
+        Check(MusketeerRuntime.PrepareCalls == 0, "unproven actor never reaches the helper");
+
+        // pooled life：复用地址换实例 → 旧 life 失效 → 未确认。
+        Reset();
+        career = PromotePaidMusketeer();
+        archer = career.Archer;
+        archer.gameObject.InstanceId += 100000;
+        native = true;
+        MusketeerBoardingPolicy.RefineCanEmbark(archer, ref native);
+        Check(native, "pooled reused root keeps the native result");
+        archer._embarkee.IsEmbarked = true;
+        Check(!MusketeerBoardingPolicy.TryDemoteConfirmedEmbarked(archer), "stale life never demotes");
+        Check(MusketeerRuntime.PrepareCalls == 0, "stale life never reaches the helper");
+
+        // owner 错：_owner 指向别的 actor → 未确认。
+        Reset();
+        career = PromotePaidMusketeer();
+        archer = career.Archer;
+        var stranger = MusketeerUnit();
+        archer._embarkee._owner = new UnitOwnerRef(stranger.archer);
+        native = true;
+        MusketeerBoardingPolicy.RefineCanEmbark(archer, ref native);
+        Check(native, "wrong native owner keeps the native result");
+        var target = new GameObject().Add(new Embarkable());
+        Check(MusketeerBoardingPolicy.AllowSetEmbarkableTarget(archer._embarkee, target),
+            "wrong native owner keeps target assignment");
+        archer._embarkee.IsEmbarked = true;
+        Check(!MusketeerBoardingPolicy.TryDemoteConfirmedEmbarked(archer), "wrong owner never demotes");
+        Check(MusketeerRuntime.PrepareCalls == 0, "wrong owner never reaches the helper");
+
+        // embarkee 异 root：actor._embarkee 属于别的 root → 未确认。
+        Reset();
+        career = PromotePaidMusketeer();
+        archer = career.Archer;
+        var other = MusketeerUnit();
+        archer._embarkee = other.embarkee;
+        native = true;
+        MusketeerBoardingPolicy.RefineCanEmbark(archer, ref native);
+        Check(native, "embarkee of another root keeps the native result");
+
+        // 读异常：gameObject 读抛 → 未确认 → 原生放行、helper 不被调。
+        Reset();
+        career = PromotePaidMusketeer();
+        archer = career.Archer;
+        archer.ThrowOnGameObjectRead = true;
+        native = true;
+        MusketeerBoardingPolicy.RefineCanEmbark(archer, ref native);
+        Check(native, "identity read fault keeps the native result");
+        Check(MusketeerRuntime.PrepareCalls == 0, "read fault never reaches the helper");
+
+        // IsEmbarked 读异常 → 转换不发生。
+        Reset();
+        career = PromotePaidMusketeer();
+        archer = career.Archer;
+        archer._embarkee.IsEmbarked = true;
+        archer._embarkee.ThrowOnIsEmbarkedRead = true;
+        Check(!MusketeerBoardingPolicy.TryDemoteConfirmedEmbarked(archer),
+            "embarkee read fault never demotes");
+        Check(MusketeerRuntime.PrepareCalls == 0, "embarkee read fault happens before the helper");
+
+        // 无世界 authority（在线会话形状）→ 未确认。
+        Reset();
+        career = PromotePaidMusketeer();
+        archer = career.Archer;
+        MusketeerAccess.TrackAllowed = false;
+        native = true;
+        MusketeerBoardingPolicy.RefineCanEmbark(archer, ref native);
+        Check(native, "no world authority keeps the native result");
+        archer._embarkee.IsEmbarked = true;
+        Check(!MusketeerBoardingPolicy.TryDemoteConfirmedEmbarked(archer),
+            "no world authority never demotes");
+        Check(MusketeerRuntime.PrepareCalls == 0, "no world authority never reaches the helper");
+    }
+
+    static void BoardingDemoteTests()
+    {
+        // aboard + helper true → 转换：careers 移除、Release、幂等、留守不动。
+        Reset();
+        var career = PromotePaidMusketeer();
+        var stay = Gun();
+        if (!TryRegister(stay.tool)) throw new Exception("boarding fixture: stay gun registration failed");
+        var archer = career.Archer;
+        archer._embarkee.IsEmbarked = true;
+        Check(MusketeerBoardingPolicy.TryDemoteConfirmedEmbarked(archer),
+            "confirmed embarked unit demotes through the shared proof");
+        Check(MusketeerRuntime.PrepareCalls == 1 && ReferenceEquals(MusketeerRuntime.LastActor, archer),
+            "helper consulted exactly once for the exact actor");
+        Check(!MusketeerIdentity.Current.Careers.Contains(career), "demoted career leaves the island roster");
+        Check(career.Archer == null && career.Character == null, "career release drops the live references");
+        Check(!MusketeerIdentity.IsUnit(archer), "demoted unit is no longer a known musketeer");
+        Check(MusketeerIdentity.Current.Careers.Count == 1, "staying paid identity untouched");
+        Check(!MusketeerBoardingPolicy.TryDemoteConfirmedEmbarked(archer), "second demotion is a no-op");
+        Check(MusketeerRuntime.PrepareCalls == 1, "idempotent call never re-invokes the helper");
+
+        // aboard + helper false → 归还不完整：身份保留、不 remove。
+        Reset();
+        career = PromotePaidMusketeer();
+        archer = career.Archer;
+        archer._embarkee.IsEmbarked = true;
+        MusketeerRuntime.NextResult = false;
+        Check(!MusketeerBoardingPolicy.TryDemoteConfirmedEmbarked(archer),
+            "incomplete field return blocks the demotion");
+        Check(MusketeerIdentity.Current.Careers.Contains(career),
+            "incomplete return keeps the paid identity");
+
+        // aboard + helper 抛异常 → 保留。
+        Reset();
+        career = PromotePaidMusketeer();
+        archer = career.Archer;
+        archer._embarkee.IsEmbarked = true;
+        MusketeerRuntime.ThrowOnPrepare = true;
+        Check(!MusketeerBoardingPolicy.TryDemoteConfirmedEmbarked(archer), "helper fault blocks the demotion");
+        Check(MusketeerIdentity.Current.Careers.Contains(career), "helper fault keeps the paid identity");
+
+        // 未登船：Embark postfix 不转换（原生没跑成，IsEmbarked 仍 false）。
+        Reset();
+        career = PromotePaidMusketeer();
+        archer = career.Archer;
+        MusketeerBoardingPolicy.AfterEmbark(archer._embarkee);
+        Check(MusketeerRuntime.PrepareCalls == 0, "a refused embark never demotes");
+        Check(MusketeerIdentity.Current.Careers.Contains(career), "un-embarked unit keeps its identity");
+
+        // Embark postfix 兜底：prefix 被绕过且 IsEmbarked=true → 同一 proof 转换。
+        Reset();
+        career = PromotePaidMusketeer();
+        archer = career.Archer;
+        archer._embarkee.IsEmbarked = true;
+        MusketeerBoardingPolicy.AfterEmbark(archer._embarkee);
+        Check(MusketeerRuntime.PrepareCalls == 1, "post fallback consults the helper");
+        Check(!MusketeerIdentity.Current.Careers.Contains(career),
+            "post fallback demotes through the same proof");
+
+        // 源保存前转换的 gate：-1 / foreign land / challenge 不一致 / readonly / unresolved /
+        // generationpending 都不转换；只有显式当前源转换。
+        Reset();
+        career = PromotePaidMusketeer();
+        archer = career.Archer;
+        archer._embarkee.IsEmbarked = true;
+        int campaign = GlobalSaveData.loaded.currentCampaign;
+        int challenge = GlobalSaveData.loaded.currentChallenge;
+        int land = CampaignSaveData.current.CurrentLand;
+
+        MusketeerBoardingPolicy.DemoteConfirmedEmbarkedBeforeSave(campaign, -1, challenge);
+        Check(MusketeerRuntime.PrepareCalls == 0, "deferred land never demotes");
+        MusketeerBoardingPolicy.DemoteConfirmedEmbarkedBeforeSave(campaign, land + 5, challenge);
+        Check(MusketeerRuntime.PrepareCalls == 0, "foreign island save never demotes");
+        MusketeerBoardingPolicy.DemoteConfirmedEmbarkedBeforeSave(campaign, land, challenge + 3);
+        Check(MusketeerRuntime.PrepareCalls == 0, "mismatched challenge never demotes");
+
+        MusketeerIdentity.Current.ReadOnly = true;
+        MusketeerBoardingPolicy.DemoteConfirmedEmbarkedBeforeSave(campaign, land, challenge);
+        Check(MusketeerRuntime.PrepareCalls == 0, "readonly state never demotes");
+        MusketeerIdentity.Current.ReadOnly = false;
+        MusketeerIdentity.Current.Unresolved = true;
+        MusketeerBoardingPolicy.DemoteConfirmedEmbarkedBeforeSave(campaign, land, challenge);
+        Check(MusketeerRuntime.PrepareCalls == 0, "unresolved state never demotes");
+        MusketeerIdentity.Current.Unresolved = false;
+        MusketeerIdentity.Current.GenerationPending = true;
+        MusketeerBoardingPolicy.DemoteConfirmedEmbarkedBeforeSave(campaign, land, challenge);
+        Check(MusketeerRuntime.PrepareCalls == 0, "generation pending never demotes");
+        MusketeerIdentity.Current.GenerationPending = false;
+
+        MusketeerBoardingPolicy.DemoteConfirmedEmbarkedBeforeSave(campaign, land, challenge);
+        Check(MusketeerRuntime.PrepareCalls == 1, "explicit current source demotes before capture");
+        Check(!MusketeerIdentity.Current.Careers.Contains(career),
+            "current-source demotion removes the career");
+    }
+
+    static void BoardingSaveGuardTests()
+    {
+        // 未登船 active musketeer：不给 GetID row → 原 MissingRow Guard 拒绝。
+        Reset();
+        var career = PromotePaidMusketeer();
+        var stay = Gun();
+        if (!TryRegister(stay.tool)) throw new Exception("boarding fixture: stay gun registration failed");
+        var capture = SaveOn(Island(), GlobalSaveData.loaded.currentCampaign, Island().land,
+            GlobalSaveData.loaded.currentChallenge, "{\"rows\":\"guard-stay\"}", ("guard-stay", stay.go));
+        Check(!capture.Applied, "un-embarked musketeer missing its row still refuses the save");
+        Check(Logged("save-missed-row"), "original missing-row guard logged");
+
+        // aboard 但 proof 失败（owner 错）→ 不转换 → 原拒绝保留。
+        Reset();
+        career = PromotePaidMusketeer();
+        var archer = career.Archer;
+        var stranger = MusketeerUnit();
+        archer._embarkee._owner = new UnitOwnerRef(stranger.archer);
+        archer._embarkee.IsEmbarked = true;
+        MusketeerBoardingPolicy.DemoteConfirmedEmbarkedBeforeSave(GlobalSaveData.loaded.currentCampaign,
+            Island().land, GlobalSaveData.loaded.currentChallenge);
+        Check(MusketeerRuntime.PrepareCalls == 0, "unproven aboard unit is not converted by the save path");
+        var capture2 = SaveOn(Island(), GlobalSaveData.loaded.currentCampaign, Island().land,
+            GlobalSaveData.loaded.currentChallenge, "{\"rows\":\"guard-stay2\"}", ("guard-stay2", stay.go));
+        Check(!capture2.Applied, "unproven aboard unit keeps the original refusal");
+
+        // aboard 且已转换 → 同形状保存通过（musketeer 行不再被要求）。
+        Reset();
+        career = PromotePaidMusketeer();
+        archer = career.Archer;
+        var stay3 = Gun();
+        if (!TryRegister(stay3.tool)) throw new Exception("boarding fixture: stay3 gun registration failed");
+        archer._embarkee.IsEmbarked = true;
+        Check(MusketeerBoardingPolicy.TryDemoteConfirmedEmbarked(archer), "aboard unit demotes before the save");
+        var capture3 = SaveOn(Island(), GlobalSaveData.loaded.currentCampaign, Island().land,
+            GlobalSaveData.loaded.currentChallenge, "{\"rows\":\"guard-stay3\"}", ("guard-stay3", stay3.go));
+        Check(capture3.Applied, "demoted voyage save completes without the musketeer row");
+    }
+
+    // ---- policy-delta 审查注入：foreign 入参别名与 mid-helper 并发写（原 Astra 3 RED + 补 2）----
+
+    // [P2-1] foreign Embarkee._owner 恰指向 paid actor：不得借 actor 自身 embarkee 通过 proof。
+    static void AstraForeignTests()
+    {
+        Reset();
+        var career = PromotePaidMusketeer();
+        var actor = career.Archer;
+        var foreign = new GameObject().Add(new Embarkee());
+        foreign._owner = new UnitOwnerRef(actor);
+        bool targetAllowed = MusketeerBoardingPolicy.AllowSetEmbarkableTarget(foreign,
+            new GameObject().Add(new Embarkable()));
+        bool embarkAllowed = MusketeerBoardingPolicy.AllowEmbark(foreign);
+        Check(targetAllowed && embarkAllowed,
+            "foreign embarkee must not be classified using actor's own embarkee");
+        Check(MusketeerIdentity.IsUnit(actor), "foreign alias never disturbs the paid identity");
+        // 同 root 上的第二 Embarkee 也不能冒名（即使同根同 owner）。
+        var twin = actor.gameObject.Add(new Embarkee());
+        twin._owner = new UnitOwnerRef(actor);
+        bool twinAllowed = MusketeerBoardingPolicy.AllowEmbark(twin);
+        Check(twinAllowed, "a second embarkee on the same root cannot impersonate the proven one");
+        Check(MusketeerRuntime.PrepareCalls == 0, "foreign alias never reaches the helper");
+    }
+
+    // [P2-2] mid-helper 把 actor 自身 IsEmbarked 翻 false：B 成功返回也不能退职业。
+    static void AstraDisembarkTests()
+    {
+        Reset();
+        var career = PromotePaidMusketeer();
+        var actor = career.Archer;
+        actor._embarkee.IsEmbarked = true;
+        MusketeerRuntime.OnPrepare = a => a._embarkee.IsEmbarked = false;
+        bool result = MusketeerBoardingPolicy.TryDemoteConfirmedEmbarked(actor);
+        Check(!result && MusketeerIdentity.Current.Careers.Contains(career),
+            "must reprove still embarked after runtime work");
+    }
+
+    // [P2-2] mid-helper 把同 career/slot 推入相符新 life：ReferenceEquals 不是冻结 life 见证。
+    static void AstraLifeTests()
+    {
+        Reset();
+        var career = PromotePaidMusketeer();
+        var actor = career.Archer;
+        actor._embarkee.IsEmbarked = true;
+        MusketeerRuntime.OnPrepare = a => { career.Slot.Life += 100; career.Life = career.Slot.Life; };
+        bool result = MusketeerBoardingPolicy.TryDemoteConfirmedEmbarked(actor);
+        Check(!result && MusketeerIdentity.Current.Careers.Contains(career),
+            "same mutable career is not same frozen life");
+    }
+
+    // [补] mid-helper 把 actor._embarkee 换成同根新组件：own embarkee 未冻结即被换，不得退。
+    static void BoardingOwnEmbarkeeSwapTests()
+    {
+        Reset();
+        var career = PromotePaidMusketeer();
+        var actor = career.Archer;
+        actor._embarkee.IsEmbarked = true;
+        Embarkee swapped = null;
+        MusketeerRuntime.OnPrepare = a =>
+        {
+            swapped = a.gameObject.Add(new Embarkee());
+            swapped._owner = new UnitOwnerRef(a);
+            swapped.IsEmbarked = true;
+            a._embarkee = swapped;
+        };
+        bool result = MusketeerBoardingPolicy.TryDemoteConfirmedEmbarked(actor);
+        Check(!result && MusketeerIdentity.Current.Careers.Contains(career),
+            "own embarkee swapped mid-helper is not the frozen embarkee");
+    }
+
+    // [补] Embark postfix 兜底收到 foreign embarkee（IsEmbarked=true、_owner 指向 paid actor）：
+    // 即使 actor 自身确已登船，事件组件不属于其 own embarkee，也不得经该事件触发降级。
+    static void BoardingPostFallbackForeignTests()
+    {
+        Reset();
+        var career = PromotePaidMusketeer();
+        var actor = career.Archer;
+        actor._embarkee.IsEmbarked = true;   // actor 自身确已登船：穿透组合
+        var foreign = new GameObject().Add(new Embarkee());
+        foreign._owner = new UnitOwnerRef(actor);
+        foreign.IsEmbarked = true;
+        MusketeerBoardingPolicy.AfterEmbark(foreign);
+        Check(MusketeerRuntime.PrepareCalls == 0,
+            "foreign embarkee event never reaches the helper through the post fallback");
+        Check(MusketeerIdentity.Current.Careers.Contains(career),
+            "foreign embarkee event never retires the paid identity");
     }
 }

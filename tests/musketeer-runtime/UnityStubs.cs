@@ -240,7 +240,23 @@ namespace UnityEngine
     public class Component : Object
     {
         public GameObject gameObject;
-        public bool enabled = true;
+        private bool _enabled = true;
+        /// <summary>测试用：下一次写 enabled 抛异常（验证自有 renderer 隐藏失败不误报退场）。</summary>
+        public bool ThrowOnEnabledSet;
+
+        public bool enabled
+        {
+            get => _enabled;
+            set
+            {
+                if (ThrowOnEnabledSet)
+                {
+                    ThrowOnEnabledSet = false;
+                    throw new InvalidOperationException("enabled set failed");
+                }
+                _enabled = value;
+            }
+        }
         public Transform transform => gameObject != null ? gameObject.transform : null;
 
         public T GetComponent<T>() where T : Component => gameObject != null ? gameObject.GetComponent<T>() : null;
@@ -279,7 +295,17 @@ namespace UnityEngine
 
         public Transform transform => OwnTransform;
 
-        public int GetInstanceID() => (int)Pointer;
+        /// <summary>测试用：GetInstanceID 调用计数 + 按次抛异常（验证"身份读异常 ≠ 无包"）。</summary>
+        public int IdReads;
+        public int ThrowIdReadAt;
+
+        public int GetInstanceID()
+        {
+            IdReads++;
+            if (ThrowIdReadAt != 0 && IdReads == ThrowIdReadAt)
+                throw new InvalidOperationException("identity read fault");
+            return (int)Pointer;
+        }
 
         /// <summary>销毁后不可见（Unity：访问已销毁对象会抛异常；替身按"不可用"处理）。</summary>
         public bool activeInHierarchy => !IsDestroyed && _activeSelf;
@@ -388,10 +414,20 @@ namespace UnityEngine
 
         /// <summary>测试用：下一次写 forceRenderingOff 抛异常（验证归还失败保留凭据）。</summary>
         public bool ThrowOnForceRenderingOffSet;
+        /// <summary>测试用：持续抛异常直到测试清除（验证"债务未结清→false、重试收敛"路径）。</summary>
+        public bool ThrowOnForceRenderingOffSetAlways;
+        /// <summary>测试用：forceRenderingOff 读取计数 + 持续读异常（验证"读异常=未知，不清账"；读异常≠销毁）。</summary>
+        public int ForceRenderingOffGets;
+        public bool ThrowOnForceRenderingOffGetAlways;
 
         public bool forceRenderingOff
         {
-            get => _forceRenderingOff;
+            get
+            {
+                ForceRenderingOffGets++;
+                if (ThrowOnForceRenderingOffGetAlways) throw new InvalidOperationException("forceRenderingOff read fault");
+                return _forceRenderingOff;
+            }
             set
             {
                 if (ThrowOnForceRenderingOffSet)
@@ -399,6 +435,7 @@ namespace UnityEngine
                     ThrowOnForceRenderingOffSet = false;
                     throw new InvalidOperationException("forceRenderingOff failed");
                 }
+                if (ThrowOnForceRenderingOffSetAlways) throw new InvalidOperationException("forceRenderingOff failed (persistent)");
                 _forceRenderingOff = value;
             }
         }
