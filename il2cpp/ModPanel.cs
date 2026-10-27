@@ -79,6 +79,9 @@ public class ModPanel : MonoBehaviour
         PatchArcher_Impact.Tick();
         PatchDivine_HermesHeadwear.Tick();
         HeavyShieldIntegration.Tick();
+#if !ANDROID
+        MountIslandGemRewards.Tick();
+#endif
         PatchRoles_Crossbowman.Tick();
         ShopCleanupQueue.TickPendingCleanup();
     }
@@ -86,6 +89,9 @@ public class ModPanel : MonoBehaviour
     private void OnDestroy()
     {
         HeavyShieldNativeKeyReader.ReleaseNativeResources();
+#if !ANDROID
+        MountIslandGemRewards.Clear();
+#endif
         // 仅面板对象真正销毁（退出游戏）时收尾持久驱动；隐藏面板或暂停不重置。
         WallEngineerRuntime.Reset();
         try { MusketeerShop.Clear("driver-destroyed"); } catch { }
