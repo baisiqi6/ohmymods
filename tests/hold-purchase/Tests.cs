@@ -59,6 +59,7 @@ internal static partial class Program
         AmmoScenarios();
         RangeScenarios();
         ReviewScenarios();
+        SinglePurchaseScenarios();
         Console.WriteLine();
         Console.WriteLine(_failed == 0
             ? "ALL PASS (" + _passed + " scenarios)"
@@ -1418,6 +1419,12 @@ internal static partial class Program
         ModConfig.HoldPurchaseEnabled = new ConfigEntry<bool> { Value = true };
         ModPanel.IsShown = false;
         NetworkBigBoss.HasWorldAuth = true;
+        MusketeerShop._object = null;
+        MusketeerShop._payable = null;
+        MusketeerShop._owner = null;
+        MusketeerShop._layer = null;
+        MusketeerShop._clearing = false;
+        MusketeerShop._retiring = false;
         PatchPlayer_HoldPurchase.ResetAll();
         PatchPlayer_HoldPurchase.Tick();
         PatchPlayer_HoldPurchase.ResetAll();

@@ -56,4 +56,4 @@
     </Reference>
   </ItemGroup>
 
-<ItemGroup><Compile Include="../../../il2cpp/PatchPlayer_HoldPurchase.cs" Link="Production/PatchPlayer_HoldPurchase.cs" /></ItemGroup></Project>
+<ItemGroup><Compile Include="../../../il2cpp/PatchPlayer_HoldPurchase.cs" Link="Production/PatchPlayer_HoldPurchase.cs" /><Compile Include="../../../il2cpp/MusketeerShop.ManualPurchase.cs" Link="Production/MusketeerShop.ManualPurchase.cs" /></ItemGroup></Project>

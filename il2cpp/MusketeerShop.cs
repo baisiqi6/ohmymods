@@ -418,6 +418,10 @@ internal static partial class MusketeerShop
             // the native caller's later consume loop has nothing to charge a second time.
             if (player.hasLocalAuthority && player._payState == Player.PayState.Completed)
             {
+                // Rejected responsibility boundary: this order is void and the native cancel
+                // below only returns the floating coins. End the exact hold session before the
+                // refund so the PerformPay postfix / continuation cannot arm it again.
+                NotifyPaymentRejected(player);
                 player.CancelTransaction();
                 player.DropFloatingCurrency();
                 Payment.Clear();
@@ -431,6 +435,10 @@ internal static partial class MusketeerShop
         catch (Exception e) { reason = e.GetType().Name; }
         if (!success)
         {
+            // Rejected responsibility boundary: the native call still returns normally while
+            // the order is refunded. End the exact hold session before the refund so the
+            // PerformPay postfix / host fallback cannot treat this as a fulfilled order.
+            NotifyPaymentRejected(player);
             // Coins already left the wallet on entering the native floating slots. The caller
             // consumes those slots after this callback, so restore only the wallet balance once.
             player.wallet.AddCurrency(CurrencyType.Coins, Price);

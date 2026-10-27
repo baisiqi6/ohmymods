@@ -195,6 +195,7 @@
     <Compile Include="../il2cpp/MusketeerPersistence.cs" Link="Shared/MusketeerPersistence.cs" />
     <Compile Include="../il2cpp/MusketeerRuntime.cs" Link="Shared/MusketeerRuntime.cs" />
     <Compile Include="../il2cpp/MusketeerShop.cs" Link="Shared/MusketeerShop.cs" />
+    <Compile Include="../il2cpp/MusketeerShop.ManualPurchase.cs" Link="Shared/MusketeerShop.ManualPurchase.cs" />
     <Compile Include="../il2cpp/MusketeerShopAssets.cs" Link="Shared/MusketeerShopAssets.cs" />
     <Compile Include="../il2cpp/MusketeerShopRules.cs" Link="Shared/MusketeerShopRules.cs" />
     <Compile Include="../il2cpp/MusketeerVisuals.cs" Link="Shared/MusketeerVisuals.cs" />

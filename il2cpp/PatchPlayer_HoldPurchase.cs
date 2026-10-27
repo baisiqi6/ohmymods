@@ -19,7 +19,11 @@ namespace KingdomEnhancedMod;
 /// 1. 开关关闭、scope 非 Active、面板打开时完整原版：不写任何字段、不合成输入、不留状态；
 /// 2. 开启时，同一名本地玩家对同一家白名单商店连续按住购买键满 0.6 秒后，
 ///    Holding 阈值与第一枚金币仍按原版；同一次按住内的后续金币改用缩短后的
-///    timeBetweenCoins（原值 1/4，不低于 0.03 秒，且绝不放慢）；
+///    timeBetweenCoins（原值 1/4，不低于 0.03 秒，且绝不放慢）。未白名单对象只在
+///    当前整价 Price ≥ 7 且 Currency 为 Coins 时复用同一节奏加速当前这一笔：
+///    不续买、不合成按键、不 arm、不等待补货；每帧重验对象/实例/层/Price/Currency，
+///    读异常不加速，交易结束或取消后本次 hold 立即结束。加速本身不检查钱包能否
+///    付清整价，部分金币已投入时余额不足仍是合法的当笔；
 /// 3. 一次原生交易完整结束且确认为成功后，只要按键仍未松开、仍是同一家店、店仍可付款且
 ///    付得起，就在随后的 None 阶段把本次 UpdatePayState 的 payKeyDown 合成为 true，
 ///    让原生 None 分支自己再次进入 Holding；金币与扣款全部走原生路径；
@@ -66,9 +70,12 @@ namespace KingdomEnhancedMod;
 /// （铁剑铺=Castle7 解锁的库存制 PayableShop，CanPay 满架即停与弓铺同构；2026-09-23
 /// 用户要求纳入快速购买）、ShopNinjaLeft、ShopNinjaRight、ShopPikeLeft、ShopPikeRight、
 /// LeftShieldShop、RightShieldShop；面包店按同一 GameObject 上的 Baker 组件识别
-/// （沿用 AutoRestockCounts.ClassifyShop 的既有识别法）。ChangeRuler、ChangeItem、
-/// Workshop、祭坛、换坐骑、洞穴熔炉 PayableForge（炸弹/护甲，非 PayableShop）等仍排除。额外只开放 PayableWorkshopBarrel，及同GO
-/// FireTower精确拥有的PayableComponent；这两类每次加速/续买/回执均重验，禁止资格缓存串用。
+/// （沿用 AutoRestockCounts.ClassifyShop 的既有识别法）。额外开放 PayableWorkshopBarrel，
+/// 同 GO FireTower 精确拥有的 PayableComponent，以及 MusketeerShop 当前静态
+/// _payable/_owner/同 GO/当前层精确匹配的 4 金币火枪店；这些分支每次加速/续买/回执均
+/// 重验，禁止资格缓存串用。ChangeRuler、ChangeItem、Workshop、祭坛、换坐骑、洞穴熔炉
+/// PayableForge（炸弹/护甲，非 PayableShop）等不续买；其中当前 Price ≥ 7 Coins 的只按
+/// 上述单次规则加速当前一笔。
 ///
 /// 2.1.0 源与 interop API 核对（actual-api.json / Player.cs / Payable.cs / PayableShop.cs）：
 ///   Player.UpdatePayState(bool,bool,bool)：存在（token 100675566）。
@@ -92,6 +99,11 @@ public static class PatchPlayer_HoldPurchase
     internal const float CoinIntervalFraction = 0.25f;
     /// <summary>加速下限，同时保证绝不把原值改慢（原值更小则原样保留）。</summary>
     internal const float MinCoinInterval = 0.03f;
+    /// <summary>
+    /// 未白名单对象只做当笔加速的最低整价（金币）。低于它保持原版节奏；
+    /// 白名单仍然走原有续买语义，不受该阈值影响。
+    /// </summary>
+    internal const int SingleAccelerationMinPrice = 7;
     /// <summary>本地帧间隔超过该秒数视为暂停/菜单/读档停帧，结束本次 hold。</summary>
     internal const float StallSeconds = 0.5f;
     /// <summary>
@@ -176,6 +188,13 @@ public static class PatchPlayer_HoldPurchase
         internal int Notes;
         internal bool RecheckAmmoGoods;
         internal IntPtr AmmoOwnerPtr;
+        /// <summary>
+        /// 非白名单对象：只允许当前这笔原生交易使用加速节奏；不续买、不合成、不等待。
+        /// 身份仍是 Bind 捕获的同一 Payable，资格每帧按当前 Price/Currency 重验。
+        /// </summary>
+        internal bool SingleAcceleration;
+        /// <summary>本会话已经写入过加速节奏。资格一旦失效立即结束本次 hold，绝不回退后重开。</summary>
+        internal bool SingleAccelerated;
         internal float HeldElapsed;
         internal float LastUnscaledTime;
         internal bool ContinuationArmed;
@@ -348,6 +367,11 @@ public static class PatchPlayer_HoldPurchase
                 Session session = pair.Value;
                 if (!SessionUsable(pair.Key, session)
                     || !AmmoGoodsStillValid(session)
+                    // A bound single-acceleration session is pruned by the same live
+                    // object/instance/scope/Price/Currency identity the frame hook uses.
+                    // Before Bind (Shop still null) the session is left alone.
+                    || (session.SingleAcceleration && session.Shop != null
+                        && !SingleAccelerationEligible(session))
                     || (session.AwaitingReceipt && Time.unscaledTime > session.AwaitDeadline))
                     _scratchKeys.Add(pair.Key);
             }
@@ -586,8 +610,36 @@ public static class PatchPlayer_HoldPurchase
                 }
             }
 
-            if (session.ShopIsGoods && session.HeldElapsed >= HoldSeconds
-                && (state == StateHolding || state == StateTransaction))
+            bool inCoinFlow = state == StateHolding || state == StateTransaction;
+
+            if (session.SingleAcceleration && inCoinFlow
+                && session.HeldElapsed >= HoldSeconds)
+            {
+                // 非白名单对象只加速当前这笔原生交易。资格按当前对象/实例/层/Price/Currency
+                // 每帧重验，绝不调用 CanEnterHolding 的钱包整价门：部分金币已投入后钱包
+                // 不足整价仍是合法的当笔付款。读异常一律不加速。
+                if (!SingleAccelerationEligible(session))
+                {
+                    if (session.SingleAccelerated)
+                    {
+                        Drop(session, "single-invalid");
+                        receipt.Session = null;
+                        return;
+                    }
+                }
+                else if (HasPendingRestoreFor(player))
+                {
+                    // 与白名单分支同一条所有权规则：先归还旧 receipt，绝不叠加缩短。
+                    RetryPendingFor(player);
+                }
+                else
+                {
+                    OverrideCoinInterval(session, player, ref receipt);
+                    if (receipt.Overrode) session.SingleAccelerated = true;
+                }
+            }
+
+            if (session.ShopIsGoods && inCoinFlow && session.HeldElapsed >= HoldSeconds)
             {
                 if (HasPendingRestoreFor(player))
                 {
@@ -621,6 +673,17 @@ public static class PatchPlayer_HoldPurchase
             if (session == null || player == null || !TryGetActive(session, player)) return;
 
             int after = ReadState(player);
+
+            if (session.SingleAcceleration
+                && (after == StateCompleted || after == StateCancelling
+                    || receipt.StateBefore == StateCompleted || receipt.StateBefore == StateCancelling
+                    || (after == StateNone && receipt.StateBefore != StateNone)))
+            {
+                // 单笔加速绑定当前这笔交易：付款完成或取消后立刻结束本次 hold，
+                // 即使同一对象随后升级/改价，也必须重新按下才有新阶段。
+                Drop(session, "single-complete");
+                return;
+            }
 
             if (receipt.Injected)
             {
@@ -924,6 +987,49 @@ public static class PatchPlayer_HoldPurchase
         }
     }
 
+    /// <summary>
+    /// 真实 MusketeerShop.OnPay 的两处拒绝责任边界（未记录/未完成回调在原生取消前、
+    /// TryCreateGun 失败在原生退款 AddCurrency 前）通知：只结束这一笔已被拒绝的 hold，
+    /// 让同一帧的 PerformPay Postfix、AfterPayUpdate 和续买窗口都不能把已退款订单重新
+    /// arm 成下一次购买。绝不改金额/库存/退款/CanPay，不记结果，也不阻止玩家松开后的
+    /// 真实重按。无会话、开关关闭或身份不精确时不做任何事；调用方正处于原生退款流程，
+    /// 因此吞掉全部异常，绝不让 hold 侧读取打断退款。
+    ///
+    /// 已绑定会话只认 Bind 捕获的同一家店（Pointer + GameObject instance）。只有从未
+    /// 绑定过（ShopPtr == 0，极早长帧在 Bind 之前完成支付）才允许保守兜底：当前 player
+    /// 的 _completingPayable 必须就是被拒目标，且该目标仍是 MusketeerShop 的精确当前
+    /// payable。已经绑定到别的（或已销毁的旧）目标时不兜底、不重建资格。
+    /// </summary>
+    internal static void OnMusketeerPaymentRejected(Player player, Payable payable)
+    {
+        try
+        {
+            if (!FeatureOn() || player == null || payable == null) return;
+            if (payable.Pointer == IntPtr.Zero) return;
+            if (!player.hasLocalAuthority || player.TunnelInput) return;
+
+            Session session = Find(player);
+            if (session == null || !PendingOwnerMatches(session, player)) return;
+
+            if (session.ShopPtr != IntPtr.Zero)
+            {
+                if (!SameShop(session, payable)) return;
+            }
+            else
+            {
+                Payable completing = player._completingPayable;
+                if (completing == null || completing.Pointer != payable.Pointer) return;
+                if (!MusketeerShop.IsCurrentManualPayable(payable)) return;
+            }
+
+            Drop(session, "musketeer-rejected");
+        }
+        catch
+        {
+            // Native refund must not be interrupted by a hold-side read failure.
+        }
+    }
+
     /// <summary>把待归还的 receipt 排进重试队列（按会话去重）。</summary>
     private static void EnsureQueued(Session session)
     {
@@ -1176,8 +1282,17 @@ public static class PatchPlayer_HoldPurchase
             session.ShopIsGoods = branch != GoodsBranch.None;
             session.GoodsViaBaker = branch == GoodsBranch.Baker;
             var component = payable.TryCast<PayableComponent>();
-            session.RecheckAmmoGoods = component != null || payable.TryCast<PayableWorkshopBarrel>() != null;
-            session.AmmoOwnerPtr = component?._owner != null ? component._owner.Pointer : IntPtr.Zero;
+            // The goods-only recheck is valid only for the real goods branches. A generic
+            // PayableComponent (for example a high-price single-purchase object) must not be
+            // dropped by AmmoGoodsStillValid merely because it has a component.
+            bool barrel = component == null && payable.TryCast<PayableWorkshopBarrel>() != null;
+            session.RecheckAmmoGoods = session.ShopIsGoods && (component != null || barrel);
+            // Owner capture is goods-only: generic single acceleration is identity-checked
+            // through the live Payable/GameObject/scope instead of a cached owner.
+            session.AmmoOwnerPtr = session.ShopIsGoods && component?._owner != null
+                ? component._owner.Pointer : IntPtr.Zero;
+            session.SingleAcceleration = !session.ShopIsGoods;
+            session.SingleAccelerated = false;
         }
         catch (Exception e)
         {
@@ -1185,6 +1300,10 @@ public static class PatchPlayer_HoldPurchase
             // Never leave cached goods=true without the corresponding live-owner proof.
             session.ShopIsGoods = false;
             session.GoodsViaBaker = false;
+            session.RecheckAmmoGoods = false;
+            session.AmmoOwnerPtr = IntPtr.Zero;
+            session.SingleAcceleration = false;
+            session.SingleAccelerated = false;
             Note("bind", e);
             return;
         }
@@ -1222,10 +1341,14 @@ public static class PatchPlayer_HoldPurchase
         Tag = 1,
         Baker = 2,
         Barrel = 3,
-        FireTower = 4
+        FireTower = 4,
+        Musketeer = 5
     }
 
-    /// <summary>白名单：原工具/面包店、火药桶、精确火塔owner的弹药付款点；其余不加速不续买。</summary>
+    /// <summary>
+    /// 白名单：原工具/面包店、火药桶、精确 owner 的火塔弹药、当前精确身份的火枪店。
+    /// 其余对象不属于 goods/续买分支；其中当前 Price ≥ 7 Coins 的只走单笔加速。
+    /// </summary>
     private static bool IsSafeGoods(Payable payable) => ClassifyGoods(payable) != GoodsBranch.None;
 
     /// <summary>
@@ -1244,6 +1367,10 @@ public static class PatchPlayer_HoldPurchase
             var component = payable.TryCast<PayableComponent>();
             if (component != null)
             {
+                // The mod's own 4-coin Musketeer shop is a real goods store: it keeps the
+                // non-Baker acceleration plus native re-buy. Identity is the exact current
+                // static payable/owner/root; CanPurchase is deliberately not part of it.
+                if (MusketeerShop.IsCurrentManualPayable(payable)) return GoodsBranch.Musketeer;
                 var tower = go.GetComponent<FireTower>();
                 // FireTower AI may be disabled on a client while its payment owner remains
                 // valid. Native CanPay/CanSelect retain capacity/readiness/RPC decisions.
@@ -1279,6 +1406,32 @@ public static class PatchPlayer_HoldPurchase
                 : component._owner != null && component._owner.Pointer == session.AmmoOwnerPtr;
         }
         catch { return false; }
+    }
+
+    /// <summary>
+    /// 非白名单对象的当笔加速资格：每次都用当前会话捕获的同一 Payable/实例重验活动对象、
+    /// 当前 world/layer/scene，再读当前整价与币种。任何读取异常都不加速（保守 false）。
+    /// 不调用 CanEnterHolding，尤其不检查钱包是否能付清整价：部分金币已投入后钱包不足
+    /// 整价仍是合法的当笔付款。
+    /// </summary>
+    private static bool SingleAccelerationEligible(Session session)
+    {
+        if (session == null || session.Shop == null || session.ShopIsGoods) return false;
+        try
+        {
+            Payable shop = session.Shop;
+            if (!shop.enabled || !ShopAlive(session)) return false;
+            if (!OptionalQoLScope.IsCurrent(shop)) return false;
+            if (!Context.TryCapture(shop, out Context context) || !context.Equals(session.Scope))
+                return false;
+            if (shop.Price < SingleAccelerationMinPrice) return false;
+            if (shop.Currency != CurrencyType.Coins) return false;
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     /// <summary>
@@ -1819,6 +1972,7 @@ public static class PatchPlayer_HoldPurchase
             case GoodsBranch.Baker: return "Baker";
             case GoodsBranch.Barrel: return "barrel";
             case GoodsBranch.FireTower: return "fire-tower";
+            case GoodsBranch.Musketeer: return "musketeer";
             default: return "none";
         }
     }
