@@ -1,3 +1,7 @@
+## 2026-10-27 — #286 Windows 正常档登记已恢复，待玩家实测
+
+用户正常保存退出并授权完整备份后，25 文件/12,545,158 bytes 备份逐 hash 核验；使用最新匹配输入仅更新正常 global 与 primary Musk pair，13:50:03Z r3 实际 APPLIED，独立读回确认其余 23 文件及 DLL 未改、备份完整、无遗留 temp。r2 首次替换因 PowerShell null 参数绑定失败，正式数据未变；失败日志保留，r3 经独立增量审查及真实 Parser/CheckOnly 后成功。用户已可启动正常 Windows 测商店；F5/Native canonical、付款领取、换岛与冷读仍未验收，不记购买通过。见[实际应用回执](tasks/issue-286/receipts/windows-normal-registration-apply-20261027.md)；下方离线候选为历史时点。
+
 ## 2026-10-27 — #286 Windows 缺岛登记已制成并独审副本候选
 
 用户确认 Windows F5 身份待核验、本岛从未购买且无未领盾具；新取匹配 global/pair 副本仍为 slot1/challenge0/land11 缺行。仅新增本岛空 canonical 行，保留 land8 兵/工具两责及全部其它原生数据；生产配对重建/交叉拒绝通过，29 工具检查与独立 Astra 复核完成。未回写正常档、未换 DLL；修复后 Native canonical、付款领取/换岛/冷读未验，不能称已修。见[副本回执](tasks/issue-286/receipts/windows-empty-island-copy-20261027.md)。钻石 28+28 奖励另归 #298，不混修购买保护。
