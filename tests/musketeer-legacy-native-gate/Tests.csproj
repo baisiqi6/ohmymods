@@ -23,4 +23,7 @@
     <Compile Include="../../il2cpp/Patch_MusketeerLegacyCompensation.cs" Link="Production/CompensationPolicy.cs" />
     <Compile Include="$(NativeSaveSource)" Link="Production/Patch_MusketeerNativeSave.cs" />
   </ItemGroup>
+  <ItemGroup>
+    <Compile Include="../mount-island-gems/DisabledGemRewards.cs" Link="Boundary/DisabledGemRewards.cs" />
+  </ItemGroup>
 </Project>

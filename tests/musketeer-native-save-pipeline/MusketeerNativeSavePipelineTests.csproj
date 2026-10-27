@@ -27,4 +27,7 @@
     <Compile Include="../musketeer-boundary/DisabledLegacyCompensationRuntime.cs" Link="Boundary/DisabledLegacyCompensationRuntime.cs" />
   </ItemGroup>
   <ItemGroup><Compile Include="../custom-shop-boundary/DisabledCustomShopStocks.cs" Link="Boundary/DisabledCustomShopStocks.cs" /></ItemGroup>
+  <ItemGroup>
+    <Compile Include="../mount-island-gems/DisabledGemRewards.cs" Link="Boundary/DisabledGemRewards.cs" />
+  </ItemGroup>
 </Project>
