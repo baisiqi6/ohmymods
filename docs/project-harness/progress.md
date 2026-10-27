@@ -1,3 +1,7 @@
+## 2026-10-27 — #298/#300 两项已合并并安装 Mac/Windows 正常包
+
+按用户授权依次合并PR299 e46fefa、PR301 fdfe9c4，最终tree与已验union精确同；两代码Issue已关闭。联合Gem78/Hold133/writer28/pipeline233/legacy405通过；Android1503/1旧pin失败保留。按各自实际冻结基底、原SDK/配置保全后安装：Mac c0d7aa08…、Win9ed9309c…；完整备份与独立读回证明存档/配置不变，原入口保持，无游戏启动或Native通过宣称。详情、旧机械失败和精确SHA见[联合回执](tasks/issue-298/receipts/merged-player-install-20261027.md)。
+
 ## 2026-10-27 — #300 快速购买扩展：火枪店与高价单笔
 
 火枪4币店按精确当前payment/owner加入加速续买；其余≥7 Coins仅当笔加速、不续买。独审发现的火枪出货失败退款仍自动重发，已在真实拒绝/退款边界终止精确hold并复审通过。Root133/133，独立144/144；Mac完整/Win当前装版最小增量NoDeploy0W0E，Android0E（1旧warning）、Adapter1503/1旧WallEngineerRuntime pin失败如实保留。代码Ready PR交付，未合并安装/未动正常档，Native待验；见[回执](tasks/issue-300/receipt.md)。

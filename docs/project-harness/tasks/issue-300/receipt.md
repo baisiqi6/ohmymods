@@ -43,3 +43,8 @@ Ready PR 只表示本次代码交付可供合并审查；没有合并、正常�
 这些是私有验证输出，不是正常装版 hashes。本机 `quick-purchase-20261027/` 保留 `root-verify/final/`、`implementation/`、`independent-review/r2/review.md` 和 `actual-artifact-IL.json`、各决策公开模型事件/结论与源码 pins；原始游戏数据/二进制和私人机器信息未提交。
 
 Provenance: Mac Max / Codex · Maintainer Operator · acting_for=ohmymods Mac Operator.
+
+
+## 后续实际合并安装
+
+用户授权后的合并SHA、双端正常包新DLL、完整备份/独立读回及Native边界见[联合安装回执](../issue-298/receipts/merged-player-install-20261027.md)。本文前述“未安装”保留为原源码阶段历史，不作为当前状态。
