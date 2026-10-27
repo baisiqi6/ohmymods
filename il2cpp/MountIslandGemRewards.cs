@@ -19,6 +19,8 @@ internal static partial class MountIslandGemRewards
     private static (IntPtr Global, IntPtr Campaign, IntPtr Prefs, int Slot, string Raw, string Guid) _guidCache;
     private static bool _spillUnsafe, _captureUnknown;
     private static readonly HashSet<(string Guid, int Land)> CaptureFaults = new();
+    // A skipped native restoration must not be "repaired" by a later empty Save capture.
+    private static readonly Dictionary<(string Guid, int Land), long> RestorationFaults = new();
     private static readonly HashSet<MountIslandGemOwner> Attempted = new();
     private static readonly HashSet<MountIslandGemOwner> Inspected = new();
     private static readonly Dictionary<(string Guid, int Land), Batch> Batches = new();
@@ -48,7 +50,7 @@ internal static partial class MountIslandGemRewards
     private static void PublishWriter()
     {
         if (_state == null || !_state.CanSerialize || (!_state.HasStaged && EconomicEffects.Count == 0
-            && CaptureFaults.Count == 0 && !_spillUnsafe && !_captureUnknown)) { Volatile.Write(ref _writer, null); return; }
+            && CaptureFaults.Count == 0 && RestorationFaults.Count == 0 && !_spillUnsafe && !_captureUnknown)) { Volatile.Write(ref _writer, null); return; }
         var expected = new MountIslandGemNativeExpectation { Slot = _selectedSlot, Guid = _selectedGuid, Batch = _state.SerializeStaged() };
         foreach (var proof in RowProofs)
         {
@@ -58,7 +60,7 @@ internal static partial class MountIslandGemRewards
             campaign.Rows[proof.Key.Land] = new List<string>(proof.Value);
         }
         bool safe = !_spillUnsafe && !_captureUnknown && !_prepareFault && CaptureFaults.Count == 0
-            && UncapturedSpills.Count == 0 && _catalogKnown;
+            && RestorationFaults.Count == 0 && UncapturedSpills.Count == 0 && _catalogKnown;
         Volatile.Write(ref _writer, new WriterSnapshot { Path = _nativePath, File = _nativeFile, Safe = safe, Expected = expected });
     }
     private static void ObserveCatalog()
@@ -91,13 +93,14 @@ internal static partial class MountIslandGemRewards
     internal sealed class Batch
     {
         internal MountIslandGemOwner Owner;
+        internal long SceneEpoch;
         internal Box[] Boxes;
     }
 
     private readonly record struct Scene(IntPtr Global, IntPtr Campaign, IntPtr Game, IntPtr World,
         IntPtr Level, IntPtr Layer, IntPtr Config, int Land);
     private static Scene? _scene;
-    private static long _loadEpoch;
+    private static long _loadEpoch, _sceneEpoch;
     internal sealed class LevelLoadScope { internal Level Level; internal long Epoch; }
     internal static LevelLoadScope BeginLevelLoad(Level level)
     {
@@ -113,7 +116,7 @@ internal static partial class MountIslandGemRewards
         {
             if (TryScene(out var scene) && scene.Level == scope.Level.Pointer)
             {
-                _scene = scene; WakeTick();
+                _scene = scene; _sceneEpoch = scope.Epoch; WakeTick();
                 // Cold restoration can receive a native trigger before the first panel Update.
                 // Bind existing durable rewards here, without issuing anything before Playing.
                 var prefs = GlobalSaveData.loaded?.prefs;
@@ -196,6 +199,14 @@ internal static partial class MountIslandGemRewards
             if (Inspected.Add(owner))
             {
                 if (Inspected.Count > 128) { _state.Freeze("scene-bound"); _tickPending = false; Note("scene-bound"); return; }
+                if (TryReadRawIsland(owner.Land, out var raw) && raw.objects != null)
+                    foreach (var row in raw.objects)
+                        if (row != null && row.name != null && row.name.StartsWith(NamePrefix, StringComparison.Ordinal))
+                        {
+                            RowProofs[(owner.Guid, owner.Land)] = JsonRows(ReadOwnedRows(raw));
+                            _captureUnknown = true; _state.Freeze("owned-rows-without-marker"); _tickPending = false;
+                            Note("owned-rows-without-marker"); return;
+                        }
                 foreach (var chest in managers.world.gameLayer.GetComponentsInChildren<Chest>(true))
                     if (chest != null && chest.gameObject.name != null && chest.gameObject.name.StartsWith(NamePrefix, StringComparison.Ordinal))
                     { _captureUnknown = true; _state.Freeze("owned-rows-without-marker"); _tickPending = false; Note("owned-rows-without-marker"); return; }
@@ -338,7 +349,7 @@ internal static partial class MountIslandGemRewards
             }
             if (!TryOwner(true, out var current) || current != owner || Managers.Inst.game.currentLevelConfig.incomeMultiplier != 1f
                 || !_state.RecordLive(owner)) throw new InvalidOperationException("owner-changed");
-            Batches.Add((owner.Guid, owner.Land), new Batch { Owner = owner, Boxes = boxes });
+            Batches.Add((owner.Guid, owner.Land), new Batch { Owner = owner, SceneEpoch = _sceneEpoch, Boxes = boxes });
             published = true;
             foreach (var box in boxes) foreach (var collider in box.Colliders) collider.Collider.enabled = collider.Enabled;
         }
@@ -374,7 +385,26 @@ internal static partial class MountIslandGemRewards
     }
     private static void ObserveRestoredCore(MountIslandGemOwner owner)
     {
-        if (Batches.TryGetValue((owner.Guid, owner.Land), out var existing) && existing.Owner == owner) return;
+        var key = (owner.Guid, owner.Land);
+        bool failed = RestorationFaults.TryGetValue(key, out long failedEpoch);
+        if (failed && failedEpoch == _sceneEpoch) return;
+        if (!failed && Batches.TryGetValue(key, out var existing) && existing.Owner == owner && existing.SceneEpoch == _sceneEpoch) return;
+        if (!TryReadRawIsland(owner.Land, out var savedIsland)) { FailRestoration(key); return; }
+        var saved = ReadOwnedRows(savedIsland);
+        if (saved == null) { FailRestoration(key); return; }
+        if (failed && RowProofs.TryGetValue(key, out var protectedRows) && !SameProtectedRows(protectedRows, saved))
+        { FailRestoration(key); return; }
+        // Preserve the unpaid saved rows before inspecting a possibly incomplete native scene.
+        if (!failed) RowProofs[key] = JsonRows(saved);
+        var savedNames = new HashSet<string>(StringComparer.Ordinal);
+        var savedIds = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var row in saved)
+        {
+            bool owned = false;
+            for (int index = 0; index < 4; index++) if (row.Name == BoxName(owner, index)) owned = true;
+            if (!owned || row.Path != PrefabPath || string.IsNullOrEmpty(row.Id)
+                || !savedNames.Add(row.Name) || !savedIds.Add(row.Id)) { FailRestoration(key); return; }
+        }
         var boxes = new List<Box>();
         var names = new HashSet<string>(StringComparer.Ordinal);
         foreach (var chest in Managers.Inst.world.gameLayer.GetComponentsInChildren<Chest>(true))
@@ -384,16 +414,44 @@ internal static partial class MountIslandGemRewards
             for (int index = 0; index < 4; index++) if (chest.gameObject.name == BoxName(owner, index)) owned = true;
             if (!owned) continue;
             var box = new Box { Root = chest.gameObject, Chest = chest, Persistent = chest.GetComponent<Persistent>(), Name = chest.gameObject.name };
-            bool completed = false;
-            foreach (var spill in Spills.Values) if (spill.Chest == chest.Pointer && spill.Guard.Complete && !spill.Guard.Unknown) completed = true;
-            if (!names.Add(box.Name) || (!completed && (!RestoreFixedY(box, owner) || !ValidateBox(box))))
-            { _spillUnsafe = true; Note("restored-box-unknown"); return; }
+            bool completed = TryCompletedSpill(owner, _sceneEpoch, box.Name, chest.Pointer, out _);
+            if (!savedNames.Contains(box.Name) || !names.Add(box.Name)
+                || (!completed && (!RestoreFixedY(box, owner) || !ValidateBox(box))))
+            { FailRestoration(key); return; }
             boxes.Add(box);
         }
-        // Missing names are legitimate prior openings only because the durable issuance bit already exists.
-        Batches[(owner.Guid, owner.Land)] = new Batch { Owner = owner, Boxes = boxes.ToArray() };
-        if (!TryReadRawIsland(owner.Land, out var savedIsland)) { CaptureFaults.Add((owner.Guid, owner.Land)); return; }
-        RowProofs[(owner.Guid, owner.Land)] = JsonRows(ReadOwnedRows(savedIsland));
+        foreach (var row in saved)
+        {
+            if (names.Contains(row.Name)) continue;
+            if (!TryCompletedSpill(owner, _sceneEpoch, row.Name, IntPtr.Zero, out var spill))
+            { FailRestoration(key); return; }
+            boxes.Add(new Box { Chest = spill.ChestObject, Name = row.Name });
+        }
+        // Zero rows + zero boxes is an old completed batch; a missing nonzero raw row is not.
+        Batches[key] = new Batch { Owner = owner, SceneEpoch = _sceneEpoch, Boxes = boxes.ToArray() };
+        RowProofs[key] = JsonRows(saved);
+        RestorationFaults.Remove(key);
+    }
+    private static bool SameProtectedRows(List<string> protectedRows, List<(string Id, string Name, string Path, string Json)> rows)
+    {
+        if (protectedRows.Count != rows.Count) return false;
+        var remaining = new HashSet<string>(protectedRows, StringComparer.Ordinal);
+        foreach (var row in rows) if (!remaining.Remove(row.Json)) return false;
+        return remaining.Count == 0;
+    }
+    private static void FailRestoration((string Guid, int Land) key)
+    { RestorationFaults[key] = _sceneEpoch; Note("restored-snapshot-incomplete"); }
+    private static bool TryCompletedSpill(MountIslandGemOwner owner, long epoch, string name, IntPtr chest, out Spill completed)
+    {
+        completed = null;
+        foreach (var spill in Spills.Values)
+        {
+            if (spill.Owner != owner || spill.SceneEpoch != epoch || spill.Name != name
+                || chest != IntPtr.Zero && spill.Chest != chest || !spill.Guard.Complete || spill.Guard.Unknown) continue;
+            if (completed != null) return false;
+            completed = spill;
+        }
+        return completed != null;
     }
 
     private static bool TryReadRawIsland(int land, out IslandSaveData island)
@@ -446,8 +504,10 @@ internal static partial class MountIslandGemRewards
             int effectiveLand = land >= 0 ? land : CampaignSaveData.current.CurrentLand;
             if (effectiveLand != owner.Land) return scope;
             if (_state.StagedIssued(owner.Guid, owner.Land)) ObserveRestored(owner);
+            if (RestorationFaults.ContainsKey((owner.Guid, owner.Land))) return scope;
             if ((!_state.LiveMatches(owner) && !_state.StagedIssued(owner.Guid, owner.Land))
                 || !Batches.TryGetValue((owner.Guid, owner.Land), out var batch) || batch.Owner != owner) return scope;
+            if (batch.SceneEpoch != _sceneEpoch) { CaptureFaults.Add((owner.Guid, owner.Land)); return scope; }
             if (!TryReadRawIsland(effectiveLand, out var island))
             { CaptureFaults.Add((owner.Guid, owner.Land)); PublishWriter(); return scope; }
             scope.Batch = batch;
@@ -514,12 +574,11 @@ internal static partial class MountIslandGemRewards
     }
     private static bool NativeRowsComplete(Batch batch, IslandSaveData island)
     {
-        if (batch?.Boxes == null || batch.Boxes.Length > 4 || island == null || island.objects == null) return false;
+        if (batch?.Boxes == null || batch.SceneEpoch != _sceneEpoch || batch.Boxes.Length > 4 || island == null || island.objects == null) return false;
         var expected = new HashSet<string>(StringComparer.Ordinal);
         foreach (var box in batch.Boxes)
         {
-            bool completed = false;
-            foreach (var spill in Spills.Values) if (spill.Chest == box.Chest.Pointer && spill.Guard.Complete && !spill.Guard.Unknown) completed = true;
+            bool completed = TryCompletedSpill(batch.Owner, batch.SceneEpoch, box.Name, box.Chest.Pointer, out _);
             if (completed)
             {
                 foreach (var row in island.objects) if (row != null && row.name == box.Name) return false;
@@ -608,7 +667,7 @@ internal static partial class MountIslandGemRewards
     internal static bool CanSave(GlobalSaveData global)
     {
         if (_state == null || global == null || global.Pointer != _global) return true;
-        if (_spillUnsafe || _captureUnknown || CaptureFaults.Count != 0 || UncapturedSpills.Count != 0) return false;
+        if (_spillUnsafe || _captureUnknown || CaptureFaults.Count != 0 || RestorationFaults.Count != 0 || UncapturedSpills.Count != 0) return false;
         foreach (var key in EconomicEffects) if (!_state.StagedIssued(key.Guid, key.Land)) return false;
         return true;
     }
@@ -617,6 +676,10 @@ internal static partial class MountIslandGemRewards
     {
         internal Chest._SpillCurrency_d__26 Iterator; // Retain native life; never key only by a reusable pointer.
         internal IntPtr Chest;
+        internal Chest ChestObject;
+        internal MountIslandGemOwner Owner;
+        internal long SceneEpoch;
+        internal string Name;
         internal int Life;
         internal MountIslandGemDrain Guard = new();
     }
@@ -638,10 +701,11 @@ internal static partial class MountIslandGemRewards
             if (!Spills.TryGetValue(iterator.Pointer, out var spill))
             {
                 if (Spills.Count >= 512) { _spillUnsafe = true; Note("iterator-bound"); return null; }
-                spill = new Spill { Iterator = iterator, Chest = chest.Pointer, Life = chest.GetInstanceID() };
+                spill = new Spill { Iterator = iterator, Chest = chest.Pointer, ChestObject = chest, Owner = owner,
+                    SceneEpoch = _sceneEpoch, Name = chest.gameObject.name, Life = chest.GetInstanceID() };
                 Spills.Add(iterator.Pointer, spill);
             }
-            if (spill.Chest != chest.Pointer || spill.Life != chest.GetInstanceID()) { _spillUnsafe = true; spill.Guard.Fail(); return null; }
+            if (spill.Owner != owner || spill.SceneEpoch != _sceneEpoch || spill.Chest != chest.Pointer || spill.Life != chest.GetInstanceID()) { _spillUnsafe = true; spill.Guard.Fail(); return null; }
             if (iterator.__1__state == 0)
             { EconomicEffects.Add((owner.Guid, owner.Land)); UncapturedSpills.Add((owner.Guid, owner.Land)); PublishWriter(); }
             return new SpillCall { Spill = spill, Initial = iterator.__1__state };
@@ -662,14 +726,14 @@ internal static partial class MountIslandGemRewards
     // Panel destruction only; existing native loot and Prefs are never deleted here.
     internal static void Clear()
     {
-        _scene = null; _loadEpoch++;
+        _scene = null; _loadEpoch++; _sceneEpoch = 0;
         _tickPending = _lastEnabled = false; _nextTickAt = 0f;
         ResetBinding();
     }
     private static void ResetBinding()
     {
         _global = _prefs = IntPtr.Zero; _state = null; _expectedRaw = null; _guidCache = default; _scope = null;
-        _spillUnsafe = _captureUnknown = _prepareFault = false; CaptureFaults.Clear();
+        _spillUnsafe = _captureUnknown = _prepareFault = false; CaptureFaults.Clear(); RestorationFaults.Clear();
         _nativePath = _nativeFile = null; RowProofs.Clear();
         CatalogSlots.Clear(); UncapturedSpills.Clear(); _catalogKnown = false; _selectedSlot = -1; _selectedGuid = null; Volatile.Write(ref _writer, null);
         Attempted.Clear(); Inspected.Clear(); Batches.Clear(); EconomicEffects.Clear(); Spills.Clear(); Diagnostics.Clear();

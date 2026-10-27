@@ -35,6 +35,51 @@ internal static partial class Program
         Test("markerless owned residual remains unsafe even with feature OFF",()=>{Setup();var go=UnityEngine.Object.Instantiate(UnityEngine.Resources.Prefab,Managers.Inst.world.gameLayer,false);go.name="KEM.MountIslandGems.v1/"+A+"/11/1/0";ModConfig.Enabled.Value=false;MountIslandGemRewards.Tick();Equal(false,MountIslandGemRewards.CanSave(GlobalSaveData.loaded));Equal(false,MountIslandGemRewards.CanWriteNativePayload("/test/save","global-v16",Zip(NativePayload(null)),out _));});
         Test("later Prefs copy modification cannot bypass frozen physical proof",()=>{Setup();MountIslandGemRewards.Tick();Save();var prefs=GlobalSaveData.loaded.prefs;var scope=MountIslandGemRewards.BeginPrepare(prefs);prefs.NativePrepare();MountIslandGemRewards.EndPrepare(scope,true);Equal(false,MountIslandGemRewards.CanWriteNativePayload("/test/save","global-v16",Zip(NativePayload("future changed",UnityEngine.JsonUtility.ToJson(CampaignSaveData.current.GetIsland(11).objects,false))),out _));});
         Test("failed prepare recovers only after full normal native prepare",()=>{Setup();MountIslandGemRewards.Tick();Save();var prefs=GlobalSaveData.loaded.prefs;prefs.FailSet=true;try{MountIslandGemRewards.BeginPrepare(prefs);}catch{}Equal(false,MountIslandGemRewards.CanWriteNativePayload("/test/save","global-v16",Zip(PayloadFromNativeCapture()),out _));prefs.FailSet=false;var scope=MountIslandGemRewards.BeginPrepare(prefs);prefs.NativePrepare();MountIslandGemRewards.EndPrepare(scope,true);Equal(true,MountIslandGemRewards.CanWriteNativePayload("/test/save","global-v16",Zip(PayloadFromNativeCapture()),out _));});
+        Test("saved unopened row missing after successful native load cannot become an empty proof",()=>{
+            Setup();GlobalSaveData.loaded.prefs.contents[MountIslandGemRewardState.Key]=Saved(A,1);
+            var island=CampaignSaveData.current.GetIsland(11);
+            var saved=new IslandSaveData.ObjectData{uniqueID="saved-missing",name="KEM.MountIslandGems.v1/"+A+"/11/1/0",prefabPath="Prefabs/Objects/GemChestFixedAmount",localPosition=new UnityEngine.Vector3(10,0,1.5f)};
+            island.objects.Add(saved);
+            var load=MountIslandGemRewards.BeginLevelLoad(Managers.Inst.level);MountIslandGemRewards.EndLevelLoad(load,true);
+            Equal(0,Boxes().Length);Save();
+            var prepare=MountIslandGemRewards.BeginPrepare(GlobalSaveData.loaded.prefs);GlobalSaveData.loaded.prefs.NativePrepare();MountIslandGemRewards.EndPrepare(prepare,true);
+            Equal(false,MountIslandGemRewards.CanWriteNativePayload("/test/save","global-v16",Zip(PayloadFromNativeCapture()),out _));
+            Save();Equal(false,MountIslandGemRewards.CanSave(GlobalSaveData.loaded));
+            var proofs=(System.Collections.Generic.Dictionary<(string Guid,int Land),System.Collections.Generic.List<string>>)typeof(MountIslandGemRewards).GetField("RowProofs",System.Reflection.BindingFlags.Static|System.Reflection.BindingFlags.NonPublic).GetValue(null);
+            Equal(1,proofs[(A,11)].Count);
+            using(var raw=JsonDocument.Parse(proofs[(A,11)][0]))Equal("saved-missing",raw.RootElement.GetProperty("uniqueID").GetString());
+            // Another successful load with the same native pointers cannot erase the locked unpaid row.
+            load=MountIslandGemRewards.BeginLevelLoad(Managers.Inst.level);MountIslandGemRewards.EndLevelLoad(load,true);
+            Equal(false,MountIslandGemRewards.CanSave(GlobalSaveData.loaded));Equal(1,proofs[(A,11)].Count);
+            // Only an actually restored original snapshot plus its live box can release this failure.
+            island.objects.Add(saved);var go=UnityEngine.Object.Instantiate(UnityEngine.Resources.Prefab,Managers.Inst.world.gameLayer,false);go.name=saved.name;go.GetComponent<Chest>().currencyAmount=7;go.transform.localPosition=saved.localPosition;
+            load=MountIslandGemRewards.BeginLevelLoad(Managers.Inst.level);MountIslandGemRewards.EndLevelLoad(load,true);
+            Equal(true,MountIslandGemRewards.CanSave(GlobalSaveData.loaded));
+        });
+        Test("completed spill from an older load cannot discharge a newly missing saved box",()=>{
+            Setup();GlobalSaveData.loaded.prefs.contents[MountIslandGemRewardState.Key]=Saved(A,1);var chest=Restore(0);MountIslandGemRewards.Tick();
+            var island=CampaignSaveData.current.GetIsland(11);var saved=island.objects[0];
+            new Chest._SpillCurrency_d__26{__4__this=chest}.MoveNext();Save();UnityEngine.Object.Destroy(chest.gameObject);
+            island.objects.Add(saved);var load=MountIslandGemRewards.BeginLevelLoad(Managers.Inst.level);MountIslandGemRewards.EndLevelLoad(load,true);
+            Save();var prepare=MountIslandGemRewards.BeginPrepare(GlobalSaveData.loaded.prefs);GlobalSaveData.loaded.prefs.NativePrepare();MountIslandGemRewards.EndPrepare(prepare,true);
+            Equal(false,MountIslandGemRewards.CanWriteNativePayload("/test/save","global-v16",Zip(PayloadFromNativeCapture()),out _));
+        });
+        Test("markerless saved owned row cannot regrant when native creation skipped it",()=>{
+            Setup();var island=CampaignSaveData.current.GetIsland(11);
+            island.objects.Add(new IslandSaveData.ObjectData{uniqueID="unmarked-missing",name="KEM.MountIslandGems.v1/"+A+"/11/1/0",prefabPath="Prefabs/Objects/GemChestFixedAmount",localPosition=new UnityEngine.Vector3(10,0,1.5f)});
+            MountIslandGemRewards.Tick();Equal(0,Boxes().Length);Equal(false,MountIslandGemRewards.CanSave(GlobalSaveData.loaded));
+            Equal(false,MountIslandGemRewards.CanWriteNativePayload("/test/save","global-v16",Zip(NativePayload(null)),out _));
+        });
+        Test("unrelated new selected campaign can first-save without its own durable GUID",()=>{
+            Setup();GlobalSaveData.loaded.prefs.contents[MountIslandGemRewardState.Key]=Saved(A,1);
+            var load=MountIslandGemRewards.BeginLevelLoad(Managers.Inst.level);MountIslandGemRewards.EndLevelLoad(load,true);
+            var b=new CampaignSaveData{CurrentLand=0};GlobalSaveData.loaded.campaigns.Add(b);GlobalSaveData.loaded.currentCampaign=1;CampaignSaveData.current=b;Managers.Inst.game.currentLand=0;
+            var prepare=MountIslandGemRewards.BeginPrepare(GlobalSaveData.loaded.prefs);GlobalSaveData.loaded.prefs.NativePrepare();MountIslandGemRewards.EndPrepare(prepare,true);
+            var node=System.Text.Json.Nodes.JsonNode.Parse(NativePayload(Saved(A,1)));node["_currentCampaign"]=1;node["campaigns"].AsArray().Add(System.Text.Json.Nodes.JsonNode.Parse("{\"_islands\":[]}"));
+            Equal(true,MountIslandGemRewards.CanWriteNativePayload("/test/save","global-v16",Zip(node.ToJsonString()),out _));
+            foreach(var row in node["prefs"]["srzEntries"].AsArray())if(row["key"].GetValue<string>()==HeavyShieldSaveSchema.Key)row["val"]="{\"version\":4,\"campaigns\":[{\"slot\":0,\"guid\":\""+B+"\",\"islands\":[]}]}";
+            Equal(false,MountIslandGemRewards.CanWriteNativePayload("/test/save","global-v16",Zip(node.ToJsonString()),out _));
+        });
         Test("non-global physical writer remains native despite malformed payload",()=>{Setup();MountIslandGemRewards.Tick();Save();Equal(false,MountIslandGemRewards.CanWriteNativePayload(null,"global-v16",new byte[]{1},out _));Equal(true,MountIslandGemRewards.CanWriteNativePayload("/other","global-v16",new byte[]{1},out _));Equal(true,MountIslandGemRewards.CanWriteNativePayload("/test/save","other-file",new byte[]{1},out _));});
     }
 }

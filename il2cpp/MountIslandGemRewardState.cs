@@ -203,11 +203,16 @@ internal static class MountIslandGemNativePayload
                     || !row.TryGetProperty("val", out var val) || val.ValueKind != JsonValueKind.String
                     || !values.TryAdd(key.GetString(), val.GetString())) { reason = "gem-prefs-duplicate"; return false; }
             }
-            if (!values.TryGetValue(MountIslandGemRewardState.Key, out string batch) || batch != expected.Batch
-                || !new MountIslandGemRewardState(batch).Ready) { reason = "gem-batch-copy"; return false; }
+            if (!values.TryGetValue(MountIslandGemRewardState.Key, out string batch) || batch != expected.Batch)
+            { reason = "gem-batch-copy"; return false; }
+            var issued = new MountIslandGemRewardState(batch);
+            if (!issued.Ready) { reason = "gem-batch-copy"; return false; }
             if (!values.TryGetValue(HeavyShieldSaveSchema.Key, out string map)
                 || !HeavyShieldSaveCodec.TryParse(map, out var ids, out _)) { reason = "gem-guid-map"; return false; }
-            if (slot >= 0)
+            // Selected campaigns without a Gem batch may not have reached their first exact
+            // IslandSave/GUID enrollment yet. Only an issued/otherwise protected owner needs it.
+            if (slot >= 0 && expected.Guid != null
+                && (issued.StagedIssued(expected.Guid, 11) || issued.StagedIssued(expected.Guid, 13)))
             {
                 int matches = 0;
                 foreach (var id in ids.Campaigns) if (id.Slot == slot && (expected.Guid == null || id.Guid == expected.Guid)) matches++;
