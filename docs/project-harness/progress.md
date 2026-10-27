@@ -1,3 +1,7 @@
+## 2026-10-27 — #300 快速购买扩展：火枪店与高价单笔
+
+火枪4币店按精确当前payment/owner加入加速续买；其余≥7 Coins仅当笔加速、不续买。独审发现的火枪出货失败退款仍自动重发，已在真实拒绝/退款边界终止精确hold并复审通过。Root133/133，独立144/144；Mac完整/Win当前装版最小增量NoDeploy0W0E，Android0E（1旧warning）、Adapter1503/1旧WallEngineerRuntime pin失败如实保留。代码Ready PR交付，未合并安装/未动正常档，Native待验；见[回执](tasks/issue-300/receipt.md)。
+
 ## 2026-10-27 — #298 坐骑岛追加 56 宝石：源码/主机审查完成，Native 待验
 
 两岛各四箱×7，复用原生宝箱/持久化与既有物理写盘拒绝路径。独立 Astra 审查发现两处恢复/新战役边界后修复并复审通过；Root 最终 source-linked 78/0，Mac 完整源码及 Windows 实际装版最小增量 NoDeploy 均 0W0E。既有 adapter/全量 Win243/旧回归缺口和未证时序探针保留，不报全绿。仅 Draft 交付，未合并安装/未发放到正常档；新旧岛开箱、保存冷读和防重发等 Native 另验。详见[回执](tasks/issue-298/receipts/source-host-review-20261027.md)。

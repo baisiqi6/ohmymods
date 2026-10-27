@@ -20,6 +20,7 @@
   <ItemGroup>
     <Compile Remove="actual-interop/**" />
     <Compile Include="../../il2cpp/PatchPlayer_HoldPurchase.cs" Link="PatchPlayer_HoldPurchase.cs" />
+    <Compile Include="../../il2cpp/MusketeerShop.ManualPurchase.cs" Link="MusketeerShop.ManualPurchase.cs" />
   </ItemGroup>
 
 </Project>

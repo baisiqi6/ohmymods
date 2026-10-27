@@ -307,7 +307,7 @@ public class ModPanel : MonoBehaviour
                 Toggle(ref y, width, "坐骑无限体力", ModConfig.InfiniteSteedStamina,
                     "所有世界 · 本机控制的坐骑奔跑与滑翔不耗体力；关闭恢复自然消耗，技能冷却不变。");
                 Toggle(ref y, width, "长按连续购买", ModConfig.HoldPurchaseEnabled,
-                    "所有世界 · 起初正常，长按后加速续买；支持火药桶与火塔弹药，松开即停。");
+                    "所有世界 · 长按后加速；工具店、火枪店、火药桶与火塔可续买，其余≥7金币仅加速当前一笔，松开即停。");
                 DenseThicketControl(ref y, width);
                 Toggle(ref y, width, "森林快速消退", ModConfig.FastForestRecedeEnabled,
                     "所有世界 · 砍树后的森林消退等待缩至三分之一；关闭后的新消退使用原版速度。");

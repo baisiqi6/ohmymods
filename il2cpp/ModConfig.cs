@@ -68,7 +68,7 @@ public static class ModConfig
             "无限金币：开启后玩家金币用不完");
 
         HoldPurchaseEnabled = config.Bind("Convenience", "HoldPurchaseEnabled", false,
-            "所有世界：起初正常投币，持续按住后加速续买；支持投石车火药桶和火塔弹药，关闭保留原版操作");
+            "所有世界：起初正常投币，长按后加速；工具店、火枪店、火药桶和火塔弹药支持续买，其余单次价格≥7金币仅加速当前一笔；关闭保留原版操作");
         DenseThicketsEnabled = config.Bind("Convenience", "DenseThicketsEnabled", false,
             "所有世界：灌木生长间距减半；关闭后额外灌木快速枯萎，清理完成前不能重新开启");
         FastForestRecedeEnabled = config.Bind("Convenience", "FastForestRecedeEnabled", false,
