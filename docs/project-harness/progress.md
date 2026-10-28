@@ -1,3 +1,7 @@
+## 2026-10-28 — #303 EXharness 入口与 Git 治理
+
+AGENTS 登记三个可选 EXharness skill 入口，沿用项目既有计划、状态与协作规则。本地集成引用已非 force 快进；主 checkout 的 8 处改动与 2 个未跟踪文档已最小备份并验证，原目录保持。用户确认的四棵历史工作树因受管归档返回“仍有其它 active task 使用”而保留，未删分支或绕过守卫；在途任务、独有资产和构建消费者继续保留。文档交付与实际清理分开记录，Issue303 尚未收尾，见[回执](tasks/issue-303/receipt.md)。
+
 ## 2026-10-27 — #298/#300 两项已合并并安装 Mac/Windows 正常包
 
 按用户授权依次合并PR299 e46fefa、PR301 fdfe9c4，最终tree与已验union精确同；两代码Issue已关闭。联合Gem78/Hold133/writer28/pipeline233/legacy405通过；Android1503/1旧pin失败保留。按各自实际冻结基底、原SDK/配置保全后安装：Mac c0d7aa08…、Win9ed9309c…；完整备份与独立读回证明存档/配置不变，原入口保持，无游戏启动或Native通过宣称。详情、旧机械失败和精确SHA见[联合回执](tasks/issue-298/receipts/merged-player-install-20261027.md)。
