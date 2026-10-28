@@ -24,12 +24,16 @@ Mac 开发入口 `~/projects/ohmymods`；Windows `C:/Users/ADMIN/Projects/ohmymo
 
 | 任务 | 文档与要求 |
 |---|---|
+| 长期任务、跨会话恢复 | EXharness [long-running-project-harness](https://github.com/baisiqi6/EXharness/blob/main/skills/long-running-project-harness/SKILL.md)；按需加载，沿用项目已有计划与状态入口。 |
+| Git 工作区核验、备份清理、发布 SHA | EXharness [git-workspace-governance](https://github.com/baisiqi6/EXharness/blob/main/skills/git-workspace-governance/SKILL.md)；先做只读体检，再核对归属、消费者和具体清理范围。 |
 | 构建、部署、日志或 Windows 路径 | [runbook](docs/project-harness/runbook.md)；Debug 构建默认复制到开发环境，纯编译验证必须禁用/覆盖 `BepInExPluginsPath`。 |
 | Mac 构建、启动、安装或清理 | [Mac 工作区规范](docs/development/macos-workspace.md)；运行根目录 `/Applications/ohmymods/`，`.local/`、`game-source/` 仅保留本机，旧 `work` 链接只供历史记录解析。 |
 | Mono 维护 | [runbook 的 Mono 章节](docs/project-harness/runbook.md#mono-自用线)，含 C# 5、Harmony 1.2、bash 编译与 doorstop 注入限制。 |
-| 委派、模型选择或 ZCode operator 决策 | [协作协议](docs/project-harness/collaboration-protocol.md)；读取北京时间，按协议派发并核验实际模型事件，不静默换模型。 |
+| 委派、模型选择或 ZCode operator 决策 | [协作协议](docs/project-harness/collaboration-protocol.md)；外部 agent 调用另读 EXharness [invoke-coding-agents](https://github.com/baisiqi6/EXharness/blob/main/skills/invoke-coding-agents/SKILL.md)。读取北京时间，按协议派发并核验实际模型事件，不静默换模型。 |
 | 商店素材制作与接入 | [商店素材准则](docs/development/shop-material-standard.md)；人物独立动画层，按同世界成年居民比例接地，逐帧核验层序、脚线、footprint 和付款点。 |
 | 发版与版本账目 | 根目录 [VERSIONING.md](VERSIONING.md)；按整批发布的最高变更类型递增一次（修复 PATCH、兼容新功能 MINOR、不兼容改动 MAJOR），递增高位时低位归零；不按条目计分，历史版本不重编号。 |
+
+EXharness 链接是可选 skill 入口，优先读取已安装的同名 skill；项目规范与用户授权优先，未安装时沿用现有流程，不额外安装依赖。
 
 ## 协作与交付
 
