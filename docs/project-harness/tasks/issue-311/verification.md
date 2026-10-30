@@ -1,6 +1,6 @@
 # #311 — 宝石盾卫耐久与格挡反弹
 
-基线 `release/v9.5.13@cb467d4c1a23474f9678794bb42c3f12cfd4b5cf`，分支 `codex/heavy-shield-combat-311`。本轮为源码、自动测试、接口编译与 PR 交付；安装与玩家实机单独记录。
+基线 `release/v9.5.13@cb467d4c1a23474f9678794bb42c3f12cfd4b5cf`，分支 `codex/heavy-shield-combat-311`。[PR #312](https://github.com/baisiqi6/ohmymods/pull/312) 已创建；本轮为源码、自动测试、接口编译与 PR 交付，安装与玩家实机单独记录。
 
 ## 行为
 
