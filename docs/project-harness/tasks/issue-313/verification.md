@@ -1,6 +1,6 @@
 # #313 盾卫蓝紫格挡晶光 — 源码交付
 
-用户确认概念B“蓝紫折光”。基线 `release/v9.5.13@cb467d4c`，独立分支 `codex/shield-block-gem-fx-313`；本轮不合并、不安装、不启动游戏，不修改正常配置/存档。
+用户确认概念B“蓝紫折光”。基线 `release/v9.5.13@cb467d4c`，独立分支 `codex/shield-block-gem-fx-313`，[PR #314](https://github.com/baisiqi6/ohmymods/pull/314) 已创建；本轮不合并、不安装、不启动游戏，不修改正常配置/存档。
 
 ## 最终行为与写入责任
 

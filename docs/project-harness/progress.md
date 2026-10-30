@@ -2,7 +2,7 @@
 
 按用户确认的概念B实现原人物同形palette短闪和3个贴身像素亮点，0.28自然秒退光、0.45秒接收间隔，不刷新起点/叠亮；原两图1018帧alpha/轮廓/脸型/脚线保持。触发责任位于真实Runtime.TryBlock唯一成功出口，恢复旧PendingBreak只保留姿势不发新受击；异常FX不取消格挡。自有renderer、有限2槽缓存与关闭生命周期均隔离于本体，修掉Unity pivot单位错误、负scale双镜像和独审两处cleanup P2。
 
-Root PC158主+83几何、ANDROID157主+83、既有runtime1144/integration48/visuals891/leap通过；独立增量审查APPROVE，真实event23/双故障cleanup5/312窗口8项均过。Mac/Win实际interop net6/net8各0W0E、Android0E/1既有warning，公共源码312+313私有联合构建0W0E。实际原图+生产palette/clock的软件预览已核，PC/Android Native光照/遮挡/性能仍未验。当前提交独立PR，未合并、未安装、未运行正常游戏或改正常档。详见[tasks/issue-313/verification.md](tasks/issue-313/verification.md)。
+Root PC158主+83几何、ANDROID157主+83、既有runtime1144/integration48/visuals891/leap通过；独立增量审查APPROVE，真实event23/双故障cleanup5/312窗口8项均过。Mac/Win实际interop net6/net8各0W0E、Android0E/1既有warning，公共源码312+313私有联合构建0W0E。实际原图+生产palette/clock的软件预览已核，PC/Android Native光照/遮挡/性能仍未验。[PR #314](https://github.com/baisiqi6/ohmymods/pull/314) 已提交，未合并、未安装、未运行正常游戏或改正常档。详见[tasks/issue-313/verification.md](tasks/issue-313/verification.md)。
 
 受管task `shield-block-gem-fx-313` file侧已登记，operation `e1202888-aaa3-4d25-b4d3-d2e4908aa466`，旧120项保持；合并部署后同op补record，不冒充managed done。本轮不正式发版/tag/独立递增版本。
 
