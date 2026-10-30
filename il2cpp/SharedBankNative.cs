@@ -10,6 +10,21 @@ using HarmonyLib;
 using PrivateBankR3;
 using UnityEngine;
 
+// Bind the typed MoveNext hooks to the explicitly selected interop version.
+#if ANDROID
+#if KTC_GAME_243
+using SaveRoutine = Il2Cpp.GlobalSaveData._Save_d__92;
+#else
+using SaveRoutine = Il2Cpp.GlobalSaveData._Save_d__89;
+#endif
+#else
+#if KTC_GAME_243
+using SaveRoutine = GlobalSaveData._Save_d__92;
+#else
+using SaveRoutine = GlobalSaveData._Save_d__89;
+#endif
+#endif
+
 namespace KingdomEnhancedMod;
 
 // H-side override of the bank file (B copy, SHA 4d83443f06f0875e54015ae648b47bb340719a78cfdeb4a22f741953311aa01d).
@@ -634,10 +649,10 @@ internal static class SharedBankNative
         }
     }
 
-    [HarmonyPatch(typeof(GlobalSaveData._Save_d__89), nameof(GlobalSaveData._Save_d__89.MoveNext))]
+    [HarmonyPatch(typeof(SaveRoutine), nameof(SaveRoutine.MoveNext))]
     private static class SyncGate
     {
-        [HarmonyPrefix] private static bool Prefix(GlobalSaveData._Save_d__89 __instance, ref bool __result)
+        [HarmonyPrefix] private static bool Prefix(SaveRoutine __instance, ref bool __result)
         {
             if (__instance.__1__state != 0 || Prepare(__instance.__4__this)) return true;
             try

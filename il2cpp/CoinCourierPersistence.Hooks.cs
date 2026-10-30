@@ -1,6 +1,25 @@
 using System;
 using HarmonyLib;
 
+// Bind the typed MoveNext hooks to the explicitly selected interop version.
+#if ANDROID
+#if KTC_GAME_243
+using DeleteCampaignRoutine = Il2Cpp.GlobalSaveData.__TryDeleteCampaign_d__94;
+using DeleteChallengeRoutine = Il2Cpp.GlobalSaveData.__TryDeleteChallenge_d__97;
+#else
+using DeleteCampaignRoutine = Il2Cpp.GlobalSaveData.__TryDeleteCampaign_d__91;
+using DeleteChallengeRoutine = Il2Cpp.GlobalSaveData.__TryDeleteChallenge_d__94;
+#endif
+#else
+#if KTC_GAME_243
+using DeleteCampaignRoutine = GlobalSaveData.__TryDeleteCampaign_d__94;
+using DeleteChallengeRoutine = GlobalSaveData.__TryDeleteChallenge_d__97;
+#else
+using DeleteCampaignRoutine = GlobalSaveData.__TryDeleteCampaign_d__91;
+using DeleteChallengeRoutine = GlobalSaveData.__TryDeleteChallenge_d__94;
+#endif
+#endif
+
 namespace KingdomEnhancedMod;
 
 internal static partial class CoinCourierPersistence
@@ -218,12 +237,12 @@ internal static partial class CoinCourierPersistence
     // 协程 factory 的 4-byte Return<SaveLoadResult> 按值参数在当前 Interop 下被映成 IntPtr 再 value_box，
     // prefix 即使不读参数也会在 native 入口崩（IL_STUB_ReversePInvoke + value_box，两次用户启动 dump 同证）→
     // 改为只挂状态机 MoveNext（bool 无参）的 state==0 记账；绝不触碰 factory 与 Return<T>。
-    [HarmonyPatch(typeof(GlobalSaveData.__TryDeleteCampaign_d__91),
-        nameof(GlobalSaveData.__TryDeleteCampaign_d__91.MoveNext))]
+    [HarmonyPatch(typeof(DeleteCampaignRoutine),
+        nameof(DeleteCampaignRoutine.MoveNext))]
     internal static class CampaignDeleteRoutinePatch
     {
         [HarmonyPrefix]
-        private static void Prefix(GlobalSaveData.__TryDeleteCampaign_d__91 __instance)
+        private static void Prefix(DeleteCampaignRoutine __instance)
         {
             try { if (__instance != null && __instance.__1__state == 0) HeavyShieldIntegration.BeforeCampaignMutation(SafeLoaded()); }
             catch (Exception e) { HeavyShieldIntegration.Fault("delete-routine", e); }
@@ -246,11 +265,11 @@ internal static partial class CoinCourierPersistence
             => SharedBankNative.BeforeMutation(__instance);
     }
 
-    [HarmonyPatch(typeof(GlobalSaveData.__TryDeleteChallenge_d__94),
-        nameof(GlobalSaveData.__TryDeleteChallenge_d__94.MoveNext))]
+    [HarmonyPatch(typeof(DeleteChallengeRoutine),
+        nameof(DeleteChallengeRoutine.MoveNext))]
     internal static class ChallengeDeleteRoutinePatch
     {
-        [HarmonyPrefix] private static void Prefix(GlobalSaveData.__TryDeleteChallenge_d__94 __instance)
+        [HarmonyPrefix] private static void Prefix(DeleteChallengeRoutine __instance)
         {
             if (__instance != null && __instance.__1__state == 0)
                 SharedBankNative.BeforeMutation(SafeLoaded());
