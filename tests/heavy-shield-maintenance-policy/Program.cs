@@ -47,18 +47,19 @@ internal static class Program
     {
         Test("released version migration keeps proportional wear", () =>
         {
-            foreach (var row in new[] { (1, 1, 14), (1, 2, 27), (1, 3, 40), (2, 1, 10),
-                (2, 2, 20), (2, 3, 30), (2, 4, 40), (3, 1, 10), (3, 2, 20), (3, 3, 30), (3, 4, 40) })
+            foreach (var row in new[] { (1, 1, 30), (1, 2, 60), (1, 3, 90), (2, 1, 23),
+                (2, 2, 45), (2, 3, 68), (2, 4, 90), (3, 1, 23), (3, 2, 45), (3, 3, 68), (3, 4, 90),
+                (4, 1, 3), (4, 20, 45), (4, 40, 90) })
             {
                 Check(HeavyShieldDurabilityMigration.TryUpgrade(row.Item1, row.Item2, false, out int value), "valid legacy row");
                 Equal(row.Item3, value, "proportional result");
             }
         });
-        Test("v4 is identity including broken zero", () =>
+        Test("v5 is identity including broken zero", () =>
         {
-            for (int value = 0; value <= 40; value++)
+            for (int value = 0; value <= 90; value++)
             {
-                Check(HeavyShieldDurabilityMigration.TryUpgrade(4, value, value == 0, out int result), "current row valid");
+                Check(HeavyShieldDurabilityMigration.TryUpgrade(5, value, value == 0, out int result), "current row valid");
                 Equal(value, result, "current row unchanged");
             }
             foreach (int version in new[] { 1, 2, 3 })
@@ -69,8 +70,8 @@ internal static class Program
         });
         Test("old bounds and broken consistency checked before conversion", () =>
         {
-            foreach (var row in new[] { (0, 1, false), (5, 1, false), (1, 4, false), (2, 5, false),
-                (3, 5, false), (4, 41, false), (1, -1, true), (4, int.MaxValue, false),
+            foreach (var row in new[] { (0, 1, false), (6, 1, false), (1, 4, false), (2, 5, false),
+                (3, 5, false), (4, 41, false), (5, 91, false), (1, -1, true), (4, int.MaxValue, false),
                 (2, 0, false), (4, 1, true) })
             {
                 Check(!HeavyShieldDurabilityMigration.TryUpgrade(row.Item1, row.Item2, row.Item3, out int result), "reject invalid migration");
@@ -79,8 +80,8 @@ internal static class Program
         });
         Test("wear boundary bands", () =>
         {
-            foreach (var row in new[] { (-1, -1), (0, 3), (10, 3), (11, 2), (20, 2), (21, 1),
-                (30, 1), (31, 0), (40, 0), (41, -1) })
+            foreach (var row in new[] { (-1, -1), (0, 3), (22, 3), (23, 2), (45, 2),
+                (46, 1), (67, 1), (68, 0), (90, 0), (91, -1) })
                 Equal(row.Item2, HeavyShieldDurabilityMigration.WearBand(row.Item1), "wear band");
         });
         Test("six seconds quiet required before joining queue", () =>
@@ -133,8 +134,8 @@ internal static class Program
         });
         Test("full broken banner and invalid subjects never repair", () =>
         {
-            foreach (var subject in new[] { Subject(durability: 0), Subject(durability: 40),
-                Subject(durability: -1), Subject(durability: 41), Subject(inBanner: true), Subject(valid: false),
+            foreach (var subject in new[] { Subject(durability: 0), Subject(durability: 90),
+                Subject(durability: -1), Subject(durability: 91), Subject(inBanner: true), Subject(valid: false),
                 Subject(threatened: true), Subject(life: 0), Subject(lastThreat: double.NaN),
                 Subject(lastThreat: double.PositiveInfinity), Subject(lastThreat: 100), Subject() with { Receipt = Guid.Empty } })
             {
@@ -340,7 +341,7 @@ internal static class Program
             Tick(policy, 101);
             Tick(policy, 102, subject);
             Equal(HeavyShieldMaintenancePhase.Idle, policy.Phase, "absence is not proof of changed life");
-            Tick(policy, 103, subject with { Durability = 40 });
+            Tick(policy, 103, subject with { Durability = 90 });
             Tick(policy, 104, subject with { Durability = 20, LastThreatAt = 104 });
             Tick(policy, 110, subject with { Durability = 20, LastThreatAt = 104 });
             Equal(HeavyShieldMaintenancePhase.Repairing, policy.Phase, "proved full then damaged can repair");
@@ -358,18 +359,18 @@ internal static class Program
         {
             var policy = Due(out _);
             Check(policy.TryTakeCompletion(out var completion), "take");
-            Check(!ConfirmSettled(policy, A, 1, 40), "cannot confirm before acceptance");
+            Check(!ConfirmSettled(policy, A, 1, 90), "cannot confirm before acceptance");
             Check(policy.ResolveCompletion(completion.Serial, true, false), "accept");
             Equal(1, AcceptedCount(policy), "accepted fence exists");
-            foreach (var row in new[] { (B, 1L, 40), (Guid.Empty, 1L, 40), (A, 0L, 40),
-                (A, 2L, 40), (A, 1L, 39), (A, 1L, 41), (A, 1L, 0) })
+            foreach (var row in new[] { (B, 1L, 90), (Guid.Empty, 1L, 90), (A, 0L, 90),
+                (A, 2L, 90), (A, 1L, 89), (A, 1L, 91), (A, 1L, 0) })
             {
                 Check(!ConfirmSettled(policy, row.Item1, row.Item2, row.Item3), "unproved confirmation rejected");
                 Equal(1, AcceptedCount(policy), "mismatch preserves accepted fence");
             }
-            Check(ConfirmSettled(policy, A, 1, 40), "exact current full proof settles acceptance");
+            Check(ConfirmSettled(policy, A, 1, 90), "exact current full proof settles acceptance");
             Equal(0, AcceptedCount(policy), "settled result releases historical reference");
-            Check(!ConfirmSettled(policy, A, 1, 40), "duplicate confirmation has no effect");
+            Check(!ConfirmSettled(policy, A, 1, 90), "duplicate confirmation has no effect");
         });
         Test("old-life confirmation cannot clear a newer accepted career", () =>
         {
@@ -380,11 +381,11 @@ internal static class Program
             Tick(policy, 23, subject with { Life = 2 });
             Check(policy.TryTakeCompletion(out var second), "new life completed");
             Check(policy.ResolveCompletion(second.Serial, true, false), "new life accepted");
-            Check(!ConfirmSettled(policy, A, 1, 40), "stale life cannot settle newer fence");
+            Check(!ConfirmSettled(policy, A, 1, 90), "stale life cannot settle newer fence");
             Equal(1, AcceptedCount(policy), "new life fence remains");
             Tick(policy, 24, subject with { Life = 2 });
             Equal(HeavyShieldMaintenancePhase.Idle, policy.Phase, "new accepted stale snapshot suppressed");
-            Check(ConfirmSettled(policy, A, 2, 40), "current life settles");
+            Check(ConfirmSettled(policy, A, 2, 90), "current life settles");
             Equal(0, AcceptedCount(policy), "only current fence removed");
         });
         Test("confirmation cannot release uncertain completion", () =>
@@ -392,7 +393,7 @@ internal static class Program
             var policy = Due(out _);
             Check(policy.TryTakeCompletion(out var completion), "take");
             Check(policy.ResolveCompletion(completion.Serial, true, true), "unknown dominates");
-            Check(!ConfirmSettled(policy, A, 1, 40), "no accepted result to settle");
+            Check(!ConfirmSettled(policy, A, 1, 90), "no accepted result to settle");
             Equal(HeavyShieldMaintenancePhase.HeldUnknown, policy.Phase, "unknown remains held");
             Check(policy.IsQueued(A, 1), "unknown career remains reserved");
             Check(!policy.TryTakeCompletion(out _), "confirmation never enables replay");
@@ -413,7 +414,7 @@ internal static class Program
                 previousSerial = completion.Serial;
                 Check(policy.ResolveCompletion(completion.Serial, true, false), "accept current career");
                 Equal(1, AcceptedCount(policy), "only current accepted fence retained");
-                Check(ConfirmSettled(policy, receipt, i, 40), "synchronously settle exact full result");
+                Check(ConfirmSettled(policy, receipt, i, 90), "synchronously settle exact full result");
                 Equal(0, AcceptedCount(policy), "settled history does not grow");
                 Tick(policy, start + 9);
                 Check(!policy.IsQueued(receipt, i), "departed settled career has no job");

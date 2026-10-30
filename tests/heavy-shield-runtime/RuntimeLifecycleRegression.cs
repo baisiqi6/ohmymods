@@ -20,7 +20,7 @@ internal static class RuntimeLifecycleRegression
         if (only != "uncertain")
         using (var f = new Fixture())
         {
-            check(f.Attach(new(40, false, false)), "fresh-context escort fixture attaches");
+            check(f.Attach(new(90, false, false)), "fresh-context escort fixture attaches");
             // Native Activate has already produced a current-world order before the
             // Mod's first Tick. Verify the real movement consumer preserves that order.
             typeof(HeavyShieldRuntime).GetField("_activityWorld", BindingFlags.NonPublic | BindingFlags.Static).SetValue(null, 0L);
@@ -35,13 +35,13 @@ internal static class RuntimeLifecycleRegression
             foreach (bool replaceSession in new[] { false, true })
             {
                 using var old = new Fixture();
-                check(old.Attach(new(40, false, false)), "old pending context carrier attaches");
+                check(old.Attach(new(90, false, false)), "old pending context carrier attaches");
                 using var oldBanner = new NativeBannerFixture(9);
                 old.Dispose(); // A pending flag has not yet selected any career.
                 if (replaceSession)
                     HeavyShieldIdentity.Current = new() { World = Managers.Inst.world.gameLayer.Pointer.ToInt64(), Land = 0 };
                 using var fresh = new Fixture(land: replaceSession ? 0 : 1);
-                check(fresh.Attach(new(40, false, false)), "new context carrier attaches");
+                check(fresh.Attach(new(90, false, false)), "new context carrier attaches");
                 Tick(fresh, .25f);
                 check(!HeavyShieldBanner.IsAssigned(fresh.Handle.Receipt, fresh.Handle.Life)
                     && fresh.Archer._mover._goalPosition < 6,
@@ -50,7 +50,7 @@ internal static class RuntimeLifecycleRegression
                 if (replaceSession)
                     HeavyShieldIdentity.Current = new() { World = Managers.Inst.world.gameLayer.Pointer.ToInt64(), Land = 0 };
                 using var newest = new Fixture(land: replaceSession ? 0 : 2);
-                check(newest.Attach(new(40, false, false)), "new-context capture carrier has its own current identity and visual stamp");
+                check(newest.Attach(new(90, false, false)), "new-context capture carrier has its own current identity and visual stamp");
                 using var newBanner = new NativeBannerFixture(12);
                 Tick(newest, .25f);
                 check(HeavyShieldBanner.IsAssigned(newest.Handle.Receipt, newest.Handle.Life)
@@ -59,7 +59,7 @@ internal static class RuntimeLifecycleRegression
                 long activation = NativeBannerFixture.LastActivation;
                 ModConfig.Enabled.Value = false; HeavyShieldRuntime.Tick();
                 ModConfig.Enabled.Value = true;
-                check(newest.Attach(new(40, false, false)), "ordinary nonunknown disable returns carrier normally");
+                check(newest.Attach(new(90, false, false)), "ordinary nonunknown disable returns carrier normally");
                 newBanner.Capture(); Tick(newest, .25f);
                 check(NativeBannerFixture.LastActivation > activation,
                     "feature switch ends banner without reusing its process activation token");
@@ -86,7 +86,7 @@ internal static class RuntimeLifecycleRegression
                 ModConfig.Enabled.Value = true; HeavyShieldRuntime.Tick();
                 check(entry.RepairUncertain && !HeavyShieldRuntime.IsMaintenanceEligible(entry)
                     && !HeavyShieldRuntime.IsCarrierActive(f.Handle), "reenable does not reactivate same-life uncertain repair");
-                check(!f.Attach(new(40, false, false)), "same-life reattach cannot advertise uncertain carrier as active");
+                check(!f.Attach(new(90, false, false)), "same-life reattach cannot advertise uncertain carrier as active");
                 // ReplaceIslandSession creates a new installed authority object on a
                 // same-world successful reload while preserving native owner generation.
                 HeavyShieldIdentity.Current = new() { World = f.Handle.World, Land = f.Handle.Land };
@@ -116,7 +116,7 @@ internal static class RuntimeLifecycleRegression
                 HeavyShieldIntegration.BeforePoolDespawn(f.Go, 0);
                 check(Entries.Contains(f.Handle.GoId) && Policy.Phase == HeavyShieldMaintenancePhase.HeldUnknown,
                     "pool BEFORE notification alone cannot erase unknown credential");
-                check(!f.Attach(new(40, false, false)), "same active life cannot reacquire after pool notification");
+                check(!f.Attach(new(90, false, false)), "same active life cannot reacquire after pool notification");
                 var marker = f.Go.GetComponent<CombatTargetLifeMarker>();
                 long oldNativeLife = marker.Life;
                 if (observationGap)

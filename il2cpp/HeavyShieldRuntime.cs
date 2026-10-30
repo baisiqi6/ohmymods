@@ -679,8 +679,8 @@ internal static class HeavyShieldRuntime
                 && entry.Career.World == completion.World && !entry.RepairUncertain
                 && HasNativeSourceLife(entry.Carrier, entry.Career.Life, false)
                 && HeavyShieldIdentity.TryGetCombatState(entry.Career, out var combat)
-                && combat.Durability == 40 && !combat.PendingBreak && !combat.RetirementUnknown
-                && entry.Policy.Durability == 40 && !entry.Policy.PendingBreak && !entry.Policy.RetirementUnknown;
+                && combat.Durability == HeavyShieldDurabilityMigration.Maximum && !combat.PendingBreak && !combat.RetirementUnknown
+                && entry.Policy.Durability == HeavyShieldDurabilityMigration.Maximum && !entry.Policy.PendingBreak && !entry.Policy.RetirementUnknown;
             if (!settled && entry != null) entry.RepairUncertain = true;
             return settled;
         }
@@ -764,7 +764,8 @@ internal static class HeavyShieldRuntime
             if (!HeavyShieldDirection.ArrowFront(vx, e.Facing)) return false;
             sourceX = defenderX + e.Facing; // already-proved velocity direction, not shooter position
         }
-        var result = e.Policy.EvaluateHit(new(true, true, sourceX, defenderX, e.Facing));
+        var result = e.Policy.EvaluateHit(new(true, true, sourceX, defenderX, e.Facing),
+            AndroidUnityCompat.UnscaledSeconds());
         if (result == HeavyShieldBlockPolicy.HitResult.PassThrough) return false;
         Wear(e);
         if (!Persist(e)) { e.Attached = false; HeavyShieldActorVisuals.Suspend(e.Carrier, handle.Life); }

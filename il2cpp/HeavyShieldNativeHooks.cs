@@ -17,7 +17,7 @@ internal static class HeavyShieldNativeHooks
     internal static readonly MethodBase DemoteMethod = AccessTools.Method(typeof(Character), "Demote", Type.EmptyTypes); // token100666133, RVA0x97e520, 672B, sameSlots1
     internal static bool Installed => HeavyShieldHookQuery.Has(DamageMethod, typeof(HeavyShieldReceiveDamage))
         && HeavyShieldHookQuery.Has(TrollIntentMethod, typeof(HeavyShieldTrollIntent))
-        && HeavyShieldHookQuery.Has(TrollImpactMethod, typeof(HeavyShieldTrollImpact))
+        && HeavyShieldHookQuery.Has(TrollImpactMethod, typeof(HeavyShieldTrollImpact), requirePostfix: true)
         && HeavyShieldHookQuery.Has(ArrowHitMethod, typeof(HeavyShieldArrowHit))
         && HeavyShieldHookQuery.Has(ArrowDamageMethod, typeof(HeavyShieldArrowDamage))
         && HeavyShieldHookQuery.Has(DemoteMethod, typeof(HeavyShieldNativeDemote), requirePostfix: true);
@@ -47,7 +47,7 @@ internal static class HeavyShieldReceiveDamage
     }
     private static Exception Finalizer(Damageable __instance, Exception __exception, HeavyShieldCombat.DamageScope __state)
     {
-        try { HeavyShieldCombat.ObserveDamageEnd(__instance); }
+        try { HeavyShieldCombat.ObserveDamageEnd(__instance, __exception == null); }
         finally { __state?.Dispose(); }
         return __exception;
     }
@@ -67,6 +67,10 @@ internal static class HeavyShieldTrollImpact
     private static MethodBase TargetMethod() => HeavyShieldNativeHooks.TrollImpactMethod;
     private static void Prefix(Troll __instance, Damageable __0, out IDisposable __state)
         => __state = HeavyShieldCombat.EnterTroll(__instance, __0);
+    // Normal return only: consume this frame's positive block witness after the native
+    // tail has created and first-ticked its PauseMotion. An exception skips the postfix.
+    private static void Postfix(Troll __instance, Damageable __0, IDisposable __state)
+        => HeavyShieldRebound.Apply(__state as HeavyShieldTrollScope, __instance, __0);
     private static Exception Finalizer(Exception __exception, IDisposable __state)
     { __state?.Dispose(); return __exception; }
 }
