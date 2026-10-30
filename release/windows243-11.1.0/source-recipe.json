@@ -1,0 +1,4089 @@
+{
+  "schemaVersion": 1,
+  "release": "11.1.0",
+  "product": "KingdomEnhancedMod",
+  "target": {
+    "game": "Kingdom Two Crowns 2.4.3 r23537 x64 IL2CPP",
+    "loader": "BepInEx 6 (IL2CPP)",
+    "platform": "Windows x64"
+  },
+  "provenance": {
+    "repository": "https://github.com/baisiqi6/ohmymods",
+    "commits": {
+      "base": "4543a79a556f532a1b9919121f2f6b69ad00d6a8",
+      "pr282": "d7694e34e9be1e138aec4e024bf2051d10c61050",
+      "gems": "dabbf4b583818a866a404cc42d5761e49ff282ac"
+    },
+    "note": "All Git-origin blobs are read with git cat-file from the pinned commits. The recipe contains no host paths. 285 sources are Git-derived; source/ModPanel.cs is base + three exact seed edits; source/MyPluginInfo.cs is generated; source/KingdomEnhancedPlugin.cs carries the release build-log edit. VOYAGE_SAVE_DIAGNOSTICS is intentionally absent. RoleTiming/U overlays are not included.",
+    "counts": {
+      "sources": 287,
+      "resources": 38,
+      "references": 162,
+      "gitContentSources": 285,
+      "patchedSources": 1,
+      "generatedSources": 1,
+      "editedSources": 2,
+      "releaseMetadataEdits": 1
+    }
+  },
+  "verifiedAgainst": {
+    "installedProjectSha256": "08579b2c126801df586b048a479834fde6f6690fe7128d92b64fab824707b85e",
+    "compileCount": 287,
+    "referenceCount": 162,
+    "resourceCount": 38,
+    "installedDefineConstants": [
+      "IL2CPP",
+      "BIE",
+      "BIE6",
+      "DEBUG",
+      "TRACE",
+      "KTC_GAME_243",
+      "VOYAGE_SAVE_DIAGNOSTICS",
+      "DEBUG",
+      "NET",
+      "NET6_0",
+      "NETCOREAPP"
+    ],
+    "diagnosticsMacro": "VOYAGE_SAVE_DIAGNOSTICS",
+    "installedOptimize": "true",
+    "installedTargetFramework": "net6.0",
+    "installedDebugPlus": true,
+    "expectedSemanticDeltas": [
+      {
+        "kind": "removed-debug-type",
+        "name": "KingdomEnhancedMod.MusketeerVoyageSaveDiagnostics",
+        "cause": "VOYAGE_SAVE_DIAGNOSTICS intentionally off"
+      },
+      {
+        "kind": "compiler-generated-closure-rename",
+        "from": "KingdomEnhancedMod.MusketeerPersistence/SaveCapture/<>c__DisplayClass25_0",
+        "to": "KingdomEnhancedMod.MusketeerPersistence/SaveCapture/<>c__DisplayClass22_0",
+        "normalizedRecords": 116,
+        "cause": "macro-off changes Roslyn display-class ordinal; records identical modulo the name"
+      },
+      {
+        "kind": "release-metadata",
+        "paths": [
+          "source/KingdomEnhancedPlugin.cs",
+          "source/MyPluginInfo.cs"
+        ],
+        "cause": "version 11.1.0, build=11.1.0-win-x64, assembly version/description"
+      }
+    ]
+  },
+  "sdk": {
+    "version": "8.0.425",
+    "targetFramework": "net6.0",
+    "targetingPack": "Microsoft.NETCore.App.Ref/6.0.36"
+  },
+  "properties": {
+    "configuration": "Debug",
+    "platform": "AnyCPU",
+    "assemblyName": "KingdomEnhancedMod",
+    "rootNamespace": "KingdomEnhancedMod",
+    "version": "11.1.0",
+    "assemblyVersion": "11.1.0.0",
+    "fileVersion": "11.1.0.0",
+    "informationalVersion": "11.1.0",
+    "description": "Kingdom Enhanced Mod 11.1.0 for Kingdom Two Crowns 2.4.3 IL2CPP (Windows x64)",
+    "defineConstants": [
+      "IL2CPP",
+      "BIE",
+      "BIE6",
+      "DEBUG",
+      "TRACE",
+      "KTC_GAME_243"
+    ],
+    "optimize": true,
+    "debugType": "portable",
+    "debugSymbols": true,
+    "pdbShipped": false,
+    "sanitizeCodeView": true,
+    "deterministic": true,
+    "noDeploy": true,
+    "bepInExPluginsPath": "",
+    "includeSourceRevisionInInformationalVersion": false,
+    "nullable": "disable",
+    "implicitUsings": "disable",
+    "langVersion": "latest",
+    "allowUnsafeBlocks": true,
+    "useSharedCompilation": false,
+    "generateAspNetCertificate": false,
+    "checkEolTargetFramework": false
+  },
+  "sourceDifferences": [
+    {
+      "path": "source/KingdomEnhancedPlugin.cs",
+      "reason": "release build log build=11.1.0-win-x64",
+      "installedSha256": "fdabe9f5a904debbc743fb7bdb72bb6bd1b31fc2f34a172b417e87cf524eeb06",
+      "exportSha256": "79f06bf9725f9b79b3530863c05a1fb79460dfca96ba8c5a67e0f801bbc6b1be"
+    },
+    {
+      "path": "source/MyPluginInfo.cs",
+      "reason": "generated release metadata (version 11.1.0)",
+      "installedSha256": "60784ddf83856724f5dd04d70c597b3061ed5c97e2d60be057c759c7accb52b5",
+      "exportSha256": "0bf49fcccada9ff5b72ef6ef8fab8ee1eb4315042bf37fc8df51417b83895eb8"
+    }
+  ],
+  "sources": [
+    {
+      "path": "source/ArcherOptionsScope.cs",
+      "sha256": "d686a9b82edf1dc5bbb7ed859517aa680899be3bb3fe915c8f516aa6d0e612a5",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/ArcherOptionsScope.cs",
+        "sha256": "d686a9b82edf1dc5bbb7ed859517aa680899be3bb3fe915c8f516aa6d0e612a5"
+      }
+    },
+    {
+      "path": "source/AutoRestockCounts.cs",
+      "sha256": "8e05e6a95581f85ad82b51aaa6cf579410568c03614be0d0baf2e654befb7bf3",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/AutoRestockCounts.cs",
+        "sha256": "8e05e6a95581f85ad82b51aaa6cf579410568c03614be0d0baf2e654befb7bf3"
+      }
+    },
+    {
+      "path": "source/BankAssistantAtlasMetadata.cs",
+      "sha256": "20d76fde34b7b9703a084e0c1a5829f27b392b9aa329cfdb42a7c10fff38befa",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/BankAssistantAtlasMetadata.cs",
+        "sha256": "20d76fde34b7b9703a084e0c1a5829f27b392b9aa329cfdb42a7c10fff38befa"
+      }
+    },
+    {
+      "path": "source/BankAssistantAtlasVisuals.cs",
+      "sha256": "70a8a0e6a145a372a183962d512e8a2846b6db53d45b1fe36d9b8221a7d6cd87",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/BankAssistantAtlasVisuals.cs",
+        "sha256": "70a8a0e6a145a372a183962d512e8a2846b6db53d45b1fe36d9b8221a7d6cd87"
+      }
+    },
+    {
+      "path": "source/BankAssistantCoinOrigin.cs",
+      "sha256": "6ade697fe0c8c53946fbf390414f75298abbf86728517ae8b7d8c62053de204e",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/BankAssistantCoinOrigin.cs",
+        "sha256": "6ade697fe0c8c53946fbf390414f75298abbf86728517ae8b7d8c62053de204e"
+      }
+    },
+    {
+      "path": "source/BankAssistantTeleportVisuals.cs",
+      "sha256": "54a85e37f9185f4ffe14353c64df81b2d98c23ffcb63090becac43272c893cc0",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/BankAssistantTeleportVisuals.cs",
+        "sha256": "54a85e37f9185f4ffe14353c64df81b2d98c23ffcb63090becac43272c893cc0"
+      }
+    },
+    {
+      "path": "source/BoatCapacityProfile.cs",
+      "sha256": "02d43c64922667e6e1f2d834bf29f28f8fbc683878dc27db1430abed4c11c2f2",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/BoatCapacityProfile.cs",
+        "sha256": "02d43c64922667e6e1f2d834bf29f28f8fbc683878dc27db1430abed4c11c2f2"
+      }
+    },
+    {
+      "path": "source/CalendarHud.cs",
+      "sha256": "8a0cb1a458ce7f171b3d6352c17c61fbbf81eb38e82bfa5f8e8aaf52dcc7d654",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/CalendarHud.cs",
+        "sha256": "8a0cb1a458ce7f171b3d6352c17c61fbbf81eb38e82bfa5f8e8aaf52dcc7d654"
+      }
+    },
+    {
+      "path": "source/CalendarSnapshot.cs",
+      "sha256": "14129613cdf6f9352d0be9f2187ea2f2c4d7880fa54079de54b5b246cc6170f7",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/CalendarSnapshot.cs",
+        "sha256": "14129613cdf6f9352d0be9f2187ea2f2c4d7880fa54079de54b5b246cc6170f7"
+      }
+    },
+    {
+      "path": "source/CharacterLeisureAtlas.cs",
+      "sha256": "320398297c5520d0334067b73115c51ee8e0de2e42dbd7f8c50505305194ca25",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/CharacterLeisureAtlas.cs",
+        "sha256": "320398297c5520d0334067b73115c51ee8e0de2e42dbd7f8c50505305194ca25"
+      }
+    },
+    {
+      "path": "source/CharacterLeisureClock.cs",
+      "sha256": "a7fbefcf1ff62ee034ca2e13e38bb43dc961c1248e7c8245d614871bec2d31ca",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/CharacterLeisureClock.cs",
+        "sha256": "a7fbefcf1ff62ee034ca2e13e38bb43dc961c1248e7c8245d614871bec2d31ca"
+      }
+    },
+    {
+      "path": "source/CoinCourierBankScope.cs",
+      "sha256": "f5d56fdb992d66b4afd44c5ca39f7bcd64160a9d5d5b681a93c9334b6b292aa7",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/CoinCourierBankScope.cs",
+        "sha256": "f5d56fdb992d66b4afd44c5ca39f7bcd64160a9d5d5b681a93c9334b6b292aa7"
+      }
+    },
+    {
+      "path": "source/CoinCourierCampaignState.cs",
+      "sha256": "7d73de06432d62e5a41999d34bcbb3b9eb4011504662e997161dae79e82a29d9",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/CoinCourierCampaignState.cs",
+        "sha256": "7d73de06432d62e5a41999d34bcbb3b9eb4011504662e997161dae79e82a29d9"
+      }
+    },
+    {
+      "path": "source/CoinCourierCoinFlight.cs",
+      "sha256": "cf47fb064c5e463541b6448093af30cfb5770b379b2d6ef0aebb73370931fb09",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/CoinCourierCoinFlight.cs",
+        "sha256": "cf47fb064c5e463541b6448093af30cfb5770b379b2d6ef0aebb73370931fb09"
+      }
+    },
+    {
+      "path": "source/CoinCourierEconomy.cs",
+      "sha256": "2e3468e0a5892ff645d0564d46b24f87482c986a2a65da50e5138a8d09d6e72c",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/CoinCourierEconomy.cs",
+        "sha256": "2e3468e0a5892ff645d0564d46b24f87482c986a2a65da50e5138a8d09d6e72c"
+      }
+    },
+    {
+      "path": "source/CoinCourierGround.cs",
+      "sha256": "1b82e6dd263afc4d932fc21cf474728f6687dd2bfa02733d0fb59a7427db1830",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/CoinCourierGround.cs",
+        "sha256": "1b82e6dd263afc4d932fc21cf474728f6687dd2bfa02733d0fb59a7427db1830"
+      }
+    },
+    {
+      "path": "source/CoinCourierLeisureCoin.cs",
+      "sha256": "27532e34260df339e71bae6b786909056ddbc716de723a28df5e3f9d703a836e",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/CoinCourierLeisureCoin.cs",
+        "sha256": "27532e34260df339e71bae6b786909056ddbc716de723a28df5e3f9d703a836e"
+      }
+    },
+    {
+      "path": "source/CoinCourierPersistence.Hooks.cs",
+      "sha256": "27b452a0cfbad5bab9e261bf5f6600aece1832dde5714d57bd4ed856b2196481",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/CoinCourierPersistence.Hooks.cs",
+        "sha256": "27b452a0cfbad5bab9e261bf5f6600aece1832dde5714d57bd4ed856b2196481"
+      }
+    },
+    {
+      "path": "source/CoinCourierPersistence.cs",
+      "sha256": "5d2c6fef0f4816e3908ed8f6a7e64626b895b16398ae37d4aa81b147d74570a2",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/CoinCourierPersistence.cs",
+        "sha256": "5d2c6fef0f4816e3908ed8f6a7e64626b895b16398ae37d4aa81b147d74570a2"
+      }
+    },
+    {
+      "path": "source/CoinCourierPurse.cs",
+      "sha256": "a576982b8fea3f4c416f7190d74c984d8d060350e3f962721bc2a6349a64dd0b",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/CoinCourierPurse.cs",
+        "sha256": "a576982b8fea3f4c416f7190d74c984d8d060350e3f962721bc2a6349a64dd0b"
+      }
+    },
+    {
+      "path": "source/CoinCourierRules.cs",
+      "sha256": "b40f4b0c21466752d30fad1614eaf7693dadadb7cd2a3f8dad552c52df9553b1",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/CoinCourierRules.cs",
+        "sha256": "b40f4b0c21466752d30fad1614eaf7693dadadb7cd2a3f8dad552c52df9553b1"
+      }
+    },
+    {
+      "path": "source/CoinCourierRuntime.cs",
+      "sha256": "acbc4b9c10513d33fd9e89728ed99852342fbee512b92a3e616f8340c8e85cc7",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/CoinCourierRuntime.cs",
+        "sha256": "acbc4b9c10513d33fd9e89728ed99852342fbee512b92a3e616f8340c8e85cc7"
+      }
+    },
+    {
+      "path": "source/CoinCourierRuntimeRules.cs",
+      "sha256": "46c7edc7ad929d6c6bf9e59daf2ac4c5b301ac4007a7874e7ebcb9461c9422f6",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/CoinCourierRuntimeRules.cs",
+        "sha256": "46c7edc7ad929d6c6bf9e59daf2ac4c5b301ac4007a7874e7ebcb9461c9422f6"
+      }
+    },
+    {
+      "path": "source/CoinCourierSaveData.cs",
+      "sha256": "ac7baf28f8eb4e4e6c79416c0888e82c5e74190582c79d9db1f47299a328b1da",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/CoinCourierSaveData.cs",
+        "sha256": "ac7baf28f8eb4e4e6c79416c0888e82c5e74190582c79d9db1f47299a328b1da"
+      }
+    },
+    {
+      "path": "source/CoinCourierShop.cs",
+      "sha256": "11a9f146f60420a1c5df95876182c240daecb6cd7b58dd5daaded4782d1dfa6c",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/CoinCourierShop.cs",
+        "sha256": "11a9f146f60420a1c5df95876182c240daecb6cd7b58dd5daaded4782d1dfa6c"
+      }
+    },
+    {
+      "path": "source/CoinCourierTargeting.cs",
+      "sha256": "f24773b6c674978d88b20fc9f74bae123a94705b88321845a895012b2ce98a3a",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/CoinCourierTargeting.cs",
+        "sha256": "f24773b6c674978d88b20fc9f74bae123a94705b88321845a895012b2ce98a3a"
+      }
+    },
+    {
+      "path": "source/CoinCourierTeleportFx.cs",
+      "sha256": "614aefc4b775330cc08ec88f48139ff5361e2a62d3e63f7a77112febafef31f0",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/CoinCourierTeleportFx.cs",
+        "sha256": "614aefc4b775330cc08ec88f48139ff5361e2a62d3e63f7a77112febafef31f0"
+      }
+    },
+    {
+      "path": "source/CoinCourierVisuals.cs",
+      "sha256": "208c1111ae8a4a7cd0087c2700d03bcdd0633cc628d26043c0fc46d02795b4b3",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/CoinCourierVisuals.cs",
+        "sha256": "208c1111ae8a4a7cd0087c2700d03bcdd0633cc628d26043c0fc46d02795b4b3"
+      }
+    },
+    {
+      "path": "source/CombatDamage.cs",
+      "sha256": "753fd3c310c466ef4fd3e9ded6dc223257b1595f3269fdc5ce18b5a1e7d1319c",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/CombatDamage.cs",
+        "sha256": "753fd3c310c466ef4fd3e9ded6dc223257b1595f3269fdc5ce18b5a1e7d1319c"
+      }
+    },
+    {
+      "path": "source/CombatTargetLife.cs",
+      "sha256": "fa025321d71e8ffc1731960f63f267f01652ff3eda20cc387c4463f294b9300c",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/CombatTargetLife.cs",
+        "sha256": "fa025321d71e8ffc1731960f63f267f01652ff3eda20cc387c4463f294b9300c"
+      }
+    },
+    {
+      "path": "source/CrossWorldMountData.cs",
+      "sha256": "66f9aad85967956d9762b628abda3b8c0de1c8442c45b7b1224d35c156a0d474",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/CrossWorldMountData.cs",
+        "sha256": "66f9aad85967956d9762b628abda3b8c0de1c8442c45b7b1224d35c156a0d474"
+      }
+    },
+    {
+      "path": "source/CrossWorldMountDependencies.cs",
+      "sha256": "c9f6421e9516e5d75817a4785584d313e4ced4c523ef38c84bcfce30a018a0d0",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/CrossWorldMountDependencies.cs",
+        "sha256": "c9f6421e9516e5d75817a4785584d313e4ced4c523ef38c84bcfce30a018a0d0"
+      }
+    },
+    {
+      "path": "source/CrossWorldMountRuntime.cs",
+      "sha256": "96ca5abb252792297446a3542ed5fd09a570e6770fbc111770a3dd198b21d186",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/CrossWorldMountRuntime.cs",
+        "sha256": "96ca5abb252792297446a3542ed5fd09a570e6770fbc111770a3dd198b21d186"
+      }
+    },
+    {
+      "path": "source/CrossbowRatioPolicy.cs",
+      "sha256": "4b9fee11500b417242e6ca9416f494c1cb0da385f6a66a143aee60b4e4b8e850",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/CrossbowRatioPolicy.cs",
+        "sha256": "4b9fee11500b417242e6ca9416f494c1cb0da385f6a66a143aee60b4e4b8e850"
+      }
+    },
+    {
+      "path": "source/CrossbowmanBoltWallPierce.cs",
+      "sha256": "0d64218b6f2bb60978506ce66cf7f75557a8e71c3e6a9c65b24803802b4737ca",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/CrossbowmanBoltWallPierce.cs",
+        "sha256": "0d64218b6f2bb60978506ce66cf7f75557a8e71c3e6a9c65b24803802b4737ca"
+      }
+    },
+    {
+      "path": "source/CrossbowmanLifecycle.cs",
+      "sha256": "22780c1e4504f16d57463e9e2b0e79962f0c0e81f22d9cab6bd3eb548b5882c6",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/CrossbowmanLifecycle.cs",
+        "sha256": "22780c1e4504f16d57463e9e2b0e79962f0c0e81f22d9cab6bd3eb548b5882c6"
+      }
+    },
+    {
+      "path": "source/CurrencyBagViewport.cs",
+      "sha256": "d59b5227ca5c39c6b3131d16f3a1fe30f4478051a3b39a59163059ad45183311",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/CurrencyBagViewport.cs",
+        "sha256": "d59b5227ca5c39c6b3131d16f3a1fe30f4478051a3b39a59163059ad45183311"
+      }
+    },
+    {
+      "path": "source/CustomShopStocks.cs",
+      "sha256": "34d308e0730c877e421204cecdb9c38ba02b647b1b46c6bfc8bb4137c6ededee",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/CustomShopStocks.cs",
+        "sha256": "34d308e0730c877e421204cecdb9c38ba02b647b1b46c6bfc8bb4137c6ededee"
+      }
+    },
+    {
+      "path": "source/DeadlandsFollowerCapture.cs",
+      "sha256": "1a56a838fdb46e554921d9a0968f0b96659520260581b74171fe5c236e79c96e",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/DeadlandsFollowerCapture.cs",
+        "sha256": "1a56a838fdb46e554921d9a0968f0b96659520260581b74171fe5c236e79c96e"
+      }
+    },
+    {
+      "path": "source/ExtensionIslandMap.cs",
+      "sha256": "b40d9f9a5dbfe25e22b1cc97c761fbb17d1f0b1baf1c160422952a2954d8e766",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/ExtensionIslandMap.cs",
+        "sha256": "b40d9f9a5dbfe25e22b1cc97c761fbb17d1f0b1baf1c160422952a2954d8e766"
+      }
+    },
+    {
+      "path": "source/ExtensionIslandMapPlan.cs",
+      "sha256": "edfc8e70ae232251b5bf7a7f8256dc826563171d8c67de36553cfc486ab6e182",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/ExtensionIslandMapPlan.cs",
+        "sha256": "edfc8e70ae232251b5bf7a7f8256dc826563171d8c67de36553cfc486ab6e182"
+      }
+    },
+    {
+      "path": "source/ExtensionIslandMapResultPlan.cs",
+      "sha256": "b84b84b9abc003e69432d15a897c7a6dd3a02ca145367f8965b40d4ae14e4b17",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/ExtensionIslandMapResultPlan.cs",
+        "sha256": "b84b84b9abc003e69432d15a897c7a6dd3a02ca145367f8965b40d4ae14e4b17"
+      }
+    },
+    {
+      "path": "source/ExtensionIslandPlan.cs",
+      "sha256": "6ec01d434abebd15cfe5b2e03cd95b401acc1519eb327342260d20cf3ac7acd3",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/ExtensionIslandPlan.cs",
+        "sha256": "6ec01d434abebd15cfe5b2e03cd95b401acc1519eb327342260d20cf3ac7acd3"
+      }
+    },
+    {
+      "path": "source/ExtensionIslandRuntime.cs",
+      "sha256": "f7f29238b25f304ee9432dcb018676b499c87194201b1eccd4d1959a95b57adb",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/ExtensionIslandRuntime.cs",
+        "sha256": "f7f29238b25f304ee9432dcb018676b499c87194201b1eccd4d1959a95b57adb"
+      }
+    },
+    {
+      "path": "source/FarmCatMovement.cs",
+      "sha256": "02e37276ae1fd5ac697ef6b71c4cf5bd79f642981a4f3958667dde525be2a2a4",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/FarmCatMovement.cs",
+        "sha256": "02e37276ae1fd5ac697ef6b71c4cf5bd79f642981a4f3958667dde525be2a2a4"
+      }
+    },
+    {
+      "path": "source/FireTowerRestockCapacity.cs",
+      "sha256": "14ef2a1a9f80f84c258838d50b998905f3b0ae13549169009f55e9c24701d174",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/FireTowerRestockCapacity.cs",
+        "sha256": "14ef2a1a9f80f84c258838d50b998905f3b0ae13549169009f55e9c24701d174"
+      }
+    },
+    {
+      "path": "source/FleetGreekSquads.cs",
+      "sha256": "d69286c6367ec5f9da71e87e0659de63a047c2f10a0ed95bce4bd8e48bdf7633",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/FleetGreekSquads.cs",
+        "sha256": "d69286c6367ec5f9da71e87e0659de63a047c2f10a0ed95bce4bd8e48bdf7633"
+      }
+    },
+    {
+      "path": "source/FriendlyTrollDisguise.cs",
+      "sha256": "3f4ba5d2997004fae281991bc140742d953818362390686edb51afcebcbda1c4",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/FriendlyTrollDisguise.cs",
+        "sha256": "3f4ba5d2997004fae281991bc140742d953818362390686edb51afcebcbda1c4"
+      }
+    },
+    {
+      "path": "source/GreekBankScope.cs",
+      "sha256": "46cdec4701e3bbbcf59bd78dc02c893637ff719a50914a47ab601ae835ade7bb",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/GreekBankScope.cs",
+        "sha256": "46cdec4701e3bbbcf59bd78dc02c893637ff719a50914a47ab601ae835ade7bb"
+      }
+    },
+    {
+      "path": "source/GreekScaleScope.cs",
+      "sha256": "566688d4dafa6db503e11b8d46751ccd7dfe7fa67bb5f456124fc8e21ab2be1c",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/GreekScaleScope.cs",
+        "sha256": "566688d4dafa6db503e11b8d46751ccd7dfe7fa67bb5f456124fc8e21ab2be1c"
+      }
+    },
+    {
+      "path": "source/GuardRankDistribution.cs",
+      "sha256": "33079cea12c0be3e06e1fcb4dee218c74fd6d690997e16808ea4aca14f7a5ef0",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/GuardRankDistribution.cs",
+        "sha256": "33079cea12c0be3e06e1fcb4dee218c74fd6d690997e16808ea4aca14f7a5ef0"
+      }
+    },
+    {
+      "path": "source/HeavyShieldActorVisuals.cs",
+      "sha256": "dc55d37f9ba52d5ae0341bbdfaac1092741a3d6eaae4dd7906a739f5d6637e41",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/HeavyShieldActorVisuals.cs",
+        "sha256": "dc55d37f9ba52d5ae0341bbdfaac1092741a3d6eaae4dd7906a739f5d6637e41"
+      }
+    },
+    {
+      "path": "source/HeavyShieldBlockPolicy.cs",
+      "sha256": "a36a075e2d55136bf2937bc91142c3793d3362bfcd48c0cb2397beba943c0098",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/HeavyShieldBlockPolicy.cs",
+        "sha256": "a36a075e2d55136bf2937bc91142c3793d3362bfcd48c0cb2397beba943c0098"
+      }
+    },
+    {
+      "path": "source/HeavyShieldCareerExclusion.cs",
+      "sha256": "901114277bbff47a00a3ca418b548ca69d2b770f1f1237869dc8487f43b9074f",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/HeavyShieldCareerExclusion.cs",
+        "sha256": "901114277bbff47a00a3ca418b548ca69d2b770f1f1237869dc8487f43b9074f"
+      }
+    },
+    {
+      "path": "source/HeavyShieldCombat.cs",
+      "sha256": "3838ff376b61c2abc2dc82fc3a429d6b9537f5ec6d9e57da0ff7552205a2686b",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/HeavyShieldCombat.cs",
+        "sha256": "3838ff376b61c2abc2dc82fc3a429d6b9537f5ec6d9e57da0ff7552205a2686b"
+      }
+    },
+    {
+      "path": "source/HeavyShieldContracts.cs",
+      "sha256": "2a891a34506e041e3e32b7ae749ccd4e1499a2fa71997efa2b2aa60d9cc07074",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/HeavyShieldContracts.cs",
+        "sha256": "2a891a34506e041e3e32b7ae749ccd4e1499a2fa71997efa2b2aa60d9cc07074"
+      }
+    },
+    {
+      "path": "source/HeavyShieldEnrollment.cs",
+      "sha256": "a6d00837676aada59714aa57b0e13cef0bd8e999f382147a2ca728f4f701a8a9",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/HeavyShieldEnrollment.cs",
+        "sha256": "a6d00837676aada59714aa57b0e13cef0bd8e999f382147a2ca728f4f701a8a9"
+      }
+    },
+    {
+      "path": "source/HeavyShieldForgeArchive.cs",
+      "sha256": "51c8db14480e0bfcc1bf9b31696c65e2f81109a48b1a3504267c1412279597d8",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/HeavyShieldForgeArchive.cs",
+        "sha256": "51c8db14480e0bfcc1bf9b31696c65e2f81109a48b1a3504267c1412279597d8"
+      }
+    },
+    {
+      "path": "source/HeavyShieldIdentity.cs",
+      "sha256": "3e2321bd19c7e4fcb6d24333ad4959de507d0fd61baa45f7def2d5517370e7bd",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/HeavyShieldIdentity.cs",
+        "sha256": "3e2321bd19c7e4fcb6d24333ad4959de507d0fd61baa45f7def2d5517370e7bd"
+      }
+    },
+    {
+      "path": "source/HeavyShieldIntegration.cs",
+      "sha256": "e2c9c2d9c607c19b059db4e164b95b4dc3871ed2f5808e9b79bbd6076e111116",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/HeavyShieldIntegration.cs",
+        "sha256": "e2c9c2d9c607c19b059db4e164b95b4dc3871ed2f5808e9b79bbd6076e111116"
+      }
+    },
+    {
+      "path": "source/HeavyShieldNativeHooks.cs",
+      "sha256": "5cd875d8b5543fc22b9a4d04b4da71d349c72cf4e96ef344c50491095702bc71",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/HeavyShieldNativeHooks.cs",
+        "sha256": "5cd875d8b5543fc22b9a4d04b4da71d349c72cf4e96ef344c50491095702bc71"
+      }
+    },
+    {
+      "path": "source/HeavyShieldNativeKeyReader.cs",
+      "sha256": "7ceb1a1ff432d14bbbd76876866f4a1a902d0e7a3ec7a9b2df6caef4803b530b",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/HeavyShieldNativeKeyReader.cs",
+        "sha256": "7ceb1a1ff432d14bbbd76876866f4a1a902d0e7a3ec7a9b2df6caef4803b530b"
+      }
+    },
+    {
+      "path": "source/HeavyShieldPersistence.cs",
+      "sha256": "4c885af5b02b60ddddbfc0722e97655bd41a34077b798639d4108fe91fefd25e",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/HeavyShieldPersistence.cs",
+        "sha256": "4c885af5b02b60ddddbfc0722e97655bd41a34077b798639d4108fe91fefd25e"
+      }
+    },
+    {
+      "path": "source/HeavyShieldPromotionBridge.cs",
+      "sha256": "1447b9a09f99fe46c6231c1f1558f86d5152f6041dea2569e8b0e18cb30dceea",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/HeavyShieldPromotionBridge.cs",
+        "sha256": "1447b9a09f99fe46c6231c1f1558f86d5152f6041dea2569e8b0e18cb30dceea"
+      }
+    },
+    {
+      "path": "source/HeavyShieldQuota.cs",
+      "sha256": "cfeb131129131468b66c25b6cc6dbcad52b711dffb1c6b283a4c70cd32a7c02c",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/HeavyShieldQuota.cs",
+        "sha256": "cfeb131129131468b66c25b6cc6dbcad52b711dffb1c6b283a4c70cd32a7c02c"
+      }
+    },
+    {
+      "path": "source/HeavyShieldRuntime.cs",
+      "sha256": "a343b902636d2f1c8d9ae06a1114db58a3009b2fc63cc11ae1bc501fd3b58745",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/HeavyShieldRuntime.cs",
+        "sha256": "a343b902636d2f1c8d9ae06a1114db58a3009b2fc63cc11ae1bc501fd3b58745"
+      }
+    },
+    {
+      "path": "source/HeavyShieldSaveData.cs",
+      "sha256": "d965670ef4a6838cbe3be19652a80dc6a300718538ca38e236225a339ab21ad8",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/HeavyShieldSaveData.cs",
+        "sha256": "d965670ef4a6838cbe3be19652a80dc6a300718538ca38e236225a339ab21ad8"
+      }
+    },
+    {
+      "path": "source/HeavyShieldShopPayment.cs",
+      "sha256": "362d7e6fe2df60cc443500b528ef973b7700c7f55ca508cf281a3ae6662df66c",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/HeavyShieldShopPayment.cs",
+        "sha256": "362d7e6fe2df60cc443500b528ef973b7700c7f55ca508cf281a3ae6662df66c"
+      }
+    },
+    {
+      "path": "source/HeavyShieldShopShell.cs",
+      "sha256": "5cd35ad4245f7a22b84fb340949515f62905f0117cb836db3ee0fcf86017c08f",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/HeavyShieldShopShell.cs",
+        "sha256": "5cd35ad4245f7a22b84fb340949515f62905f0117cb836db3ee0fcf86017c08f"
+      }
+    },
+    {
+      "path": "source/HermesHeadwearCodec.cs",
+      "sha256": "f5b3734c93ec973d4de932101451628da97c35d65bb4eac4feac141546233506",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/HermesHeadwearCodec.cs",
+        "sha256": "f5b3734c93ec973d4de932101451628da97c35d65bb4eac4feac141546233506"
+      }
+    },
+    {
+      "path": "source/HermesHeadwearCycle.cs",
+      "sha256": "459c213c8dceb4faed431498588aa0e31fc48f42af35d0c8d2ad3da7186a78b2",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/HermesHeadwearCycle.cs",
+        "sha256": "459c213c8dceb4faed431498588aa0e31fc48f42af35d0c8d2ad3da7186a78b2"
+      }
+    },
+    {
+      "path": "source/HermesHeadwearDiagnostics.cs",
+      "sha256": "23bc009bf11ec5c5ff230545ba7853f9c2d7f84af25fe2ea94fe79d3a64484eb",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/HermesHeadwearDiagnostics.cs",
+        "sha256": "23bc009bf11ec5c5ff230545ba7853f9c2d7f84af25fe2ea94fe79d3a64484eb"
+      }
+    },
+    {
+      "path": "source/HermesHeadwearVisuals.cs",
+      "sha256": "3b6cd4047cb05373cda1dba599da88e2dd59295cae6bd3a20de02426af09a8c5",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/HermesHeadwearVisuals.cs",
+        "sha256": "3b6cd4047cb05373cda1dba599da88e2dd59295cae6bd3a20de02426af09a8c5"
+      }
+    },
+    {
+      "path": "source/HeroArcherAnimation.cs",
+      "sha256": "2406960b23401f5f02d77063862e86860a8bb57614c9d221a5821d69e8a792ab",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/HeroArcherAnimation.cs",
+        "sha256": "2406960b23401f5f02d77063862e86860a8bb57614c9d221a5821d69e8a792ab"
+      }
+    },
+    {
+      "path": "source/HeroArcherArrowVisuals.cs",
+      "sha256": "f8ca6b3ac3bdb6c858417ef0d6164e651f847673dab7bb418be060af308e6ee5",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/HeroArcherArrowVisuals.cs",
+        "sha256": "f8ca6b3ac3bdb6c858417ef0d6164e651f847673dab7bb418be060af308e6ee5"
+      }
+    },
+    {
+      "path": "source/HeroArcherCloth.cs",
+      "sha256": "5579c1951525f95bcb68c647a50cc1978c1191a44031efdbba969f1553db0970",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/HeroArcherCloth.cs",
+        "sha256": "5579c1951525f95bcb68c647a50cc1978c1191a44031efdbba969f1553db0970"
+      }
+    },
+    {
+      "path": "source/HeroArcherClothPhysics.cs",
+      "sha256": "97373d711d32ab5cdf4fa6b6f9dce70a05a69d2d158cec8983c2a64ae2a7ee50",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/HeroArcherClothPhysics.cs",
+        "sha256": "97373d711d32ab5cdf4fa6b6f9dce70a05a69d2d158cec8983c2a64ae2a7ee50"
+      }
+    },
+    {
+      "path": "source/HeroArcherCombat.cs",
+      "sha256": "d3c0b76631069a2f481736de08cb99379469d9dbb6dba75cb51d898077067fe8",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/HeroArcherCombat.cs",
+        "sha256": "d3c0b76631069a2f481736de08cb99379469d9dbb6dba75cb51d898077067fe8"
+      }
+    },
+    {
+      "path": "source/HeroArcherGuardFacing.cs",
+      "sha256": "19ed1e264b47d7db1c01fd2dd89e414c2359d39e964a8e5a7a53bd2eb06b30d4",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/HeroArcherGuardFacing.cs",
+        "sha256": "19ed1e264b47d7db1c01fd2dd89e414c2359d39e964a8e5a7a53bd2eb06b30d4"
+      }
+    },
+    {
+      "path": "source/HeroArcherLiveDiagnostics.cs",
+      "sha256": "b0905155fab1fdd8dbf0ddda1819645483f07251de5ca200fe58e0ceb235b0c3",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/HeroArcherLiveDiagnostics.cs",
+        "sha256": "b0905155fab1fdd8dbf0ddda1819645483f07251de5ca200fe58e0ceb235b0c3"
+      }
+    },
+    {
+      "path": "source/HeroArcherMotion.cs",
+      "sha256": "6aa0340d8a70f0eb9ba5d6722909f3f98e66e6140c75ff58060d7a4dfc0d43e1",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/HeroArcherMotion.cs",
+        "sha256": "6aa0340d8a70f0eb9ba5d6722909f3f98e66e6140c75ff58060d7a4dfc0d43e1"
+      }
+    },
+    {
+      "path": "source/HeroArcherMovement.cs",
+      "sha256": "851b91b2e3004d4078b28291815e52ef3134a29738bf76518c9f6fc0d999c9ac",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/HeroArcherMovement.cs",
+        "sha256": "851b91b2e3004d4078b28291815e52ef3134a29738bf76518c9f6fc0d999c9ac"
+      }
+    },
+    {
+      "path": "source/HeroArcherNativePose.cs",
+      "sha256": "c2b65101a7b1df64880625e07c8581fb4f3d80894b66a7b6620ad218539a440d",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/HeroArcherNativePose.cs",
+        "sha256": "c2b65101a7b1df64880625e07c8581fb4f3d80894b66a7b6620ad218539a440d"
+      }
+    },
+    {
+      "path": "source/HeroArcherNetwork.cs",
+      "sha256": "e77a1c868ba9f3722c4ef9dbd60459e588dc2f68ec27e7cdc8f6847d4076c0fb",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/HeroArcherNetwork.cs",
+        "sha256": "e77a1c868ba9f3722c4ef9dbd60459e588dc2f68ec27e7cdc8f6847d4076c0fb"
+      }
+    },
+    {
+      "path": "source/HeroArcherRange.cs",
+      "sha256": "0e71805c0b4faac20e926a68387b09c36c2b3e9e4b7c445fd07a5e3172df627f",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/HeroArcherRange.cs",
+        "sha256": "0e71805c0b4faac20e926a68387b09c36c2b3e9e4b7c445fd07a5e3172df627f"
+      }
+    },
+    {
+      "path": "source/HeroArcherRuntime.cs",
+      "sha256": "f3357f91c79bba19d74fed973609ac6e5d42127864a938f5796fdce5795d0a80",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/HeroArcherRuntime.cs",
+        "sha256": "f3357f91c79bba19d74fed973609ac6e5d42127864a938f5796fdce5795d0a80"
+      }
+    },
+    {
+      "path": "source/HeroArcherScarfGeometry.cs",
+      "sha256": "51a7f123dc2ca1612796c3f903f83fe2bfa965f3ba0f6acead5e033333377d5e",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/HeroArcherScarfGeometry.cs",
+        "sha256": "51a7f123dc2ca1612796c3f903f83fe2bfa965f3ba0f6acead5e033333377d5e"
+      }
+    },
+    {
+      "path": "source/HeroArcherTowerPolicy.cs",
+      "sha256": "1984a3d1944852444f11ba0936bc46a52d5edfa0ff9f0c996a8ffc4eb1c8f763",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/HeroArcherTowerPolicy.cs",
+        "sha256": "1984a3d1944852444f11ba0936bc46a52d5edfa0ff9f0c996a8ffc4eb1c8f763"
+      }
+    },
+    {
+      "path": "source/HeroArcherVisuals.cs",
+      "sha256": "9767544f435a371a3709baed76e2ef9b06cd888ecfe604c7a7f521e43dc5a7e4",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/HeroArcherVisuals.cs",
+        "sha256": "9767544f435a371a3709baed76e2ef9b06cd888ecfe604c7a7f521e43dc5a7e4"
+      }
+    },
+    {
+      "path": "source/HeroArcherWallPierce.cs",
+      "sha256": "87bfe6aece8a835d67628c93c28e2aefa06f0d3e527b9e9532a58b40a33d1c28",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/HeroArcherWallPierce.cs",
+        "sha256": "87bfe6aece8a835d67628c93c28e2aefa06f0d3e527b9e9532a58b40a33d1c28"
+      }
+    },
+    {
+      "path": "source/HeroBoardingPolicy.cs",
+      "sha256": "145b1f80260756e052bf5996e97580ea9ea7a8ad9dd76e77779213f0f3fd01b0",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/HeroBoardingPolicy.cs",
+        "sha256": "145b1f80260756e052bf5996e97580ea9ea7a8ad9dd76e77779213f0f3fd01b0"
+      }
+    },
+    {
+      "path": "source/HeroNativeRights.cs",
+      "sha256": "2db9fd2bfd1a98c8e0857d2e13cd333de5729fcb14084ac92336a751cfb8406a",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/HeroNativeRights.cs",
+        "sha256": "2db9fd2bfd1a98c8e0857d2e13cd333de5729fcb14084ac92336a751cfb8406a"
+      }
+    },
+    {
+      "path": "source/HeroRecruitment.cs",
+      "sha256": "4554bb68c19faef56a4a62fa5bf1de8066624af5c70dad798e3d5c2073aecabf",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/HeroRecruitment.cs",
+        "sha256": "4554bb68c19faef56a4a62fa5bf1de8066624af5c70dad798e3d5c2073aecabf"
+      }
+    },
+    {
+      "path": "source/HeroRecruitmentArchive.cs",
+      "sha256": "d3d45bd416efd0ab1d5e5531f7652f2ff90ff0006832beb1bee43994759eaa06",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/HeroRecruitmentArchive.cs",
+        "sha256": "d3d45bd416efd0ab1d5e5531f7652f2ff90ff0006832beb1bee43994759eaa06"
+      }
+    },
+    {
+      "path": "source/HeroRecruitmentContext.cs",
+      "sha256": "314914bcd7da34404d6f2d0491725f9043237f65271b50b276537ad4afbe5edb",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/HeroRecruitmentContext.cs",
+        "sha256": "314914bcd7da34404d6f2d0491725f9043237f65271b50b276537ad4afbe5edb"
+      }
+    },
+    {
+      "path": "source/HeroRecruitmentFingerprint.cs",
+      "sha256": "c5fa9567cf5c7faec8915a16224199a9a4fd3e6cc6091c12d5b1a1615fc28fe4",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/HeroRecruitmentFingerprint.cs",
+        "sha256": "c5fa9567cf5c7faec8915a16224199a9a4fd3e6cc6091c12d5b1a1615fc28fe4"
+      }
+    },
+    {
+      "path": "source/HeroShop.cs",
+      "sha256": "57954a58e3891c6c22fee643e210cfd0d0a3f134df65c5f02de44be5984dc42c",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/HeroShop.cs",
+        "sha256": "57954a58e3891c6c22fee643e210cfd0d0a3f134df65c5f02de44be5984dc42c"
+      }
+    },
+    {
+      "path": "source/HeroShopBannerVisuals.cs",
+      "sha256": "0343801877d8c7f53e0f08bbdb5d0313045ec712ed8514955810a50176cf9c40",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/HeroShopBannerVisuals.cs",
+        "sha256": "0343801877d8c7f53e0f08bbdb5d0313045ec712ed8514955810a50176cf9c40"
+      }
+    },
+    {
+      "path": "source/HeroVisualPriority.cs",
+      "sha256": "d1299459b32e03abb8f8d5156a4cda0e5e13b04861cff7fb064d70389ac5aff0",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/HeroVisualPriority.cs",
+        "sha256": "d1299459b32e03abb8f8d5156a4cda0e5e13b04861cff7fb064d70389ac5aff0"
+      }
+    },
+    {
+      "path": "source/ImGuiCompat.cs",
+      "sha256": "7fa6ac341f5a7cafe7b8d133b1d7f2bb7ba1df83442b9dca66d25f08f3687638",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/ImGuiCompat.cs",
+        "sha256": "7fa6ac341f5a7cafe7b8d133b1d7f2bb7ba1df83442b9dca66d25f08f3687638"
+      }
+    },
+    {
+      "path": "source/KingdomEnhancedPlugin.cs",
+      "sha256": "79f06bf9725f9b79b3530863c05a1fb79460dfca96ba8c5a67e0f801bbc6b1be",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/KingdomEnhancedPlugin.cs",
+        "sha256": "fdabe9f5a904debbc743fb7bdb72bb6bd1b31fc2f34a172b417e87cf524eeb06"
+      },
+      "edits": [
+        {
+          "old": "build=10.8.35-native-scale-farmcats-20261001",
+          "new": "build=11.1.0-win-x64"
+        }
+      ]
+    },
+    {
+      "path": "source/KnightIdentityArchive.cs",
+      "sha256": "c68b8918d6e80f6eb44b91ba90db9941c43808f2bec0c49e0d1c6403b454bb09",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/KnightIdentityArchive.cs",
+        "sha256": "c68b8918d6e80f6eb44b91ba90db9941c43808f2bec0c49e0d1c6403b454bb09"
+      }
+    },
+    {
+      "path": "source/KnightIdentityContext.cs",
+      "sha256": "3db13242d7a904a99643664e606355d85e9fef60432966127c4f53e778def9bc",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/KnightIdentityContext.cs",
+        "sha256": "3db13242d7a904a99643664e606355d85e9fef60432966127c4f53e778def9bc"
+      }
+    },
+    {
+      "path": "source/KnightIdentityLoadSeed.cs",
+      "sha256": "08233b084f7587ea9c4cee63bb827fee61c7bd9059452bb86017fd9da0ccabef",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/KnightIdentityLoadSeed.cs",
+        "sha256": "08233b084f7587ea9c4cee63bb827fee61c7bd9059452bb86017fd9da0ccabef"
+      }
+    },
+    {
+      "path": "source/KnightIdentityNetwork.cs",
+      "sha256": "7b6180ea3be0bcdd161923ad80017ae517cf706a9afbed5c9dd65ce0404fb551",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/KnightIdentityNetwork.cs",
+        "sha256": "7b6180ea3be0bcdd161923ad80017ae517cf706a9afbed5c9dd65ce0404fb551"
+      }
+    },
+    {
+      "path": "source/KnightIdentityQuotaRecovery.cs",
+      "sha256": "84e3a53cab7eee99a9134df1470d1e8270a7dcce9d70ea0704bbf3908cc54ab9",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/KnightIdentityQuotaRecovery.cs",
+        "sha256": "84e3a53cab7eee99a9134df1470d1e8270a7dcce9d70ea0704bbf3908cc54ab9"
+      }
+    },
+    {
+      "path": "source/KnightIdentityRuntime.cs",
+      "sha256": "4ce8026df513dbbb6aef563aa132f203f8087fdb370be7c998d1acacefacefa2",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/KnightIdentityRuntime.cs",
+        "sha256": "4ce8026df513dbbb6aef563aa132f203f8087fdb370be7c998d1acacefacefa2"
+      }
+    },
+    {
+      "path": "source/KnightStylePanel.cs",
+      "sha256": "a72e6777665c98dc8c3f14aa54c5d6c1c254b8f566caceb10a87267a5d2e173f",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/KnightStylePanel.cs",
+        "sha256": "a72e6777665c98dc8c3f14aa54c5d6c1c254b8f566caceb10a87267a5d2e173f"
+      }
+    },
+    {
+      "path": "source/MainBankerFixedDomain.cs",
+      "sha256": "d35f17d3b41a7e80175a87fdd351616fa5e9e5c3a31f204b92bac91f1aa081ab",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/MainBankerFixedDomain.cs",
+        "sha256": "d35f17d3b41a7e80175a87fdd351616fa5e9e5c3a31f204b92bac91f1aa081ab"
+      }
+    },
+    {
+      "path": "source/MapCustomIconAssets.cs",
+      "sha256": "3bc54991787b68a4ea2346445d93ec00786140f7851144cbc880798a9ccdce3b",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/MapCustomIconAssets.cs",
+        "sha256": "3bc54991787b68a4ea2346445d93ec00786140f7851144cbc880798a9ccdce3b"
+      }
+    },
+    {
+      "path": "source/MapCustomIconPlan.cs",
+      "sha256": "1d66309427fff7ce3da6db1ded2f5f699e8c02b5b0c4df0c97911a61bad1d1b2",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/MapCustomIconPlan.cs",
+        "sha256": "1d66309427fff7ce3da6db1ded2f5f699e8c02b5b0c4df0c97911a61bad1d1b2"
+      }
+    },
+    {
+      "path": "source/MapExtensionIslandArt.cs",
+      "sha256": "1482634f8b2c2101f540caf9448cd499de606d9ae25db43524654c82bad9bd2c",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/MapExtensionIslandArt.cs",
+        "sha256": "1482634f8b2c2101f540caf9448cd499de606d9ae25db43524654c82bad9bd2c"
+      }
+    },
+    {
+      "path": "source/MapIconSources.cs",
+      "sha256": "4863610a75a6d421d691cc654fcdfb9cfcc9a09ae477527ed93afb2ba57d5f38",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/MapIconSources.cs",
+        "sha256": "4863610a75a6d421d691cc654fcdfb9cfcc9a09ae477527ed93afb2ba57d5f38"
+      }
+    },
+    {
+      "path": "source/MapMountIcons.cs",
+      "sha256": "8f8d793f382c07fbd911e081bd58a1554fb2d236a9e1d4a30d1e6ddd66a4557a",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/MapMountIcons.cs",
+        "sha256": "8f8d793f382c07fbd911e081bd58a1554fb2d236a9e1d4a30d1e6ddd66a4557a"
+      }
+    },
+    {
+      "path": "source/MapResourceIconPlan.cs",
+      "sha256": "d09a88a90a546c78f54f85cd818a03cdf7a516386558ece7f28de4ff4483599f",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/MapResourceIconPlan.cs",
+        "sha256": "d09a88a90a546c78f54f85cd818a03cdf7a516386558ece7f28de4ff4483599f"
+      }
+    },
+    {
+      "path": "source/MapWidthPlanner.cs",
+      "sha256": "3790b85fef8f36c822cec3d845a1ff90fb0a2dbcfaa295169966cc2ad036aa20",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/MapWidthPlanner.cs",
+        "sha256": "3790b85fef8f36c822cec3d845a1ff90fb0a2dbcfaa295169966cc2ad036aa20"
+      }
+    },
+    {
+      "path": "source/MapWidthTerrain.cs",
+      "sha256": "5fe7ccde3fcdf5ff99e169e17b13b8558b37e3f03d7d7294ada8649d6afa194b",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/MapWidthTerrain.cs",
+        "sha256": "5fe7ccde3fcdf5ff99e169e17b13b8558b37e3f03d7d7294ada8649d6afa194b"
+      }
+    },
+    {
+      "path": "source/MedievalScatterPolicy.cs",
+      "sha256": "1d19c9152be712956f329aae4c1730e89a2f47eb3d7691396bffefd6435e9ee9",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/MedievalScatterPolicy.cs",
+        "sha256": "1d19c9152be712956f329aae4c1730e89a2f47eb3d7691396bffefd6435e9ee9"
+      }
+    },
+    {
+      "path": "source/ModConfig.cs",
+      "sha256": "c258875ffd39d55eaf2442709ceb34ea99b0454175bac53255ce547f7419de44",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/ModConfig.cs",
+        "sha256": "c258875ffd39d55eaf2442709ceb34ea99b0454175bac53255ce547f7419de44"
+      }
+    },
+    {
+      "path": "source/ModPanel.cs",
+      "sha256": "ac5c51d04b5d4a214b63d62c320d1c7c1bd703d986b4bd51d3e390a099c6e044",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/ModPanel.cs",
+        "sha256": "76b365ed02fcd52cc006a992b006afbbb24e05e3673a994cf889e45c13076e3d"
+      },
+      "edits": [
+        {
+          "old": "        HeavyShieldIntegration.Tick();\n",
+          "new": "        HeavyShieldIntegration.Tick();\n        MountIslandGemRewards.Tick();\n"
+        },
+        {
+          "old": "        HeavyShieldNativeKeyReader.ReleaseNativeResources();\n",
+          "new": "        HeavyShieldNativeKeyReader.ReleaseNativeResources();\n        MountIslandGemRewards.Clear();\n"
+        },
+        {
+          "old": "                    \"所有世界 · 起初正常，长按后加速续买；支持火药桶与火塔弹药，松开即停。\");\n",
+          "new": "                    \"所有世界 · 长按后加速；工具店、火枪店、火药桶与火塔可续买，其余≥7金币仅加速当前一笔，松开即停。\");\n"
+        }
+      ]
+    },
+    {
+      "path": "source/ModPanelControls.cs",
+      "sha256": "0f6ac598c2e61d19cef0797de17f7e73b4c080113a6185da9623c498b83fec5b",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/ModPanelControls.cs",
+        "sha256": "0f6ac598c2e61d19cef0797de17f7e73b4c080113a6185da9623c498b83fec5b"
+      }
+    },
+    {
+      "path": "source/ModPanelStyles.cs",
+      "sha256": "c4de8ec78a4c35a57a0afde3ba80db41e80a1cbff63b27afcd825fd0795a79c5",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/ModPanelStyles.cs",
+        "sha256": "c4de8ec78a4c35a57a0afde3ba80db41e80a1cbff63b27afcd825fd0795a79c5"
+      }
+    },
+    {
+      "path": "source/MountIslandTransitionHistory.cs",
+      "sha256": "1bf07be3a792d58a8cce3f82f8d260e657f05088db2db459c7544afa6a549b98",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/MountIslandTransitionHistory.cs",
+        "sha256": "1bf07be3a792d58a8cce3f82f8d260e657f05088db2db459c7544afa6a549b98"
+      }
+    },
+    {
+      "path": "source/MusketeerAccess.cs",
+      "sha256": "4dd7fa4f73ecffa9349ce32c531636604abb750b3b85fd75fbf2fd8dea0aa1c7",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/MusketeerAccess.cs",
+        "sha256": "4dd7fa4f73ecffa9349ce32c531636604abb750b3b85fd75fbf2fd8dea0aa1c7"
+      }
+    },
+    {
+      "path": "source/MusketeerAnimation.cs",
+      "sha256": "622b712b77960e0656e306f0f1f505947c8a2c8e667cb22f217459e4b67a0f69",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/MusketeerAnimation.cs",
+        "sha256": "622b712b77960e0656e306f0f1f505947c8a2c8e667cb22f217459e4b67a0f69"
+      }
+    },
+    {
+      "path": "source/MusketeerArchive.cs",
+      "sha256": "f68cfea3480ae1067072c763f5121c9656028a91a6713973d117302721adf5d1",
+      "origin": {
+        "commit": "pr282",
+        "path": "il2cpp/MusketeerArchive.cs",
+        "sha256": "f68cfea3480ae1067072c763f5121c9656028a91a6713973d117302721adf5d1"
+      }
+    },
+    {
+      "path": "source/MusketeerCombat.cs",
+      "sha256": "7cc64d5dd3b36648c1b143e1dd23eb94bd3557fc2ed8a0fe540280c7cd5d882d",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/MusketeerCombat.cs",
+        "sha256": "7cc64d5dd3b36648c1b143e1dd23eb94bd3557fc2ed8a0fe540280c7cd5d882d"
+      }
+    },
+    {
+      "path": "source/MusketeerDefense.cs",
+      "sha256": "6c4cd8437951cce06e9629bc0d1836a15a09b4b599bd998204d906b3ed05f040",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/MusketeerDefense.cs",
+        "sha256": "6c4cd8437951cce06e9629bc0d1836a15a09b4b599bd998204d906b3ed05f040"
+      }
+    },
+    {
+      "path": "source/MusketeerGunVisuals.cs",
+      "sha256": "94d17f0557d8679b09cd85865484555497dd975261fc7504783ba626f4ad1f39",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/MusketeerGunVisuals.cs",
+        "sha256": "94d17f0557d8679b09cd85865484555497dd975261fc7504783ba626f4ad1f39"
+      }
+    },
+    {
+      "path": "source/MusketeerHooks.cs",
+      "sha256": "1258824f12efbf9c16b9bca1dd07f4b444bfbe97d162e7ed78e463da9bd5e17a",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/MusketeerHooks.cs",
+        "sha256": "1258824f12efbf9c16b9bca1dd07f4b444bfbe97d162e7ed78e463da9bd5e17a"
+      }
+    },
+    {
+      "path": "source/MusketeerIdentity.cs",
+      "sha256": "f43622524ae4ba1979ae5e46952b5f588d41ff15d4dfd5115b2b248553e0277e",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/MusketeerIdentity.cs",
+        "sha256": "f43622524ae4ba1979ae5e46952b5f588d41ff15d4dfd5115b2b248553e0277e"
+      }
+    },
+    {
+      "path": "source/MusketeerNativeArchive.cs",
+      "sha256": "561cfc9fe5cca67d995e8ae4924ad6f789eed9ffb86ed041d056283448ed06ae",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/MusketeerNativeArchive.cs",
+        "sha256": "561cfc9fe5cca67d995e8ae4924ad6f789eed9ffb86ed041d056283448ed06ae"
+      }
+    },
+    {
+      "path": "source/MusketeerPairedBackup.cs",
+      "sha256": "16fa6f5cd8b0d5b3ec9065160c4e818914d66edcd7976ccfb9c200d21a03303d",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/MusketeerPairedBackup.cs",
+        "sha256": "16fa6f5cd8b0d5b3ec9065160c4e818914d66edcd7976ccfb9c200d21a03303d"
+      }
+    },
+    {
+      "path": "source/MusketeerPersistence.cs",
+      "sha256": "187596545e33c044408bc724c7c54fb1297bdf14efd5fe3f23c0590aa8b9bdbf",
+      "origin": {
+        "commit": "pr282",
+        "path": "il2cpp/MusketeerPersistence.cs",
+        "sha256": "187596545e33c044408bc724c7c54fb1297bdf14efd5fe3f23c0590aa8b9bdbf"
+      }
+    },
+    {
+      "path": "source/MusketeerRestock.cs",
+      "sha256": "1fa0fade1e01cbbf8928d4b75335dbc68303b60e31c9ec86cb00632f0016d92f",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/MusketeerRestock.cs",
+        "sha256": "1fa0fade1e01cbbf8928d4b75335dbc68303b60e31c9ec86cb00632f0016d92f"
+      }
+    },
+    {
+      "path": "source/MusketeerRuntime.cs",
+      "sha256": "7242b69eb692e80c42dcfe62fd66fa4894b37f8349995a39befee8644ef8d490",
+      "origin": {
+        "commit": "pr282",
+        "path": "il2cpp/MusketeerRuntime.cs",
+        "sha256": "7242b69eb692e80c42dcfe62fd66fa4894b37f8349995a39befee8644ef8d490"
+      }
+    },
+    {
+      "path": "source/MusketeerShop.cs",
+      "sha256": "621bdcd12350a489cc40788440a6dff3f4fa648afbb1a676c89702e72a7c3e6a",
+      "origin": {
+        "commit": "gems",
+        "path": "il2cpp/MusketeerShop.cs",
+        "sha256": "621bdcd12350a489cc40788440a6dff3f4fa648afbb1a676c89702e72a7c3e6a"
+      }
+    },
+    {
+      "path": "source/MusketeerShopAssets.cs",
+      "sha256": "2ab06a7c4662cb602952d65b2a56bc91f17a45420a1565daf4789d9a466297b2",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/MusketeerShopAssets.cs",
+        "sha256": "2ab06a7c4662cb602952d65b2a56bc91f17a45420a1565daf4789d9a466297b2"
+      }
+    },
+    {
+      "path": "source/MusketeerShopRules.cs",
+      "sha256": "2a7f6573889842e9f23d573f0d7adc4465ee4d52764eff6d3c6c6a1a61a8b88b",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/MusketeerShopRules.cs",
+        "sha256": "2a7f6573889842e9f23d573f0d7adc4465ee4d52764eff6d3c6c6a1a61a8b88b"
+      }
+    },
+    {
+      "path": "source/MusketeerVisuals.cs",
+      "sha256": "706ebe442eaaccc7a7acc0ca6a612b9b658c01d0a526f7e978ce6f1fcec56780",
+      "origin": {
+        "commit": "pr282",
+        "path": "il2cpp/MusketeerVisuals.cs",
+        "sha256": "706ebe442eaaccc7a7acc0ca6a612b9b658c01d0a526f7e978ce6f1fcec56780"
+      }
+    },
+    {
+      "path": "source/NightDepartureTiming.cs",
+      "sha256": "da410c8de68f2933dc3ae62bdc7cad0199b51af73102db9e36e250313a83f50d",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/NightDepartureTiming.cs",
+        "sha256": "da410c8de68f2933dc3ae62bdc7cad0199b51af73102db9e36e250313a83f50d"
+      }
+    },
+    {
+      "path": "source/OptionalQoLScope.cs",
+      "sha256": "0a5e62c44984ba675131031f371f91f185debb39cb8efbb3e2ffda50933a606b",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/OptionalQoLScope.cs",
+        "sha256": "0a5e62c44984ba675131031f371f91f185debb39cb8efbb3e2ffda50933a606b"
+      }
+    },
+    {
+      "path": "source/PatchArcher_GreekImpact.cs",
+      "sha256": "7118358533a62b6402f130177c9fe96b6c548a2b1ebe194875d84fb612b7f3fd",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchArcher_GreekImpact.cs",
+        "sha256": "7118358533a62b6402f130177c9fe96b6c548a2b1ebe194875d84fb612b7f3fd"
+      }
+    },
+    {
+      "path": "source/PatchArcher_Impact.cs",
+      "sha256": "a29a0ee3dbcfa25db17ac1832c441b5a9ec05373849394caab68c42f536fcb29",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchArcher_Impact.cs",
+        "sha256": "a29a0ee3dbcfa25db17ac1832c441b5a9ec05373849394caab68c42f536fcb29"
+      }
+    },
+    {
+      "path": "source/PatchArcher_Options.cs",
+      "sha256": "f07e2e54bb6d2e53490c90a7610c51b58a21a5c7b22fd81c2f2e2eb08100a55a",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchArcher_Options.cs",
+        "sha256": "f07e2e54bb6d2e53490c90a7610c51b58a21a5c7b22fd81c2f2e2eb08100a55a"
+      }
+    },
+    {
+      "path": "source/PatchCombatChaseGuard.cs",
+      "sha256": "7116927dbe305d7b20e3b586901a351b536d9a9c4449d097978b6b454ea18023",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchCombatChaseGuard.cs",
+        "sha256": "7116927dbe305d7b20e3b586901a351b536d9a9c4449d097978b6b454ea18023"
+      }
+    },
+    {
+      "path": "source/PatchDiag_FrameWatch.cs",
+      "sha256": "97f1f0b7610c12b2e7e018e718fb29864a8f7d2ca664a8d68d9cd910742d853b",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchDiag_FrameWatch.cs",
+        "sha256": "97f1f0b7610c12b2e7e018e718fb29864a8f7d2ca664a8d68d9cd910742d853b"
+      }
+    },
+    {
+      "path": "source/PatchDivine_Artemis.cs",
+      "sha256": "c61e39e28dcf83e1264dba6e006410359381cbd5e60729053037e9011fba5e97",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchDivine_Artemis.cs",
+        "sha256": "c61e39e28dcf83e1264dba6e006410359381cbd5e60729053037e9011fba5e97"
+      }
+    },
+    {
+      "path": "source/PatchDivine_FriendlyTroll.cs",
+      "sha256": "382214708f1f484f4ecd1400a8edcb998e00411e0025c168c657d1dd8be5f345",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchDivine_FriendlyTroll.cs",
+        "sha256": "382214708f1f484f4ecd1400a8edcb998e00411e0025c168c657d1dd8be5f345"
+      }
+    },
+    {
+      "path": "source/PatchDivine_GhostLeashHold.cs",
+      "sha256": "8cfc3101ab89831a5411e63579cbdce65284153dab28775d89ba4ef46436a478",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchDivine_GhostLeashHold.cs",
+        "sha256": "8cfc3101ab89831a5411e63579cbdce65284153dab28775d89ba4ef46436a478"
+      }
+    },
+    {
+      "path": "source/PatchDivine_GhostSquads.cs",
+      "sha256": "c4abe608207ce82a9b72d9907b707d56dc474954a8ea4e7d21a2b6b7b1048b76",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchDivine_GhostSquads.cs",
+        "sha256": "c4abe608207ce82a9b72d9907b707d56dc474954a8ea4e7d21a2b6b7b1048b76"
+      }
+    },
+    {
+      "path": "source/PatchDivine_HermesHeadwear.cs",
+      "sha256": "115e518a1ee2aec92538b2affbe2c984dcc3e62cf70fe2401eaad06a92a01619",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchDivine_HermesHeadwear.cs",
+        "sha256": "115e518a1ee2aec92538b2affbe2c984dcc3e62cf70fe2401eaad06a92a01619"
+      }
+    },
+    {
+      "path": "source/PatchDivine_HermesStaff.cs",
+      "sha256": "dea9c0b49e1faa3a7b285e1565c79ef95f748fca5a4f28c0df45742468adc3c8",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchDivine_HermesStaff.cs",
+        "sha256": "dea9c0b49e1faa3a7b285e1565c79ef95f748fca5a4f28c0df45742468adc3c8"
+      }
+    },
+    {
+      "path": "source/PatchEconomy_AutoRestock.cs",
+      "sha256": "3408d6ef91cc16e2e1cf2394946875945ca867322d68b79ce1431d04575f074c",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchEconomy_AutoRestock.cs",
+        "sha256": "3408d6ef91cc16e2e1cf2394946875945ca867322d68b79ce1431d04575f074c"
+      }
+    },
+    {
+      "path": "source/PatchEconomy_BankAssistants.cs",
+      "sha256": "d137565eada5709116dcfb5f236b62d6156bf2593d66992f7f7fd142a8dd62d7",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchEconomy_BankAssistants.cs",
+        "sha256": "d137565eada5709116dcfb5f236b62d6156bf2593d66992f7f7fd142a8dd62d7"
+      }
+    },
+    {
+      "path": "source/PatchEconomy_Banker.cs",
+      "sha256": "31ea0c36739a9b387195f94aebbe57d6f6450f340a1e0b61a5a9b6b348faa986",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchEconomy_Banker.cs",
+        "sha256": "31ea0c36739a9b387195f94aebbe57d6f6450f340a1e0b61a5a9b6b348faa986"
+      }
+    },
+    {
+      "path": "source/PatchEconomy_CurrencyBag.cs",
+      "sha256": "1fd303b33e01d3a1ec3f39e2a499ffa0d92c39cc0e5af90babd037664f96670b",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchEconomy_CurrencyBag.cs",
+        "sha256": "1fd303b33e01d3a1ec3f39e2a499ffa0d92c39cc0e5af90babd037664f96670b"
+      }
+    },
+    {
+      "path": "source/PatchEconomy_Shops.cs",
+      "sha256": "968cdc55c39d241d9fd27ebd0d16e8b8f9d06df031e566fcda2e10c19949d1a9",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchEconomy_Shops.cs",
+        "sha256": "968cdc55c39d241d9fd27ebd0d16e8b8f9d06df031e566fcda2e10c19949d1a9"
+      }
+    },
+    {
+      "path": "source/PatchExtensionIsland_Map.cs",
+      "sha256": "bfe9f1bc0fce76f3157c9e0912a99c64c8203f4c49bb7803dd41c4032b6e8980",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchExtensionIsland_Map.cs",
+        "sha256": "bfe9f1bc0fce76f3157c9e0912a99c64c8203f4c49bb7803dd41c4032b6e8980"
+      }
+    },
+    {
+      "path": "source/PatchExtensionIsland_MapResult.cs",
+      "sha256": "ecb02f78efb3c4983634f621ae86693bbe51af961b0029e3771a839f34a40075",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchExtensionIsland_MapResult.cs",
+        "sha256": "ecb02f78efb3c4983634f621ae86693bbe51af961b0029e3771a839f34a40075"
+      }
+    },
+    {
+      "path": "source/PatchExtensionIsland_Progression.cs",
+      "sha256": "d4effad33bb9f5021b16d53d05ded1b3f5fa86fd4dddcb1d911a4f490fc28d7b",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchExtensionIsland_Progression.cs",
+        "sha256": "d4effad33bb9f5021b16d53d05ded1b3f5fa86fd4dddcb1d911a4f490fc28d7b"
+      }
+    },
+    {
+      "path": "source/PatchExtensionIsland_Runtime.cs",
+      "sha256": "189613e5d7f5ec4542ccb66b778d47f0c7be76687d665cd6c49e740c1cffa4bd",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchExtensionIsland_Runtime.cs",
+        "sha256": "189613e5d7f5ec4542ccb66b778d47f0c7be76687d665cd6c49e740c1cffa4bd"
+      }
+    },
+    {
+      "path": "source/PatchFont_StaticBestFit.cs",
+      "sha256": "a901939f3684bac2a8b21f733a2d4e1ff81c77473234948ada728bc64c9b0aa0",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchFont_StaticBestFit.cs",
+        "sha256": "a901939f3684bac2a8b21f733a2d4e1ff81c77473234948ada728bc64c9b0aa0"
+      }
+    },
+    {
+      "path": "source/PatchLifecycle_MenuInput.cs",
+      "sha256": "19ecf5b119051408df6358ed619a838a0fd88d0bb9a2fe73740fb67a1eb28a2c",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchLifecycle_MenuInput.cs",
+        "sha256": "19ecf5b119051408df6358ed619a838a0fd88d0bb9a2fe73740fb67a1eb28a2c"
+      }
+    },
+    {
+      "path": "source/PatchLifecycle_UnloadShieldAudio.cs",
+      "sha256": "c3cd4189d7ae64795e93f0ecc3b77057a5bf440c85caa912888ac884c7ef42f0",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchLifecycle_UnloadShieldAudio.cs",
+        "sha256": "c3cd4189d7ae64795e93f0ecc3b77057a5bf440c85caa912888ac884c7ef42f0"
+      }
+    },
+    {
+      "path": "source/PatchPerf_CanonicalHashBuffer.cs",
+      "sha256": "2170120e1f103b1e883dc04bf4c543e9e9d7779d1305e016d9c274804e82dd2b",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchPerf_CanonicalHashBuffer.cs",
+        "sha256": "2170120e1f103b1e883dc04bf4c543e9e9d7779d1305e016d9c274804e82dd2b"
+      }
+    },
+    {
+      "path": "source/PatchPerf_HeavyShieldHookQuery.cs",
+      "sha256": "b7b1e6a3cb1eabf17062c3b2d7118b6622e6c2f9c87bafb72942daa103f8fed5",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchPerf_HeavyShieldHookQuery.cs",
+        "sha256": "b7b1e6a3cb1eabf17062c3b2d7118b6622e6c2f9c87bafb72942daa103f8fed5"
+      }
+    },
+    {
+      "path": "source/PatchPerformance_NightVolley.cs",
+      "sha256": "c89d5e391295f673fb9ebf28efdfae97ad0f25fef30469873302924afb10e692",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchPerformance_NightVolley.cs",
+        "sha256": "c89d5e391295f673fb9ebf28efdfae97ad0f25fef30469873302924afb10e692"
+      }
+    },
+    {
+      "path": "source/PatchPerformance_Population.cs",
+      "sha256": "a88d780cdfecfdcd2038cf524b318e74b2d83e6fb48dbaafc1dfdc3b49c39951",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchPerformance_Population.cs",
+        "sha256": "a88d780cdfecfdcd2038cf524b318e74b2d83e6fb48dbaafc1dfdc3b49c39951"
+      }
+    },
+    {
+      "path": "source/PatchPerformance_ToolAssignment.cs",
+      "sha256": "d7d81181b4b9cbdcc18646ea3e6ac9b4b08deaff42504a5027c9ec18e0035aff",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchPerformance_ToolAssignment.cs",
+        "sha256": "d7d81181b4b9cbdcc18646ea3e6ac9b4b08deaff42504a5027c9ec18e0035aff"
+      }
+    },
+    {
+      "path": "source/PatchPlayer_HoldPurchase.cs",
+      "sha256": "5d1d83853e2c0478c8a69f1c3bdeb6ad7866a85f98f53ba9d12b548e969ddffb",
+      "origin": {
+        "commit": "gems",
+        "path": "il2cpp/PatchPlayer_HoldPurchase.cs",
+        "sha256": "5d1d83853e2c0478c8a69f1c3bdeb6ad7866a85f98f53ba9d12b548e969ddffb"
+      }
+    },
+    {
+      "path": "source/PatchPoolFix.cs",
+      "sha256": "1fd71ca88102fe7ba73d769210ff3d605db4bb0140383ebea9a591a78d6d947a",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchPoolFix.cs",
+        "sha256": "1fd71ca88102fe7ba73d769210ff3d605db4bb0140383ebea9a591a78d6d947a"
+      }
+    },
+    {
+      "path": "source/PatchRide_CrossWorldMount.cs",
+      "sha256": "edf992cdf16ba1f544325212405557a63860f4eb675c5fa684957cee9939a38f",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchRide_CrossWorldMount.cs",
+        "sha256": "edf992cdf16ba1f544325212405557a63860f4eb675c5fa684957cee9939a38f"
+      }
+    },
+    {
+      "path": "source/PatchRide_InfiniteStamina.cs",
+      "sha256": "d5d69ce902b3587214437ab12e5e6d5a70e4158c0fae72a84ab293195ad8c6e6",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchRide_InfiniteStamina.cs",
+        "sha256": "d5d69ce902b3587214437ab12e5e6d5a70e4158c0fae72a84ab293195ad8c6e6"
+      }
+    },
+    {
+      "path": "source/PatchRide_SteedCooldown.cs",
+      "sha256": "94c4ac2dc3a0ff30504cd59bd4c25de625543d8d43ac0b3a35fa16dab914c498",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchRide_SteedCooldown.cs",
+        "sha256": "94c4ac2dc3a0ff30504cd59bd4c25de625543d8d43ac0b3a35fa16dab914c498"
+      }
+    },
+    {
+      "path": "source/PatchRoles_AndroidPetProtection.cs",
+      "sha256": "b929887ffdddb43fea8b1f79ef5f0915fa9315cde10164f3ed5a1ffd2ee12915",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchRoles_AndroidPetProtection.cs",
+        "sha256": "b929887ffdddb43fea8b1f79ef5f0915fa9315cde10164f3ed5a1ffd2ee12915"
+      }
+    },
+    {
+      "path": "source/PatchRoles_ArcherNightBand.cs",
+      "sha256": "0c1a5851036a779bac94d10473306ae40bd947539d6e02f8abb921fe57c57e27",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchRoles_ArcherNightBand.cs",
+        "sha256": "0c1a5851036a779bac94d10473306ae40bd947539d6e02f8abb921fe57c57e27"
+      }
+    },
+    {
+      "path": "source/PatchRoles_BeggarCamp.cs",
+      "sha256": "0f6ef6e7c15d66e02ff34696fed991ba0864688f0a084377fd459cbc3c8981a9",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchRoles_BeggarCamp.cs",
+        "sha256": "0f6ef6e7c15d66e02ff34696fed991ba0864688f0a084377fd459cbc3c8981a9"
+      }
+    },
+    {
+      "path": "source/PatchRoles_Berserker.cs",
+      "sha256": "37c475f6a14ddd13f396843082b6753bab6f12a408cc85f371021ebc7bf21668",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchRoles_Berserker.cs",
+        "sha256": "37c475f6a14ddd13f396843082b6753bab6f12a408cc85f371021ebc7bf21668"
+      }
+    },
+    {
+      "path": "source/PatchRoles_Castle.cs",
+      "sha256": "bf026f45535b8d9e495b19b313763ae89fa3364eac670f33670d2389f4b73042",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchRoles_Castle.cs",
+        "sha256": "bf026f45535b8d9e495b19b313763ae89fa3364eac670f33670d2389f4b73042"
+      }
+    },
+    {
+      "path": "source/PatchRoles_Character.cs",
+      "sha256": "183d24a6c9f34bfa7b84e0931e0790911b793183fe17c9eee612dea38e936d2e",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchRoles_Character.cs",
+        "sha256": "183d24a6c9f34bfa7b84e0931e0790911b793183fe17c9eee612dea38e936d2e"
+      }
+    },
+    {
+      "path": "source/PatchRoles_CrossbowDefense.cs",
+      "sha256": "b10ed43aab6e4f9c46a3617207e2180d1f6c7a6539d3335a6b2484346717402d",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchRoles_CrossbowDefense.cs",
+        "sha256": "b10ed43aab6e4f9c46a3617207e2180d1f6c7a6539d3335a6b2484346717402d"
+      }
+    },
+    {
+      "path": "source/PatchRoles_Crossbowman.cs",
+      "sha256": "357241140db4caf88343a575384f39e553d236051658de1f598ce2652b8f949c",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchRoles_Crossbowman.cs",
+        "sha256": "357241140db4caf88343a575384f39e553d236051658de1f598ce2652b8f949c"
+      }
+    },
+    {
+      "path": "source/PatchRoles_CrownStealer.cs",
+      "sha256": "e4821c83282dfa1258b126122a84da1125ac4251964f45ae01810d51a1bafe34",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchRoles_CrownStealer.cs",
+        "sha256": "e4821c83282dfa1258b126122a84da1125ac4251964f45ae01810d51a1bafe34"
+      }
+    },
+    {
+      "path": "source/PatchRoles_DeadlandsPowers.cs",
+      "sha256": "593b64dacb76e0efe445a5a716ca943ff8e24b5f8babf9cb85bd0d771c04524d",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchRoles_DeadlandsPowers.cs",
+        "sha256": "593b64dacb76e0efe445a5a716ca943ff8e24b5f8babf9cb85bd0d771c04524d"
+      }
+    },
+    {
+      "path": "source/PatchRoles_DogRecall.cs",
+      "sha256": "a6c41969133c4f8b855b0977a0e0d4cbd81d6d51eeb45a3699c17e61a95e1763",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchRoles_DogRecall.cs",
+        "sha256": "a6c41969133c4f8b855b0977a0e0d4cbd81d6d51eeb45a3699c17e61a95e1763"
+      }
+    },
+    {
+      "path": "source/PatchRoles_GreekFire.cs",
+      "sha256": "8bd42c369178e5a090d66eb21c25b4ac92e097f8875eae17370c514cf45335b5",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchRoles_GreekFire.cs",
+        "sha256": "8bd42c369178e5a090d66eb21c25b4ac92e097f8875eae17370c514cf45335b5"
+      }
+    },
+    {
+      "path": "source/PatchRoles_GreekFireAssets.cs",
+      "sha256": "3dc39be6d4ecfa148c956e8a737a577fd41394cd821743b41f57bae6db80984d",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchRoles_GreekFireAssets.cs",
+        "sha256": "3dc39be6d4ecfa148c956e8a737a577fd41394cd821743b41f57bae6db80984d"
+      }
+    },
+    {
+      "path": "source/PatchRoles_HeavyShieldArt.cs",
+      "sha256": "14a9cd24da0e1ae6210e52b126ea195528ba4ae24dc1dc6793abc269a7d9755f",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchRoles_HeavyShieldArt.cs",
+        "sha256": "14a9cd24da0e1ae6210e52b126ea195528ba4ae24dc1dc6793abc269a7d9755f"
+      }
+    },
+    {
+      "path": "source/PatchRoles_Hermit.cs",
+      "sha256": "e14768158734fc7b994d7159e4e105307c444c72e4b8d773f9a38813c374cc3a",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchRoles_Hermit.cs",
+        "sha256": "e14768158734fc7b994d7159e4e105307c444c72e4b8d773f9a38813c374cc3a"
+      }
+    },
+    {
+      "path": "source/PatchRoles_Holder.cs",
+      "sha256": "2360b08ec2d44a151c0d92b50987572fd8f59d59ccab10b6a2232fbf0545f78b",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchRoles_Holder.cs",
+        "sha256": "2360b08ec2d44a151c0d92b50987572fd8f59d59ccab10b6a2232fbf0545f78b"
+      }
+    },
+    {
+      "path": "source/PatchRoles_Knight.cs",
+      "sha256": "2f0b58a890ac05958200e5c729c4862dfcb506cd30d12b2c9d7fc4db6f1d0a6a",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchRoles_Knight.cs",
+        "sha256": "2f0b58a890ac05958200e5c729c4862dfcb506cd30d12b2c9d7fc4db6f1d0a6a"
+      }
+    },
+    {
+      "path": "source/PatchRoles_KnightAnimatorDiag.cs",
+      "sha256": "95658d1996224c20f5edfb05db97b79d52bd900f4a94381dbbf8d3dfcea002fc",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchRoles_KnightAnimatorDiag.cs",
+        "sha256": "95658d1996224c20f5edfb05db97b79d52bd900f4a94381dbbf8d3dfcea002fc"
+      }
+    },
+    {
+      "path": "source/PatchRoles_KnightRecruitRange.cs",
+      "sha256": "6be64b47dfebc3acc56fbe34975a136a337a6de8ae2fae86e7c00eb3baa0ab95",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchRoles_KnightRecruitRange.cs",
+        "sha256": "6be64b47dfebc3acc56fbe34975a136a337a6de8ae2fae86e7c00eb3baa0ab95"
+      }
+    },
+    {
+      "path": "source/PatchRoles_KnightStyle.cs",
+      "sha256": "884478f8bb06df6c2f1cf90d537406966f900c1b75c576cc1f242a2f54e4f07f",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchRoles_KnightStyle.cs",
+        "sha256": "884478f8bb06df6c2f1cf90d537406966f900c1b75c576cc1f242a2f54e4f07f"
+      }
+    },
+    {
+      "path": "source/PatchRoles_MedievalNorsePowers.cs",
+      "sha256": "849e7a425394f7bcd49a626ed12865971d9357f422f475801b0c14bde3d3acd1",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchRoles_MedievalNorsePowers.cs",
+        "sha256": "849e7a425394f7bcd49a626ed12865971d9357f422f475801b0c14bde3d3acd1"
+      }
+    },
+    {
+      "path": "source/PatchRoles_Ninja.cs",
+      "sha256": "2b2982924c2f894ee3bcf7b7f67fbb4821be050070121f036191f92c743588cb",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchRoles_Ninja.cs",
+        "sha256": "2b2982924c2f894ee3bcf7b7f67fbb4821be050070121f036191f92c743588cb"
+      }
+    },
+    {
+      "path": "source/PatchRoles_NorseSquad.cs",
+      "sha256": "a808f9fc827b8ea0f9860cc116f54d3ff9794ab68f43f3a1f7930a304f38549d",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchRoles_NorseSquad.cs",
+        "sha256": "a808f9fc827b8ea0f9860cc116f54d3ff9794ab68f43f3a1f7930a304f38549d"
+      }
+    },
+    {
+      "path": "source/PatchRoles_PetGuard.cs",
+      "sha256": "b9d63a6a89b8525ebb34db7551fbe1a061be935619335246fb09c795a3241269",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchRoles_PetGuard.cs",
+        "sha256": "b9d63a6a89b8525ebb34db7551fbe1a061be935619335246fb09c795a3241269"
+      }
+    },
+    {
+      "path": "source/PatchRoles_SamuraiNightFormation.cs",
+      "sha256": "307dc7bc8ad4e12f95d31ee725dcaf5f66b19ab4b05b0767741d0414d100e172",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchRoles_SamuraiNightFormation.cs",
+        "sha256": "307dc7bc8ad4e12f95d31ee725dcaf5f66b19ab4b05b0767741d0414d100e172"
+      }
+    },
+    {
+      "path": "source/PatchRoles_SamuraiPowerDash.cs",
+      "sha256": "ae174ae117b53cfa667934c09e9247a23f0e2df4a95a41cbf1f09ecf76ed6464",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchRoles_SamuraiPowerDash.cs",
+        "sha256": "ae174ae117b53cfa667934c09e9247a23f0e2df4a95a41cbf1f09ecf76ed6464"
+      }
+    },
+    {
+      "path": "source/PatchRoles_ScaleAdjustments.cs",
+      "sha256": "2f58b328ad19217687e8859104af3da7c0c3be835618f6e31814f1c749ae68ca",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchRoles_ScaleAdjustments.cs",
+        "sha256": "2f58b328ad19217687e8859104af3da7c0c3be835618f6e31814f1c749ae68ca"
+      }
+    },
+    {
+      "path": "source/PatchRoles_SquadRefillDiag.cs",
+      "sha256": "bc89f9b02fa344472298c4fbe6e9b12db142f3c1d76e0cdefe4d634bc63399f9",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchRoles_SquadRefillDiag.cs",
+        "sha256": "bc89f9b02fa344472298c4fbe6e9b12db142f3c1d76e0cdefe4d634bc63399f9"
+      }
+    },
+    {
+      "path": "source/PatchRoles_Worker.cs",
+      "sha256": "588699fb58ac40b4ac0ae886513ff14a6576b026a04e3ab6588d0fdf70125080",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchRoles_Worker.cs",
+        "sha256": "588699fb58ac40b4ac0ae886513ff14a6576b026a04e3ab6588d0fdf70125080"
+      }
+    },
+    {
+      "path": "source/PatchRoles_World.cs",
+      "sha256": "bd338d43cf1ae23550082a4d0dd33e126777bb7cbb01fc56fe24a848638f69ff",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchRoles_World.cs",
+        "sha256": "bd338d43cf1ae23550082a4d0dd33e126777bb7cbb01fc56fe24a848638f69ff"
+      }
+    },
+    {
+      "path": "source/PatchShared_ModDataPaths.cs",
+      "sha256": "f38c27e36ae7d4209a7a849dc06415a9bd7705d9d22b3689120882db2e484d0f",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchShared_ModDataPaths.cs",
+        "sha256": "f38c27e36ae7d4209a7a849dc06415a9bd7705d9d22b3689120882db2e484d0f"
+      }
+    },
+    {
+      "path": "source/PatchShared_ScanCache.cs",
+      "sha256": "5ef317cd49dcf28945fbe317658cce5c9bc2adbf7f2587838a8161c701fc7e08",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchShared_ScanCache.cs",
+        "sha256": "5ef317cd49dcf28945fbe317658cce5c9bc2adbf7f2587838a8161c701fc7e08"
+      }
+    },
+    {
+      "path": "source/PatchUI_AndroidImages.cs",
+      "sha256": "07b4b29d7ad969f847faea5f0b66ff2a33e19eb95ccdd98000748403adf6bae3",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchUI_AndroidImages.cs",
+        "sha256": "07b4b29d7ad969f847faea5f0b66ff2a33e19eb95ccdd98000748403adf6bae3"
+      }
+    },
+    {
+      "path": "source/PatchUI_CalendarGems.cs",
+      "sha256": "795007b27072238568328d50bb7c9031916c1b5efc3b0e24a54df8770508fd1a",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchUI_CalendarGems.cs",
+        "sha256": "795007b27072238568328d50bb7c9031916c1b5efc3b0e24a54df8770508fd1a"
+      }
+    },
+    {
+      "path": "source/PatchUI_PanelFocus.cs",
+      "sha256": "b17ba9e61df5e608d8b03faee746a31a794feb7150b788453c73cfe92dfa3f6e",
+      "origin": {
+        "commit": "pr282",
+        "path": "il2cpp/PatchUI_PanelFocus.cs",
+        "sha256": "b17ba9e61df5e608d8b03faee746a31a794feb7150b788453c73cfe92dfa3f6e"
+      }
+    },
+    {
+      "path": "source/PatchWorld_BallistaBolt.cs",
+      "sha256": "2e980ac3e50981b1c50cd9c2d110c1da994265845eccdc4e5307498603eabb12",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchWorld_BallistaBolt.cs",
+        "sha256": "2e980ac3e50981b1c50cd9c2d110c1da994265845eccdc4e5307498603eabb12"
+      }
+    },
+    {
+      "path": "source/PatchWorld_BoatCapacity.cs",
+      "sha256": "9a6fabac1baae88e660c72a6793f8ef78102a0469560d65a1189eda227292038",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchWorld_BoatCapacity.cs",
+        "sha256": "9a6fabac1baae88e660c72a6793f8ef78102a0469560d65a1189eda227292038"
+      }
+    },
+    {
+      "path": "source/PatchWorld_Construction.cs",
+      "sha256": "5ac44db39daf30e1e8ae4a5c73005ab212571e49424cee72215ce665c576ad79",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchWorld_Construction.cs",
+        "sha256": "5ac44db39daf30e1e8ae4a5c73005ab212571e49424cee72215ce665c576ad79"
+      }
+    },
+    {
+      "path": "source/PatchWorld_DeerPopulation.cs",
+      "sha256": "60ddae20a9dc96cadb769d607eed313bd3cd6c1eb8a6239bbf4165e96452aed2",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchWorld_DeerPopulation.cs",
+        "sha256": "60ddae20a9dc96cadb769d607eed313bd3cd6c1eb8a6239bbf4165e96452aed2"
+      }
+    },
+    {
+      "path": "source/PatchWorld_DefenseSpacing.cs",
+      "sha256": "884de4ff6190c6ef896fb0fe7ac700586c44251990dcb135576884c2be40849e",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchWorld_DefenseSpacing.cs",
+        "sha256": "884de4ff6190c6ef896fb0fe7ac700586c44251990dcb135576884c2be40849e"
+      }
+    },
+    {
+      "path": "source/PatchWorld_EnemyManager.cs",
+      "sha256": "27b5b348b6b7ac20c9aa5eccdbac3f6082928125b5c5893300dd212763bab5b5",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchWorld_EnemyManager.cs",
+        "sha256": "27b5b348b6b7ac20c9aa5eccdbac3f6082928125b5c5893300dd212763bab5b5"
+      }
+    },
+    {
+      "path": "source/PatchWorld_FarmCats.cs",
+      "sha256": "d73a8b40ad60901bf1505731fae2baae867fc9c0b0f9f2fafffdd06868e30d2f",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchWorld_FarmCats.cs",
+        "sha256": "d73a8b40ad60901bf1505731fae2baae867fc9c0b0f9f2fafffdd06868e30d2f"
+      }
+    },
+    {
+      "path": "source/PatchWorld_FastForestRecede.cs",
+      "sha256": "1b51c0aa24daec749d23647f82aecb789e1b36b7439497eff2bd93dbb40d3193",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchWorld_FastForestRecede.cs",
+        "sha256": "1b51c0aa24daec749d23647f82aecb789e1b36b7439497eff2bd93dbb40d3193"
+      }
+    },
+    {
+      "path": "source/PatchWorld_FleetBoatFormation.cs",
+      "sha256": "8ca4fb8a78d9334f8ec85cd76fd1417583106216a6f5be65eb1525c93a0ae1e2",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchWorld_FleetBoatFormation.cs",
+        "sha256": "8ca4fb8a78d9334f8ec85cd76fd1417583106216a6f5be65eb1525c93a0ae1e2"
+      }
+    },
+    {
+      "path": "source/PatchWorld_FleetBoatRecovery.cs",
+      "sha256": "88c5c4d8e10fe0f6e0ae338a8f8c5afd8dff4b880cea8da8030c279ff42b1872",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchWorld_FleetBoatRecovery.cs",
+        "sha256": "88c5c4d8e10fe0f6e0ae338a8f8c5afd8dff4b880cea8da8030c279ff42b1872"
+      }
+    },
+    {
+      "path": "source/PatchWorld_Kingdom.cs",
+      "sha256": "82bbb4bdd529a8b6ebe74b59efa718fa0e22ceb23bfb485a21b529e8d61ca0d1",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchWorld_Kingdom.cs",
+        "sha256": "82bbb4bdd529a8b6ebe74b59efa718fa0e22ceb23bfb485a21b529e8d61ca0d1"
+      }
+    },
+    {
+      "path": "source/PatchWorld_Level.cs",
+      "sha256": "90f9f724db0d0f9353775f4284ed09d6d1782c125c5ad028e83b843b55e1315e",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchWorld_Level.cs",
+        "sha256": "90f9f724db0d0f9353775f4284ed09d6d1782c125c5ad028e83b843b55e1315e"
+      }
+    },
+    {
+      "path": "source/PatchWorld_Mover.cs",
+      "sha256": "7d6f41e1df27fdc51a3278052839f4dab8c7f5c11e2f994995c2c8b6f4bb2c24",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchWorld_Mover.cs",
+        "sha256": "7d6f41e1df27fdc51a3278052839f4dab8c7f5c11e2f994995c2c8b6f4bb2c24"
+      }
+    },
+    {
+      "path": "source/PatchWorld_NightDeparture.cs",
+      "sha256": "fdde1a68bc5a255beefd9f4ac8eb3849a5b807ddece7e0b4ce120bbb738c3a62",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchWorld_NightDeparture.cs",
+        "sha256": "fdde1a68bc5a255beefd9f4ac8eb3849a5b807ddece7e0b4ce120bbb738c3a62"
+      }
+    },
+    {
+      "path": "source/PatchWorld_OptionalVegetation.cs",
+      "sha256": "0d8d9e892e91b4439f026d211e3a26edb86b14861999438b1148e35cfb8918c0",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchWorld_OptionalVegetation.cs",
+        "sha256": "0d8d9e892e91b4439f026d211e3a26edb86b14861999438b1148e35cfb8918c0"
+      }
+    },
+    {
+      "path": "source/PatchWorld_SerpentLeash.cs",
+      "sha256": "e2b4abc4b6c56ee9deb13548e61e73339b89a9425c66f7ff4a0fc29286d4c1d0",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchWorld_SerpentLeash.cs",
+        "sha256": "e2b4abc4b6c56ee9deb13548e61e73339b89a9425c66f7ff4a0fc29286d4c1d0"
+      }
+    },
+    {
+      "path": "source/PatchWorld_ShieldWallTotem.cs",
+      "sha256": "7eee2fcce9205e8db8aa00dcd4a14c3050c38b064a66bad2c0653f36a04823fb",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchWorld_ShieldWallTotem.cs",
+        "sha256": "7eee2fcce9205e8db8aa00dcd4a14c3050c38b064a66bad2c0653f36a04823fb"
+      }
+    },
+    {
+      "path": "source/PatchWorld_SpecialTowerRebuild.cs",
+      "sha256": "b95e156872b74132f9712cfb6c1d9a2251aeace0767afe164e17909f777b635a",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchWorld_SpecialTowerRebuild.cs",
+        "sha256": "b95e156872b74132f9712cfb6c1d9a2251aeace0767afe164e17909f777b635a"
+      }
+    },
+    {
+      "path": "source/PatchWorld_TowerSpots.cs",
+      "sha256": "61cb8fca5bc954d59b4a26c3b53ed1acc93854b2c569d9121a0b9ebe2edc0a40",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchWorld_TowerSpots.cs",
+        "sha256": "61cb8fca5bc954d59b4a26c3b53ed1acc93854b2c569d9121a0b9ebe2edc0a40"
+      }
+    },
+    {
+      "path": "source/PatchWorld_WallEngineers.cs",
+      "sha256": "205fa075694976c4ff865c70c43cfe79b820d71917952e537c5a4f1a18a492b1",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchWorld_WallEngineers.cs",
+        "sha256": "205fa075694976c4ff865c70c43cfe79b820d71917952e537c5a4f1a18a492b1"
+      }
+    },
+    {
+      "path": "source/PatchWorld_WallSpotDiagnostics.cs",
+      "sha256": "422dc4d26ab94390d276e1e74d68dcb4daa795a4f6142f510ca4bd46d3185012",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchWorld_WallSpotDiagnostics.cs",
+        "sha256": "422dc4d26ab94390d276e1e74d68dcb4daa795a4f6142f510ca4bd46d3185012"
+      }
+    },
+    {
+      "path": "source/PatchWorld_WallSpots.cs",
+      "sha256": "b2f0ddd54c94fdc2f6d7f29d27013b487139d0c7c281e6fba3d1adc227ad9cfa",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PatchWorld_WallSpots.cs",
+        "sha256": "b2f0ddd54c94fdc2f6d7f29d27013b487139d0c7c281e6fba3d1adc227ad9cfa"
+      }
+    },
+    {
+      "path": "source/Patch_CrossbowFormation.cs",
+      "sha256": "f5b42ce529bb7c78b82bbdac7bc4503d87a14d573fa9346032598e0387871dd4",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/Patch_CrossbowFormation.cs",
+        "sha256": "f5b42ce529bb7c78b82bbdac7bc4503d87a14d573fa9346032598e0387871dd4"
+      }
+    },
+    {
+      "path": "source/Patch_CustomShopLighting.cs",
+      "sha256": "ca5be762bbcb044463fbc7942f311f00a4bcbe6c08c16e9465d0d342710dc409",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/Patch_CustomShopLighting.cs",
+        "sha256": "ca5be762bbcb044463fbc7942f311f00a4bcbe6c08c16e9465d0d342710dc409"
+      }
+    },
+    {
+      "path": "source/Patch_CustomShopStockTransit.cs",
+      "sha256": "f9d5f766c50cd3889609c230cd639dd886668f85afeda8b85fc8838a725365f1",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/Patch_CustomShopStockTransit.cs",
+        "sha256": "f9d5f766c50cd3889609c230cd639dd886668f85afeda8b85fc8838a725365f1"
+      }
+    },
+    {
+      "path": "source/Patch_HeavyShieldBanner.cs",
+      "sha256": "5acfdab2d64db2ad56aa735bcfed22ad7d8fd4b8b1e9137fb13cc273e6b5af63",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/Patch_HeavyShieldBanner.cs",
+        "sha256": "5acfdab2d64db2ad56aa735bcfed22ad7d8fd4b8b1e9137fb13cc273e6b5af63"
+      }
+    },
+    {
+      "path": "source/Patch_HeavyShieldBannerPolicy.cs",
+      "sha256": "7f21b86bf86c251104170aabe9b5906e437e5ba5dfb349abb84d46894e058461",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/Patch_HeavyShieldBannerPolicy.cs",
+        "sha256": "7f21b86bf86c251104170aabe9b5906e437e5ba5dfb349abb84d46894e058461"
+      }
+    },
+    {
+      "path": "source/Patch_HeavyShieldDurabilityMigration.cs",
+      "sha256": "ca47d0faed4dd120eb9c9b512446f7ee8a44828f9d898b24f3bd81662d14e86a",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/Patch_HeavyShieldDurabilityMigration.cs",
+        "sha256": "ca47d0faed4dd120eb9c9b512446f7ee8a44828f9d898b24f3bd81662d14e86a"
+      }
+    },
+    {
+      "path": "source/Patch_HeavyShieldGait.cs",
+      "sha256": "874977660668afd0b73ac3362cf10f3b23adc199692c1051967af396fba543ef",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/Patch_HeavyShieldGait.cs",
+        "sha256": "874977660668afd0b73ac3362cf10f3b23adc199692c1051967af396fba543ef"
+      }
+    },
+    {
+      "path": "source/Patch_HeavyShieldLeapBash.cs",
+      "sha256": "74c83489b957a69960afbf64a9b9d3c0fc4ac6c1637b006648dd3953a72786ae",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/Patch_HeavyShieldLeapBash.cs",
+        "sha256": "74c83489b957a69960afbf64a9b9d3c0fc4ac6c1637b006648dd3953a72786ae"
+      }
+    },
+    {
+      "path": "source/Patch_HeavyShieldMaintenancePolicy.cs",
+      "sha256": "7629bfe8228f734385bb48425135ac3f06aba38c6a82d420b959245a7755f384",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/Patch_HeavyShieldMaintenancePolicy.cs",
+        "sha256": "7629bfe8228f734385bb48425135ac3f06aba38c6a82d420b959245a7755f384"
+      }
+    },
+    {
+      "path": "source/Patch_HeavyShieldRepair.cs",
+      "sha256": "a53566e054d7aff63d0f6f61dfe80defa4d92b6b55eec11b860af4665c412936",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/Patch_HeavyShieldRepair.cs",
+        "sha256": "a53566e054d7aff63d0f6f61dfe80defa4d92b6b55eec11b860af4665c412936"
+      }
+    },
+    {
+      "path": "source/Patch_HeavyShieldSnapshot.cs",
+      "sha256": "1e3ddd9b7eb43f5d6eb3c2477b520d46e33dc61585616002df99595d20f6311b",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/Patch_HeavyShieldSnapshot.cs",
+        "sha256": "1e3ddd9b7eb43f5d6eb3c2477b520d46e33dc61585616002df99595d20f6311b"
+      }
+    },
+    {
+      "path": "source/Patch_MountIslandArtVariant.cs",
+      "sha256": "5f3122137a388c122d056ed6377d78e11863160324ff7ae25ecba1b7b3426a0a",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/Patch_MountIslandArtVariant.cs",
+        "sha256": "5f3122137a388c122d056ed6377d78e11863160324ff7ae25ecba1b7b3426a0a"
+      }
+    },
+    {
+      "path": "source/Patch_MountIslandAvailabilityPolicy.cs",
+      "sha256": "fbe045b311e1753fcf82a5fd075d7f4061895a258a4db14d98e25805e2221fe3",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/Patch_MountIslandAvailabilityPolicy.cs",
+        "sha256": "fbe045b311e1753fcf82a5fd075d7f4061895a258a4db14d98e25805e2221fe3"
+      }
+    },
+    {
+      "path": "source/Patch_MountIslandCompactLayout.cs",
+      "sha256": "180ea05d391a03aa625907b0a4d9b8da2727f215a0a7c629763950750eb1e09d",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/Patch_MountIslandCompactLayout.cs",
+        "sha256": "180ea05d391a03aa625907b0a4d9b8da2727f215a0a7c629763950750eb1e09d"
+      }
+    },
+    {
+      "path": "source/Patch_MountIslandFilePropsRefresh.cs",
+      "sha256": "31df90d0ae361b756778207e03925afa402bb987df845b707d9102a080bf6aeb",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/Patch_MountIslandFilePropsRefresh.cs",
+        "sha256": "31df90d0ae361b756778207e03925afa402bb987df845b707d9102a080bf6aeb"
+      }
+    },
+    {
+      "path": "source/Patch_MountIslandFreshEvidence.cs",
+      "sha256": "6858b6f3ef69e8dcdf052ab4ff7cb11b2e6422a1ac29a4e192e79b742facbe8d",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/Patch_MountIslandFreshEvidence.cs",
+        "sha256": "6858b6f3ef69e8dcdf052ab4ff7cb11b2e6422a1ac29a4e192e79b742facbe8d"
+      }
+    },
+    {
+      "path": "source/Patch_MountIslandFreshObserver.cs",
+      "sha256": "64a18a55fb195da404fd007a6689b6b07b9b172e72aaf3721ddadd82eddc1b07",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/Patch_MountIslandFreshObserver.cs",
+        "sha256": "64a18a55fb195da404fd007a6689b6b07b9b172e72aaf3721ddadd82eddc1b07"
+      }
+    },
+    {
+      "path": "source/Patch_MountIslandGrantAuthority.cs",
+      "sha256": "52775397353fb03d90a680922c2e8af9ea241ec5454bc929650e3069078a62a8",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/Patch_MountIslandGrantAuthority.cs",
+        "sha256": "52775397353fb03d90a680922c2e8af9ea241ec5454bc929650e3069078a62a8"
+      }
+    },
+    {
+      "path": "source/Patch_MountIslandMapLayout.cs",
+      "sha256": "d59b6ae203c082f8568c20c81ab407f9c3b84f129712a1c2f06cbfe9e8efe2bd",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/Patch_MountIslandMapLayout.cs",
+        "sha256": "d59b6ae203c082f8568c20c81ab407f9c3b84f129712a1c2f06cbfe9e8efe2bd"
+      }
+    },
+    {
+      "path": "source/Patch_MountIslandMarkerRuntime.cs",
+      "sha256": "46773f70f45254c6e1c310833d6d21499a66da96c1e7481e5fdc78ecaf2a943d",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/Patch_MountIslandMarkerRuntime.cs",
+        "sha256": "46773f70f45254c6e1c310833d6d21499a66da96c1e7481e5fdc78ecaf2a943d"
+      }
+    },
+    {
+      "path": "source/Patch_MountIslandNativeResult.cs",
+      "sha256": "2956c78fe2468184817a69619b5ddbc8b1cdc7eb218c04a8f13934da0a61baae",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/Patch_MountIslandNativeResult.cs",
+        "sha256": "2956c78fe2468184817a69619b5ddbc8b1cdc7eb218c04a8f13934da0a61baae"
+      }
+    },
+    {
+      "path": "source/Patch_MountIslandRequestEntry.cs",
+      "sha256": "5588a2a7ed861b46a540545c8608852a4561021859f242d12ee87daa9139d7f7",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/Patch_MountIslandRequestEntry.cs",
+        "sha256": "5588a2a7ed861b46a540545c8608852a4561021859f242d12ee87daa9139d7f7"
+      }
+    },
+    {
+      "path": "source/Patch_MountIslandSplitPolicy.cs",
+      "sha256": "809771b617ba416575b2641a949a0a9cdfff6c830236ab25391b510339a9a0c9",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/Patch_MountIslandSplitPolicy.cs",
+        "sha256": "809771b617ba416575b2641a949a0a9cdfff6c830236ab25391b510339a9a0c9"
+      }
+    },
+    {
+      "path": "source/Patch_MusketeerFormation.cs",
+      "sha256": "43d9c1f3365e5b4221fba2d5f3c3ebbe9a795af157119f76f61c568e790c1795",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/Patch_MusketeerFormation.cs",
+        "sha256": "43d9c1f3365e5b4221fba2d5f3c3ebbe9a795af157119f76f61c568e790c1795"
+      }
+    },
+    {
+      "path": "source/Patch_MusketeerLegacyCompensation.cs",
+      "sha256": "aabae2c673bd72a85aeddbf3dd2bfa24237ec6d14d6f46d646f9ff444e070270",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/Patch_MusketeerLegacyCompensation.cs",
+        "sha256": "aabae2c673bd72a85aeddbf3dd2bfa24237ec6d14d6f46d646f9ff444e070270"
+      }
+    },
+    {
+      "path": "source/Patch_MusketeerLegacyCompensationRuntime.cs",
+      "sha256": "833037bb12e8045d69a085083d8d938f97d4f56ec1c5814e117e8859cbf5d947",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/Patch_MusketeerLegacyCompensationRuntime.cs",
+        "sha256": "833037bb12e8045d69a085083d8d938f97d4f56ec1c5814e117e8859cbf5d947"
+      }
+    },
+    {
+      "path": "source/Patch_MusketeerNativeSave.cs",
+      "sha256": "e134588ffa2192309d798af13e8fc4a54ef1e89ab612944443f4af0c9569ceeb",
+      "origin": {
+        "commit": "gems",
+        "path": "il2cpp/Patch_MusketeerNativeSave.cs",
+        "sha256": "e134588ffa2192309d798af13e8fc4a54ef1e89ab612944443f4af0c9569ceeb"
+      }
+    },
+    {
+      "path": "source/Patch_ShopV2Art.cs",
+      "sha256": "450c7ff71e81808fe8948e0477b4579a124b859712e176d6991ea091020714e2",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/Patch_ShopV2Art.cs",
+        "sha256": "450c7ff71e81808fe8948e0477b4579a124b859712e176d6991ea091020714e2"
+      }
+    },
+    {
+      "path": "source/PopulationCounts.cs",
+      "sha256": "e113751f945efc4813ae4d1ce9300406c13e55786b64485bf6d366c54abf1e6d",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PopulationCounts.cs",
+        "sha256": "e113751f945efc4813ae4d1ce9300406c13e55786b64485bf6d366c54abf1e6d"
+      }
+    },
+    {
+      "path": "source/PopulationGrounding.cs",
+      "sha256": "f343ded6e3bb6bde78fe6c277d3e797e32333b2c2fa8e4af4791606a7e12ca20",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PopulationGrounding.cs",
+        "sha256": "f343ded6e3bb6bde78fe6c277d3e797e32333b2c2fa8e4af4791606a7e12ca20"
+      }
+    },
+    {
+      "path": "source/PopulationHud.cs",
+      "sha256": "4f1196fb24159e8185365f12f32ef36052c03d7995831d6a922223b14f7db3c5",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/PopulationHud.cs",
+        "sha256": "4f1196fb24159e8185365f12f32ef36052c03d7995831d6a922223b14f7db3c5"
+      }
+    },
+    {
+      "path": "source/SamuraiChoreoMotion.cs",
+      "sha256": "f2258b5cc5477aa5f8e9f6197b7e03a786bfda48faf39fb9d3518d4859e2f110",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/SamuraiChoreoMotion.cs",
+        "sha256": "f2258b5cc5477aa5f8e9f6197b7e03a786bfda48faf39fb9d3518d4859e2f110"
+      }
+    },
+    {
+      "path": "source/SamuraiDashDiagnostics.cs",
+      "sha256": "26edd76e7fa073d6c2d9a7c0d2f8754bd6ab556318606bb9df9a952f935d8343",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/SamuraiDashDiagnostics.cs",
+        "sha256": "26edd76e7fa073d6c2d9a7c0d2f8754bd6ab556318606bb9df9a952f935d8343"
+      }
+    },
+    {
+      "path": "source/SamuraiDashVisuals.cs",
+      "sha256": "6c88926909c0be8137d47c770098778517b51a5b29a46f51b607791ba161d103",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/SamuraiDashVisuals.cs",
+        "sha256": "6c88926909c0be8137d47c770098778517b51a5b29a46f51b607791ba161d103"
+      }
+    },
+    {
+      "path": "source/SamuraiRetreatSpeed.cs",
+      "sha256": "ca1ffcf73bd74761539c6204cee5f78fbc6b6b24be58bb278b41c30cb722c88b",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/SamuraiRetreatSpeed.cs",
+        "sha256": "ca1ffcf73bd74761539c6204cee5f78fbc6b6b24be58bb278b41c30cb722c88b"
+      }
+    },
+    {
+      "path": "source/ScatterArrowTint.cs",
+      "sha256": "694e2014aea6a6752c61a4d1dafba2f7e14f2665bc9efddc4013dd5e6855e800",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/ScatterArrowTint.cs",
+        "sha256": "694e2014aea6a6752c61a4d1dafba2f7e14f2665bc9efddc4013dd5e6855e800"
+      }
+    },
+    {
+      "path": "source/SharedBankNative.cs",
+      "sha256": "d07bf66cbc713351eee1b3bfe21b9f009ed4b81c33edb1f5a75e948d66c09384",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/SharedBankNative.cs",
+        "sha256": "d07bf66cbc713351eee1b3bfe21b9f009ed4b81c33edb1f5a75e948d66c09384"
+      }
+    },
+    {
+      "path": "source/SharedBankState.cs",
+      "sha256": "9bb3cef3dc65204c8b20417148f54918592da0d99e29891f1a38b1d0197c3c52",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/SharedBankState.cs",
+        "sha256": "9bb3cef3dc65204c8b20417148f54918592da0d99e29891f1a38b1d0197c3c52"
+      }
+    },
+    {
+      "path": "source/ShopCleanupQueue.cs",
+      "sha256": "470a7ccd7adada360700cfde8c97c7a8f813895d01166993cadb17961db02bd0",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/ShopCleanupQueue.cs",
+        "sha256": "470a7ccd7adada360700cfde8c97c7a8f813895d01166993cadb17961db02bd0"
+      }
+    },
+    {
+      "path": "source/SiegeAmmoCounts.cs",
+      "sha256": "8a27989d50c0d35e8c2362e7bd6831f282a56cf98446e62a175ae91c477ce02b",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/SiegeAmmoCounts.cs",
+        "sha256": "8a27989d50c0d35e8c2362e7bd6831f282a56cf98446e62a175ae91c477ce02b"
+      }
+    },
+    {
+      "path": "source/SpecialTowerDuplicateCleanup.cs",
+      "sha256": "3fc9f7f40ba92cc3ae90f4981d5e8cf4e7f3d1cd72b9df5638c2aaeb1b3e3e9c",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/SpecialTowerDuplicateCleanup.cs",
+        "sha256": "3fc9f7f40ba92cc3ae90f4981d5e8cf4e7f3d1cd72b9df5638c2aaeb1b3e3e9c"
+      }
+    },
+    {
+      "path": "source/SpecialTowerRebuildMarker.cs",
+      "sha256": "7946ee1b3132f1933d5cbfbb0f5900898d4571bbcf403be3d911c67c039384c2",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/SpecialTowerRebuildMarker.cs",
+        "sha256": "7946ee1b3132f1933d5cbfbb0f5900898d4571bbcf403be3d911c67c039384c2"
+      }
+    },
+    {
+      "path": "source/SquadFollowGuard.cs",
+      "sha256": "772f93c8eec067ac8ab5f96fb1bb1ae92ffe9c81e86349519fc29ad30db7bc13",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/SquadFollowGuard.cs",
+        "sha256": "772f93c8eec067ac8ab5f96fb1bb1ae92ffe9c81e86349519fc29ad30db7bc13"
+      }
+    },
+    {
+      "path": "source/SquadRosterSnapshot.cs",
+      "sha256": "42b2afc3c1d608154a24a2c4b09f960fe03c2761c224f8c2aa18744b2e1d858c",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/SquadRosterSnapshot.cs",
+        "sha256": "42b2afc3c1d608154a24a2c4b09f960fe03c2761c224f8c2aa18744b2e1d858c"
+      }
+    },
+    {
+      "path": "source/StaticBestFitPolicy.cs",
+      "sha256": "172774806657b184eb6a00161be2f62aa52dc7274cb76f8e4180da16b92d9cd7",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/StaticBestFitPolicy.cs",
+        "sha256": "172774806657b184eb6a00161be2f62aa52dc7274cb76f8e4180da16b92d9cd7"
+      }
+    },
+    {
+      "path": "source/WallEngineerRules.cs",
+      "sha256": "fd6d77fd4ff1584081435d45532a11caca08d5c2c763cd7299a6a505c987df65",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/WallEngineerRules.cs",
+        "sha256": "fd6d77fd4ff1584081435d45532a11caca08d5c2c763cd7299a6a505c987df65"
+      }
+    },
+    {
+      "path": "source/WallEngineerRuntime.cs",
+      "sha256": "6a5c196a539f1987b22388f7660fce0d20105a32a275fbde865fc7d06f997ce9",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/WallEngineerRuntime.cs",
+        "sha256": "6a5c196a539f1987b22388f7660fce0d20105a32a275fbde865fc7d06f997ce9"
+      }
+    },
+    {
+      "path": "source/WorldShopPlan.cs",
+      "sha256": "ef5121eeea1bad6bcc0cb754ec0d4fcfafefe22d4b2b12df8185069b6f4b9c3b",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/WorldShopPlan.cs",
+        "sha256": "ef5121eeea1bad6bcc0cb754ec0d4fcfafefe22d4b2b12df8185069b6f4b9c3b"
+      }
+    },
+    {
+      "path": "source/MyPluginInfo.cs",
+      "sha256": "0bf49fcccada9ff5b72ef6ef8fab8ee1eb4315042bf37fc8df51417b83895eb8",
+      "generated": {
+        "reason": "plugin metadata generated for release 11.1.0",
+        "content": "internal static class MyPluginInfo { public const string PLUGIN_GUID=\"KingdomEnhancedMod\", PLUGIN_NAME=\"KingdomEnhancedMod\", PLUGIN_VERSION=\"11.1.0\"; }\n"
+      }
+    },
+    {
+      "path": "source/MusketeerVoyageSaveDiagnostics.cs",
+      "sha256": "fc8e42910eddb2a7a3bb9159269ca87697735dac9b8d7dff1c797856b373a1f7",
+      "origin": {
+        "commit": "pr282",
+        "path": "il2cpp/MusketeerVoyageSaveDiagnostics.cs",
+        "sha256": "fc8e42910eddb2a7a3bb9159269ca87697735dac9b8d7dff1c797856b373a1f7"
+      }
+    },
+    {
+      "path": "source/Patch_MusketeerBoardingPolicy.cs",
+      "sha256": "0ccd682fa6d29396f12c4b96c587fdb25bc6e32b254240828c110196da0819cd",
+      "origin": {
+        "commit": "pr282",
+        "path": "il2cpp/Patch_MusketeerBoardingPolicy.cs",
+        "sha256": "0ccd682fa6d29396f12c4b96c587fdb25bc6e32b254240828c110196da0819cd"
+      }
+    },
+    {
+      "path": "source/MountIslandGemRewardState.cs",
+      "sha256": "d0e0e502050429f0df8356edf519e8de01db9606c2e9fdc7f01937ec13eba564",
+      "origin": {
+        "commit": "gems",
+        "path": "il2cpp/MountIslandGemRewardState.cs",
+        "sha256": "d0e0e502050429f0df8356edf519e8de01db9606c2e9fdc7f01937ec13eba564"
+      }
+    },
+    {
+      "path": "source/MountIslandGemRewards.cs",
+      "sha256": "86d09f14f31942dfad0ceff18b83df86b514e9c1c2563f2dbabbdd270cfee740",
+      "origin": {
+        "commit": "gems",
+        "path": "il2cpp/MountIslandGemRewards.cs",
+        "sha256": "86d09f14f31942dfad0ceff18b83df86b514e9c1c2563f2dbabbdd270cfee740"
+      }
+    },
+    {
+      "path": "source/MountIslandGemRewards.Hooks.cs",
+      "sha256": "b961d218be1b65711ea3769f6eb7ee378cf5b26a37a3ef5b7a4a519d0fad4a95",
+      "origin": {
+        "commit": "gems",
+        "path": "il2cpp/MountIslandGemRewards.Hooks.cs",
+        "sha256": "b961d218be1b65711ea3769f6eb7ee378cf5b26a37a3ef5b7a4a519d0fad4a95"
+      }
+    },
+    {
+      "path": "source/MusketeerShop.ManualPurchase.cs",
+      "sha256": "b58ca3bb2a45e6892d8cbae8ccfa93c599b98b58f7e12b4d46a982319b1c54d6",
+      "origin": {
+        "commit": "gems",
+        "path": "il2cpp/MusketeerShop.ManualPurchase.cs",
+        "sha256": "b58ca3bb2a45e6892d8cbae8ccfa93c599b98b58f7e12b4d46a982319b1c54d6"
+      }
+    }
+  ],
+  "resources": [
+    {
+      "path": "assets/ShopV2Hero.png",
+      "logicalName": "KingdomEnhancedMod.ShopV2Hero.png",
+      "sha256": "b38d89080c6b694c518b4936d8f0ee84f18d34c45b078a80042cd818d48d0831",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/Assets/ShopV2Hero.png",
+        "sha256": "b38d89080c6b694c518b4936d8f0ee84f18d34c45b078a80042cd818d48d0831"
+      }
+    },
+    {
+      "path": "assets/ShopV2Shield.png",
+      "logicalName": "KingdomEnhancedMod.ShopV2Shield.png",
+      "sha256": "0b35bf2bca4252bd87b6c5000bb7cbd061a6f5ab2d22c5b90e44468aa9702a08",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/Assets/ShopV2Shield.png",
+        "sha256": "0b35bf2bca4252bd87b6c5000bb7cbd061a6f5ab2d22c5b90e44468aa9702a08"
+      }
+    },
+    {
+      "path": "assets/ShopV2Musket.png",
+      "logicalName": "KingdomEnhancedMod.ShopV2Musket.png",
+      "sha256": "3897c27934fb08dd63163ba05717a13bb473f0d10c743b71c9b488ee263ede27",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/Assets/ShopV2Musket.png",
+        "sha256": "3897c27934fb08dd63163ba05717a13bb473f0d10c743b71c9b488ee263ede27"
+      }
+    },
+    {
+      "path": "assets/HeavyShieldSoldierAtlas.png",
+      "logicalName": "KingdomEnhancedMod.HeavyShieldSoldierAtlas.png",
+      "sha256": "924c98b6c2d97ea9d587d4190c1e141b6e7f147bd4fb2172a64c976e57f433af",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/Assets/HeavyShieldSoldierAtlas.png",
+        "sha256": "924c98b6c2d97ea9d587d4190c1e141b6e7f147bd4fb2172a64c976e57f433af"
+      }
+    },
+    {
+      "path": "assets/HeavyShieldShopAtlas.png",
+      "logicalName": "KingdomEnhancedMod.HeavyShieldShopAtlas.png",
+      "sha256": "518ba11e8d099e5d150cf3c4de6ed85dbeb77ef7258fb5fcb75d17fa386693d6",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/Assets/HeavyShieldShopAtlas.png",
+        "sha256": "518ba11e8d099e5d150cf3c4de6ed85dbeb77ef7258fb5fcb75d17fa386693d6"
+      }
+    },
+    {
+      "path": "assets/HeavyShieldShopLayers.png",
+      "logicalName": "KingdomEnhancedMod.HeavyShieldShopLayers.png",
+      "sha256": "74769cd3864f573de911810e4a15f305d970c3a10943f4ff814d83b29e09f716",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/Assets/HeavyShieldShopLayers.png",
+        "sha256": "74769cd3864f573de911810e4a15f305d970c3a10943f4ff814d83b29e09f716"
+      }
+    },
+    {
+      "path": "assets/HeavyShieldGreekShopLayers.png",
+      "logicalName": "KingdomEnhancedMod.HeavyShieldGreekShopLayers.png",
+      "sha256": "592082f91393b9e8cb930cf4d5651ed396ea15475d44158c46be3d57e296123d",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/Assets/HeavyShieldGreekShopLayers.png",
+        "sha256": "592082f91393b9e8cb930cf4d5651ed396ea15475d44158c46be3d57e296123d"
+      }
+    },
+    {
+      "path": "assets/HeavyShieldSoldierAtlasCoarse.png",
+      "logicalName": "KingdomEnhancedMod.HeavyShieldSoldierAtlasCoarse.png",
+      "sha256": "a715a1115a0014e0113b3627186c6a2646456403cc7ed01d9347617dad14ada6",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/Assets/HeavyShieldSoldierAtlasCoarse.png",
+        "sha256": "a715a1115a0014e0113b3627186c6a2646456403cc7ed01d9347617dad14ada6"
+      }
+    },
+    {
+      "path": "assets/HeavyShieldShopAtlasCoarse.png",
+      "logicalName": "KingdomEnhancedMod.HeavyShieldShopAtlasCoarse.png",
+      "sha256": "4f14811983b459e7863fc02c448d82f42bcec76d8767250f438529086a6db74b",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/Assets/HeavyShieldShopAtlasCoarse.png",
+        "sha256": "4f14811983b459e7863fc02c448d82f42bcec76d8767250f438529086a6db74b"
+      }
+    },
+    {
+      "path": "assets/HeavyShieldShopLayersCoarse.png",
+      "logicalName": "KingdomEnhancedMod.HeavyShieldShopLayersCoarse.png",
+      "sha256": "bb3054506328dc31f18ca0e05c356da55d112395d004faebc40ccf1a1298b4be",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/Assets/HeavyShieldShopLayersCoarse.png",
+        "sha256": "bb3054506328dc31f18ca0e05c356da55d112395d004faebc40ccf1a1298b4be"
+      }
+    },
+    {
+      "path": "assets/HeavyShieldGreekShopLayersCoarse.png",
+      "logicalName": "KingdomEnhancedMod.HeavyShieldGreekShopLayersCoarse.png",
+      "sha256": "2e3efcd8d2b82adb1ef586a57b0c69c2cdffb8844a0ad0a8423b0c4f3df56337",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/Assets/HeavyShieldGreekShopLayersCoarse.png",
+        "sha256": "2e3efcd8d2b82adb1ef586a57b0c69c2cdffb8844a0ad0a8423b0c4f3df56337"
+      }
+    },
+    {
+      "path": "assets/HeavyShieldPaidShield.png",
+      "logicalName": "KingdomEnhancedMod.HeavyShieldPaidShield.png",
+      "sha256": "cc0853f9cf228c43543cbacfb3b6b48b9a1c777bf97aae4b426dd07dc63f0710",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/Assets/HeavyShieldPaidShield.png",
+        "sha256": "cc0853f9cf228c43543cbacfb3b6b48b9a1c777bf97aae4b426dd07dc63f0710"
+      }
+    },
+    {
+      "path": "assets/HeavyShieldPaidShieldCoarse.png",
+      "logicalName": "KingdomEnhancedMod.HeavyShieldPaidShieldCoarse.png",
+      "sha256": "dd38eaddaff68d4e0b22b998be3422e10196f59e3a732188b629ece521dc158a",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/Assets/HeavyShieldPaidShieldCoarse.png",
+        "sha256": "dd38eaddaff68d4e0b22b998be3422e10196f59e3a732188b629ece521dc158a"
+      }
+    },
+    {
+      "path": "assets/HeroArcherAtlas.png",
+      "logicalName": "KingdomEnhancedMod.HeroArcherAtlas.png",
+      "sha256": "cea4a64924e64dd7195ec6ac3998cda2e48bb426480ada4b8c26af381b6bbf78",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/Assets/HeroArcherAtlas.png",
+        "sha256": "cea4a64924e64dd7195ec6ac3998cda2e48bb426480ada4b8c26af381b6bbf78"
+      }
+    },
+    {
+      "path": "assets/HeroArcherLeisure.png",
+      "logicalName": "KingdomEnhancedMod.HeroArcherLeisure.png",
+      "sha256": "04ce7d8292778f2558650eeb0b8780220c2369e735a9635aff8a53da87454afb",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/Assets/HeroArcherLeisure.png",
+        "sha256": "04ce7d8292778f2558650eeb0b8780220c2369e735a9635aff8a53da87454afb"
+      }
+    },
+    {
+      "path": "assets/ArtemisArrow.png",
+      "logicalName": "KingdomEnhancedMod.ArtemisArrow.png",
+      "sha256": "5317f8a795ba506136ab51c68384f4e1151ee74229649556eaa8a57a338b35a8",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/Assets/ArtemisArrow.png",
+        "sha256": "5317f8a795ba506136ab51c68384f4e1151ee74229649556eaa8a57a338b35a8"
+      }
+    },
+    {
+      "path": "assets/HeroShop.png",
+      "logicalName": "KingdomEnhancedMod.HeroShop.png",
+      "sha256": "7f0df240b107ee816377ebe34f0600da4f25470aa17517ea98a62d367ef5d7be",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/Assets/HeroShop.png",
+        "sha256": "7f0df240b107ee816377ebe34f0600da4f25470aa17517ea98a62d367ef5d7be"
+      }
+    },
+    {
+      "path": "assets/HeroShopSeats.png",
+      "logicalName": "KingdomEnhancedMod.HeroShopSeats.png",
+      "sha256": "0af10b142972e1e36b1fadd85bbc3b1157c4f1fd8f1e6d006a03a20bc7dee657",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/Assets/HeroShopSeats.png",
+        "sha256": "0af10b142972e1e36b1fadd85bbc3b1157c4f1fd8f1e6d006a03a20bc7dee657"
+      }
+    },
+    {
+      "path": "assets/MusketeerAtlas.png",
+      "logicalName": "KingdomEnhancedMod.MusketeerAtlas.png",
+      "sha256": "f6470634305d28c259bb5b138de86803c64ad859653529d08d13dcdee3be6572",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/Assets/MusketeerAtlas.png",
+        "sha256": "f6470634305d28c259bb5b138de86803c64ad859653529d08d13dcdee3be6572"
+      }
+    },
+    {
+      "path": "assets/MusketeerLeisure.png",
+      "logicalName": "KingdomEnhancedMod.MusketeerLeisure.png",
+      "sha256": "1b3b6d11d45d7717f29d420b11b2773e2420ebf5d7739f6c5f3a7e9451c7db81",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/Assets/MusketeerLeisure.png",
+        "sha256": "1b3b6d11d45d7717f29d420b11b2773e2420ebf5d7739f6c5f3a7e9451c7db81"
+      }
+    },
+    {
+      "path": "assets/MusketeerShop.png",
+      "logicalName": "KingdomEnhancedMod.MusketeerShop.png",
+      "sha256": "3bf36bb268c0726ae49ca546bc9ed4a290f75d82bca7a79dc1558d1719e6ca2c",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/Assets/MusketeerShop.png",
+        "sha256": "3bf36bb268c0726ae49ca546bc9ed4a290f75d82bca7a79dc1558d1719e6ca2c"
+      }
+    },
+    {
+      "path": "assets/MusketeerGun.png",
+      "logicalName": "KingdomEnhancedMod.MusketeerGun.png",
+      "sha256": "dc4ba2b0373b5c66b698f93514ff2b3f1a20cd5d5c761c3ec9a3dc0c12639ddb",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/Assets/MusketeerGun.png",
+        "sha256": "dc4ba2b0373b5c66b698f93514ff2b3f1a20cd5d5c761c3ec9a3dc0c12639ddb"
+      }
+    },
+    {
+      "path": "assets/MusketeerBullet.png",
+      "logicalName": "KingdomEnhancedMod.MusketeerBullet.png",
+      "sha256": "d4ce678a8e470f4c782ac882a38df8a646e18006baa9a28d17ffedbdda45a08b",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/Assets/MusketeerBullet.png",
+        "sha256": "d4ce678a8e470f4c782ac882a38df8a646e18006baa9a28d17ffedbdda45a08b"
+      }
+    },
+    {
+      "path": "assets/CoinCourierBAtlas.png",
+      "logicalName": "KingdomEnhancedMod.CoinCourierBAtlas.png",
+      "sha256": "1924cc0c801f41cd69b54d7e132598226e8350605ff6019bc4a5f889f7b303d7",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/Assets/CoinCourierBAtlas.png",
+        "sha256": "1924cc0c801f41cd69b54d7e132598226e8350605ff6019bc4a5f889f7b303d7"
+      }
+    },
+    {
+      "path": "assets/BankAssistantClerk.png",
+      "logicalName": "KingdomEnhancedMod.BankAssistantClerk.png",
+      "sha256": "713ef4694debb88deb893d8542497d0f205e40b9ed58d7ad0532cbb9dc9b2fc4",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/Assets/BankAssistantClerk.png",
+        "sha256": "713ef4694debb88deb893d8542497d0f205e40b9ed58d7ad0532cbb9dc9b2fc4"
+      }
+    },
+    {
+      "path": "assets/BankAssistantCaravan.png",
+      "logicalName": "KingdomEnhancedMod.BankAssistantCaravan.png",
+      "sha256": "4dee55796f5d8b349457316d28f4b750be4fee7e253fa51736e7aec6208431b7",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/Assets/BankAssistantCaravan.png",
+        "sha256": "4dee55796f5d8b349457316d28f4b750be4fee7e253fa51736e7aec6208431b7"
+      }
+    },
+    {
+      "path": "assets/BankAssistantSteward.png",
+      "logicalName": "KingdomEnhancedMod.BankAssistantSteward.png",
+      "sha256": "fe6c36fb7c4c05ae6909f2755b84eb939fe43522d7fe950e7ba94b6062cbbac1",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/Assets/BankAssistantSteward.png",
+        "sha256": "fe6c36fb7c4c05ae6909f2755b84eb939fe43522d7fe950e7ba94b6062cbbac1"
+      }
+    },
+    {
+      "path": "assets/BankAssistantVaultkeeper.png",
+      "logicalName": "KingdomEnhancedMod.BankAssistantVaultkeeper.png",
+      "sha256": "205bb859f339cf973c458e0abe9e875d5559442c6e460741302dbbdde18b462f",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/Assets/BankAssistantVaultkeeper.png",
+        "sha256": "205bb859f339cf973c458e0abe9e875d5559442c6e460741302dbbdde18b462f"
+      }
+    },
+    {
+      "path": "assets/KnightStylePreview0.png",
+      "logicalName": "KingdomEnhancedMod.KnightStylePreview0.png",
+      "sha256": "0db8c2133b57502ef1f6e5573056aac0d3cf7dd569e20702e2cf5ebd0fe06ff9",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/Assets/KnightStylePreview0.png",
+        "sha256": "0db8c2133b57502ef1f6e5573056aac0d3cf7dd569e20702e2cf5ebd0fe06ff9"
+      }
+    },
+    {
+      "path": "assets/KnightStylePreview1.png",
+      "logicalName": "KingdomEnhancedMod.KnightStylePreview1.png",
+      "sha256": "e8d07fdcafa8ab0f8d16f9d64e5bf2f7701fbab410867ab0467e38661739dde9",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/Assets/KnightStylePreview1.png",
+        "sha256": "e8d07fdcafa8ab0f8d16f9d64e5bf2f7701fbab410867ab0467e38661739dde9"
+      }
+    },
+    {
+      "path": "assets/KnightStylePreview2.png",
+      "logicalName": "KingdomEnhancedMod.KnightStylePreview2.png",
+      "sha256": "7f50441368b77d766e2c83d80e4de8965f178b9776289268fced80b99a3793ae",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/Assets/KnightStylePreview2.png",
+        "sha256": "7f50441368b77d766e2c83d80e4de8965f178b9776289268fced80b99a3793ae"
+      }
+    },
+    {
+      "path": "assets/KnightStylePreview3.png",
+      "logicalName": "KingdomEnhancedMod.KnightStylePreview3.png",
+      "sha256": "96059df859f80c0a5f2236b625d634b24f4bb3bba692774a75c3b7b361738310",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/Assets/KnightStylePreview3.png",
+        "sha256": "96059df859f80c0a5f2236b625d634b24f4bb3bba692774a75c3b7b361738310"
+      }
+    },
+    {
+      "path": "assets/KnightStylePreview4.png",
+      "logicalName": "KingdomEnhancedMod.KnightStylePreview4.png",
+      "sha256": "4e809ba6abfb4c5bfa02f10843a6f040494dd8cc58e47b1b54b5ca40698bbd36",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/Assets/KnightStylePreview4.png",
+        "sha256": "4e809ba6abfb4c5bfa02f10843a6f040494dd8cc58e47b1b54b5ca40698bbd36"
+      }
+    },
+    {
+      "path": "assets/KEM_MapExtensionIsland.png",
+      "logicalName": "KingdomEnhancedMod.KEM_MapExtensionIsland.png",
+      "sha256": "44c7463fed7e6cb222dfae8c701e492f000b26a21b7d37541fdc76fa994b1479",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/Assets/KEM_MapExtensionIsland.png",
+        "sha256": "44c7463fed7e6cb222dfae8c701e492f000b26a21b7d37541fdc76fa994b1479"
+      }
+    },
+    {
+      "path": "assets/KEM_MapExtensionIslandCrescent.png",
+      "logicalName": "KingdomEnhancedMod.KEM_MapExtensionIslandCrescent.png",
+      "sha256": "a056d1a3ff81ea13c5d9e065abc71d734e45226df2829184e1bd183606a79357",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/Assets/KEM_MapExtensionIslandCrescent.png",
+        "sha256": "a056d1a3ff81ea13c5d9e065abc71d734e45226df2829184e1bd183606a79357"
+      }
+    },
+    {
+      "path": "assets/KEM_MapRainbowPony.png",
+      "logicalName": "KingdomEnhancedMod.KEM_MapRainbowPony.png",
+      "sha256": "65090951f3b29f2f9b54351c15a3907c5cf014dc9a2f9fe9d2418a7eaac97979",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/Assets/KEM_MapRainbowPony.png",
+        "sha256": "65090951f3b29f2f9b54351c15a3907c5cf014dc9a2f9fe9d2418a7eaac97979"
+      }
+    },
+    {
+      "path": "assets/KEM_MapSantaReindeer.png",
+      "logicalName": "KingdomEnhancedMod.KEM_MapSantaReindeer.png",
+      "sha256": "debd5d87908761130a40444b42e1288c8c23dedf76b15b3f084e2e27cf789172",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/Assets/KEM_MapSantaReindeer.png",
+        "sha256": "debd5d87908761130a40444b42e1288c8c23dedf76b15b3f084e2e27cf789172"
+      }
+    },
+    {
+      "path": "assets/KEM_MapSpookyhorse.png",
+      "logicalName": "KingdomEnhancedMod.KEM_MapSpookyhorse.png",
+      "sha256": "dcf9b143b9e5b2eb950e0159c5f4f161ce1a2fc45a0e954512b642bfc1a1b808",
+      "origin": {
+        "commit": "base",
+        "path": "il2cpp/Assets/KEM_MapSpookyhorse.png",
+        "sha256": "dcf9b143b9e5b2eb950e0159c5f4f161ce1a2fc45a0e954512b642bfc1a1b808"
+      }
+    }
+  ],
+  "references": [
+    {
+      "logicalName": "0Harmony.dll",
+      "include": "0Harmony",
+      "root": "runtime",
+      "sha256": "6c898933b52149e8bcf6722305c7e4d94add47c9e53b364096f91721624c0877"
+    },
+    {
+      "logicalName": "AsmResolver.dll",
+      "include": "AsmResolver",
+      "root": "runtime",
+      "sha256": "14c96b99b14268642fa382a9bb90656717c06491051131963b831e9afe3fae5d"
+    },
+    {
+      "logicalName": "AsmResolver.DotNet.dll",
+      "include": "AsmResolver.DotNet",
+      "root": "runtime",
+      "sha256": "f3f2ceeedae30c4ac51f0659138bd8424af8f30a5341fa17446bb076a713a403"
+    },
+    {
+      "logicalName": "AsmResolver.PE.dll",
+      "include": "AsmResolver.PE",
+      "root": "runtime",
+      "sha256": "1b6e530f68e590950cc7fe6df0069df1eb91e85da8cfccce06029eddec63480f"
+    },
+    {
+      "logicalName": "AsmResolver.PE.File.dll",
+      "include": "AsmResolver.PE.File",
+      "root": "runtime",
+      "sha256": "46c0aa7b1691078694a24a92b18d3c14574f82f6ddaf1be3347ee2102308825d"
+    },
+    {
+      "logicalName": "AssetRipper.CIL.dll",
+      "include": "AssetRipper.CIL",
+      "root": "runtime",
+      "sha256": "b6de652ecf517046a5fd3db56400b0ac333e69d759856ab2c7e19c31c0bff643"
+    },
+    {
+      "logicalName": "AssetRipper.Primitives.dll",
+      "include": "AssetRipper.Primitives",
+      "root": "runtime",
+      "sha256": "d2a7e4f0e5bfad118d7fe7538829207d46a02ed13d1eb89910b0fdd7303ad236"
+    },
+    {
+      "logicalName": "BepInEx.Core.dll",
+      "include": "BepInEx.Core",
+      "root": "runtime",
+      "sha256": "59f058ba2c761c9e8f9bb09ec0de8b0f4283b6505ebc73ff9834130fec80bed2"
+    },
+    {
+      "logicalName": "BepInEx.Preloader.Core.dll",
+      "include": "BepInEx.Preloader.Core",
+      "root": "runtime",
+      "sha256": "043d0e1da77ac898bc6ccf5a49d3ef01991bf4a02165cae9558333bcd1ec7703"
+    },
+    {
+      "logicalName": "BepInEx.Unity.Common.dll",
+      "include": "BepInEx.Unity.Common",
+      "root": "runtime",
+      "sha256": "b54931e8bb70ea32c92f5dc9e11f05411a2932cdf094e0f9446a846835f0fe93"
+    },
+    {
+      "logicalName": "BepInEx.Unity.IL2CPP.dll",
+      "include": "BepInEx.Unity.IL2CPP",
+      "root": "runtime",
+      "sha256": "da8043cda8cf7df156c2f70461592c624a52f8c4568720742ba29fa60024dbad"
+    },
+    {
+      "logicalName": "Cpp2IL.Core.dll",
+      "include": "Cpp2IL.Core",
+      "root": "runtime",
+      "sha256": "12c51bf0dcd80e9b1af04068c4f713982d88908f3832713cffc21d3b4f3e3203"
+    },
+    {
+      "logicalName": "Disarm.dll",
+      "include": "Disarm",
+      "root": "runtime",
+      "sha256": "3b0d53852648c30b8c7a4bb33ba736f04ac45a62181e0df980dc88dcda6cdd98"
+    },
+    {
+      "logicalName": "Gee.External.Capstone.dll",
+      "include": "Gee.External.Capstone",
+      "root": "runtime",
+      "sha256": "19e3a30154f6adc22d9fd4a4a6995c9992e0f1dd6482a0d8790a5d203908a1f9"
+    },
+    {
+      "logicalName": "Iced.dll",
+      "include": "Iced",
+      "root": "runtime",
+      "sha256": "cc915d1c2e7be60933c5b129842ca3d08d1fe3cda6c6d6ade8824dcdde16191f"
+    },
+    {
+      "logicalName": "Il2CppInterop.Common.dll",
+      "include": "Il2CppInterop.Common",
+      "root": "runtime",
+      "sha256": "f7949abf7938e5fe59cffbd5e6b671b56f15d0886221f278c055d00d352ccf55"
+    },
+    {
+      "logicalName": "Il2CppInterop.Generator.dll",
+      "include": "Il2CppInterop.Generator",
+      "root": "runtime",
+      "sha256": "79560f011468b635b0cdae1d093b791aed22860188c3d69b376ae4e9173f1e95"
+    },
+    {
+      "logicalName": "Il2CppInterop.HarmonySupport.dll",
+      "include": "Il2CppInterop.HarmonySupport",
+      "root": "runtime",
+      "sha256": "4953081298a8b1d079e8a2b5689d21d2f02b318eb35b3bbe748bbbdad72ab344"
+    },
+    {
+      "logicalName": "Il2CppInterop.Runtime.dll",
+      "include": "Il2CppInterop.Runtime",
+      "root": "runtime",
+      "sha256": "c9c4815846c48f61a570e623b2589792b9541e11d1f185eeabad56dd7baf642e"
+    },
+    {
+      "logicalName": "LibCpp2IL.dll",
+      "include": "LibCpp2IL",
+      "root": "runtime",
+      "sha256": "3fa3a6a11d1c46a33ffe4f09aa29edc6a88c9372a33cf7378657fbd884c7f41f"
+    },
+    {
+      "logicalName": "Mono.Cecil.dll",
+      "include": "Mono.Cecil",
+      "root": "runtime",
+      "sha256": "769a59793d4b8885bbbfbc5aee8f57a0d4e34d275c56c60c03994309b87f67e9"
+    },
+    {
+      "logicalName": "Mono.Cecil.Mdb.dll",
+      "include": "Mono.Cecil.Mdb",
+      "root": "runtime",
+      "sha256": "61637f9940e5e336571cbf945be0f36d6d6050e06288df0f0232d93b26f0bde7"
+    },
+    {
+      "logicalName": "Mono.Cecil.Pdb.dll",
+      "include": "Mono.Cecil.Pdb",
+      "root": "runtime",
+      "sha256": "a5249a04ad8fd7dfd47e4d0a620aed0f7eb6051e1ddec102c541ca3e12f6e2a8"
+    },
+    {
+      "logicalName": "Mono.Cecil.Rocks.dll",
+      "include": "Mono.Cecil.Rocks",
+      "root": "runtime",
+      "sha256": "273292babd45f9f34de5054bd9cdfe1d859a7dbf6f4ad5974fe4ead70698ed5b"
+    },
+    {
+      "logicalName": "MonoMod.Backports.dll",
+      "include": "MonoMod.Backports",
+      "root": "runtime",
+      "sha256": "6db3486eb3bfc458c770d61a1391569000cd871dcc7160fb3da2cbfe8d98601a",
+      "aliases": "backports"
+    },
+    {
+      "logicalName": "MonoMod.ILHelpers.dll",
+      "include": "MonoMod.ILHelpers",
+      "root": "runtime",
+      "sha256": "20df341949b81662e09787e42b66ac3fea601d4cf4b717294f2d72a80860e4ec"
+    },
+    {
+      "logicalName": "MonoMod.RuntimeDetour.dll",
+      "include": "MonoMod.RuntimeDetour",
+      "root": "runtime",
+      "sha256": "1b3d55f53cb9f9f2550daed4dfd300b247d71698a0ace82bc7b9ff38d563594f"
+    },
+    {
+      "logicalName": "MonoMod.Utils.dll",
+      "include": "MonoMod.Utils",
+      "root": "runtime",
+      "sha256": "72a5b4249985873d7ecb160cbbed7a1e6540a38ee7618c72c64b9cb068c1438a"
+    },
+    {
+      "logicalName": "SemanticVersioning.dll",
+      "include": "SemanticVersioning",
+      "root": "runtime",
+      "sha256": "a5b57607225a0ebde049e93469f49e5b2d07a7d602a03864ce3a72ccf57103a2"
+    },
+    {
+      "logicalName": "StableNameDotNet.dll",
+      "include": "StableNameDotNet",
+      "root": "runtime",
+      "sha256": "97f370fd3d5a6cc7094eca8f804205717e3062793be09229ca1f0d4041666ed5"
+    },
+    {
+      "logicalName": "WasmDisassembler.dll",
+      "include": "WasmDisassembler",
+      "root": "runtime",
+      "sha256": "7b4fb44f492856dcf8f710d35be7d8bdc749b0f36f94cb834104ed1e65c64495"
+    },
+    {
+      "logicalName": "Assembly-CSharp-firstpass.dll",
+      "include": "Assembly-CSharp-firstpass",
+      "root": "interop",
+      "sha256": "00b657752416ffce26286137d370ca547d44abf071ea0a917b0dc08810905b67"
+    },
+    {
+      "logicalName": "Assembly-CSharp.dll",
+      "include": "Assembly-CSharp",
+      "root": "interop",
+      "sha256": "df73df913cd52953fed7fdd082c430388fe7504e44f2fd554f5ed50ae9b6ad30"
+    },
+    {
+      "logicalName": "DOTween.dll",
+      "include": "DOTween",
+      "root": "interop",
+      "sha256": "00d4beffdafc0a76bf4b4b6faa2cdb5628384082199e32481f217c2d59953661"
+    },
+    {
+      "logicalName": "DOTween43.dll",
+      "include": "DOTween43",
+      "root": "interop",
+      "sha256": "694aa15da91cc92ac8d4f9a0e12ad85d8e39524dee9c113dd1764947f4ad098b"
+    },
+    {
+      "logicalName": "DOTween46.dll",
+      "include": "DOTween46",
+      "root": "interop",
+      "sha256": "3b6905948122bb3ac8624ddda375ace3a1a10d9ffaa5e3231b55627d0974104e"
+    },
+    {
+      "logicalName": "DOTweenPro.dll",
+      "include": "DOTweenPro",
+      "root": "interop",
+      "sha256": "7ffeab137f12e8ffb6c3da0ddfc15cd6593718b0898b3e1d5cca89edcd190cb8"
+    },
+    {
+      "logicalName": "GDK-Tools.dll",
+      "include": "GDK-Tools",
+      "root": "interop",
+      "sha256": "2f0aa51fb2188b7cba515c0abf6ff55df468df6b8c7192646477124512c401ae"
+    },
+    {
+      "logicalName": "GalaxyCSharp.dll",
+      "include": "GalaxyCSharp",
+      "root": "interop",
+      "sha256": "8123333d48da6717fbe6c113d8f228ded6086ee2b705183afb5c46c4cd523c61"
+    },
+    {
+      "logicalName": "GdkUtilities.dll",
+      "include": "GdkUtilities",
+      "root": "interop",
+      "sha256": "f87d27b3bfbaa1d6cd0e5448eb9bbfd02fbed9037012c3a7f9362d63e80cae86"
+    },
+    {
+      "logicalName": "Haglet-Assembly-CSharp-02.dll",
+      "include": "Haglet-Assembly-CSharp-02",
+      "root": "interop",
+      "sha256": "2dd5ce1e7eb71057bb10888f1fde39c70e1159feff3f0e9b70b0f001a6ab4b14"
+    },
+    {
+      "logicalName": "Il2CppMono.Security.dll",
+      "include": "Il2CppMono.Security",
+      "root": "interop",
+      "sha256": "d27ef36c98d72403d4c0cf9f4cc198840df18a7913cbbb19562a72524af8d6ca"
+    },
+    {
+      "logicalName": "Il2CppSystem.Configuration.dll",
+      "include": "Il2CppSystem.Configuration",
+      "root": "interop",
+      "sha256": "b47fd14870196aff884c6d03f653d311b3b05d394b2357c818ddb94971a9e41f"
+    },
+    {
+      "logicalName": "Il2CppSystem.Core.dll",
+      "include": "Il2CppSystem.Core",
+      "root": "interop",
+      "sha256": "a55e2b13fb106d27125f060ac522b9591a5843a40093299808fe6d47523984b8"
+    },
+    {
+      "logicalName": "Il2CppSystem.Data.dll",
+      "include": "Il2CppSystem.Data",
+      "root": "interop",
+      "sha256": "2980b77c80c657eb14c97032274a74a9e382aa44749b1e57273b1aef80c56ad1"
+    },
+    {
+      "logicalName": "Il2CppSystem.Drawing.dll",
+      "include": "Il2CppSystem.Drawing",
+      "root": "interop",
+      "sha256": "23ac4424a990bdc62aa96614a96c860371904f0656bd3572caf88ace529fbb30"
+    },
+    {
+      "logicalName": "Il2CppSystem.Numerics.dll",
+      "include": "Il2CppSystem.Numerics",
+      "root": "interop",
+      "sha256": "993555aab6d7eeba6e15812eb2c14b8f2d2ca1783ec4e4c432777da815488bd5"
+    },
+    {
+      "logicalName": "Il2CppSystem.Runtime.Serialization.dll",
+      "include": "Il2CppSystem.Runtime.Serialization",
+      "root": "interop",
+      "sha256": "5fb4996f84c5049dd5402e709aafe30673b460b71c0cb4df35e501017d09f1a1"
+    },
+    {
+      "logicalName": "Il2CppSystem.Xml.Linq.dll",
+      "include": "Il2CppSystem.Xml.Linq",
+      "root": "interop",
+      "sha256": "bef8ab494c1df4ac54fa0eaa5b0fc8f86915160bd79e4fe9086f1a7f0c499335"
+    },
+    {
+      "logicalName": "Il2CppSystem.Xml.dll",
+      "include": "Il2CppSystem.Xml",
+      "root": "interop",
+      "sha256": "0f14d4bfa5808ee043e283962f88d0028f2bf2242cc74cc255c28b1b05c3cf11"
+    },
+    {
+      "logicalName": "Il2CppSystem.dll",
+      "include": "Il2CppSystem",
+      "root": "interop",
+      "sha256": "372fbe2bdd6cbafe692b7bed87e98284e994f6ed261dc40b357d191008f02458"
+    },
+    {
+      "logicalName": "Il2Cppmscorlib.dll",
+      "include": "Il2Cppmscorlib",
+      "root": "interop",
+      "sha256": "eaa4cfd1d31bccb0b26fa28e617414247bc0969d6727e220ce7d3500c10b851c"
+    },
+    {
+      "logicalName": "Newtonsoft.Json.dll",
+      "include": "Newtonsoft.Json",
+      "root": "interop",
+      "sha256": "7ea4e0057210fb1f4e81720db62375b2743e5eac61a7a348d13d186ddc79fb0a"
+    },
+    {
+      "logicalName": "PlayFab.dll",
+      "include": "PlayFab",
+      "root": "interop",
+      "sha256": "216e88f8c2bd19b14b2521227b2424cedc5668c3883f0c9241b410dafa8f1ad9"
+    },
+    {
+      "logicalName": "Playfab.Party.dll",
+      "include": "Playfab.Party",
+      "root": "interop",
+      "sha256": "cda194a386ee7550796c8d9b556f672c7a805b18ebf84b1aa887575aba376fac"
+    },
+    {
+      "logicalName": "Rewired_Core.dll",
+      "include": "Rewired_Core",
+      "root": "interop",
+      "sha256": "5167b6de32a10c043a843321dfe362d9c64bbf6f969eaf02aeaf622c1c268952"
+    },
+    {
+      "logicalName": "Rewired_Windows.dll",
+      "include": "Rewired_Windows",
+      "root": "interop",
+      "sha256": "18309c87e6700fc4ca93ddff45e0d34b5e27bac5050fb609f4a151cf7925a9e4"
+    },
+    {
+      "logicalName": "SonyPS4SavedGames.dll",
+      "include": "SonyPS4SavedGames",
+      "root": "interop",
+      "sha256": "e45399e92ea2a8ae9f40e6b34f8d990d3d43059c7d644f3f6a7234d33d91bf59"
+    },
+    {
+      "logicalName": "Unity.2D.Animation.Runtime.dll",
+      "include": "Unity.2D.Animation.Runtime",
+      "root": "interop",
+      "sha256": "5e5ae649b2f53aeefd11652b53352a9e44a9b8a592d0fd3d619352c81f9a4180"
+    },
+    {
+      "logicalName": "Unity.Burst.Unsafe.dll",
+      "include": "Unity.Burst.Unsafe",
+      "root": "interop",
+      "sha256": "c975e47bed42b5ec57d7e9c60585d53881ac67e9af134524c85414d84d96bad7"
+    },
+    {
+      "logicalName": "Unity.Burst.dll",
+      "include": "Unity.Burst",
+      "root": "interop",
+      "sha256": "3bd99c9b0b0e41e855917f2ab9ff5b7004c27b21842f6bc1efa38cc7f894a7f2"
+    },
+    {
+      "logicalName": "Unity.Collections.LowLevel.ILSupport.dll",
+      "include": "Unity.Collections.LowLevel.ILSupport",
+      "root": "interop",
+      "sha256": "a3f73c924bc735d947ab6ae37cdce69f9f24767c4d13eafd130c3829a5d7b771"
+    },
+    {
+      "logicalName": "Unity.Collections.dll",
+      "include": "Unity.Collections",
+      "root": "interop",
+      "sha256": "02584892cb2507f37e115d06766b70dc5747a27ae29e258cd32ceaa9c1cf8ed0"
+    },
+    {
+      "logicalName": "Unity.InternalAPIEngineBridge.001.dll",
+      "include": "Unity.InternalAPIEngineBridge.001",
+      "root": "interop",
+      "sha256": "a3ff8d39849ee3dbc6b15a0d29b0c5e3ed299111c94d5efd91a23019d1e544dd"
+    },
+    {
+      "logicalName": "Unity.Mathematics.dll",
+      "include": "Unity.Mathematics",
+      "root": "interop",
+      "sha256": "211b0b2453ef13dd9924f1102865ea5fdfbd49e81f66a4f6cb379e3a4f407c53"
+    },
+    {
+      "logicalName": "Unity.MemoryProfiler.dll",
+      "include": "Unity.MemoryProfiler",
+      "root": "interop",
+      "sha256": "91718aeba056fbba70ce19e4db23a56f13e297021124b5713f3b82a5389a0492"
+    },
+    {
+      "logicalName": "Unity.Networking.Transport.dll",
+      "include": "Unity.Networking.Transport",
+      "root": "interop",
+      "sha256": "2352389fa4d9bdf31782b8732537950ba662759cc612cbe6a7c8fb8935614bab"
+    },
+    {
+      "logicalName": "Unity.Purchasing.AppleMacosStub.dll",
+      "include": "Unity.Purchasing.AppleMacosStub",
+      "root": "interop",
+      "sha256": "af5d0f634863730a4559e4740eb00110b2dd458fb978e7d462e6e64ebd084f4b"
+    },
+    {
+      "logicalName": "Unity.Purchasing.AppleStub.dll",
+      "include": "Unity.Purchasing.AppleStub",
+      "root": "interop",
+      "sha256": "a03f766b7ed215bbfedd430d915af1d845d7998073ff7bb81f83cd31e243716d"
+    },
+    {
+      "logicalName": "Unity.Purchasing.SecurityCore.dll",
+      "include": "Unity.Purchasing.SecurityCore",
+      "root": "interop",
+      "sha256": "03b129f60d2f80815007cbc4ade937e50382e10ed9cd447d03e56ff9aed54801"
+    },
+    {
+      "logicalName": "Unity.Purchasing.SecurityStub.dll",
+      "include": "Unity.Purchasing.SecurityStub",
+      "root": "interop",
+      "sha256": "22bb363b2c98ff1317a220b76a338b6813f805023a19847469cf88e3d68d52b5"
+    },
+    {
+      "logicalName": "Unity.Purchasing.Stores.dll",
+      "include": "Unity.Purchasing.Stores",
+      "root": "interop",
+      "sha256": "486cb2dc69db9fccb610c619766ffa661edb805de024fb82acb2b5ac5a478091"
+    },
+    {
+      "logicalName": "Unity.Purchasing.Utilities.dll",
+      "include": "Unity.Purchasing.Utilities",
+      "root": "interop",
+      "sha256": "1ca90620adfe40367d6eea26462ecaa79cbaf47ffc86aa96f6c7c2a7a7c94ee2"
+    },
+    {
+      "logicalName": "Unity.Purchasing.dll",
+      "include": "Unity.Purchasing",
+      "root": "interop",
+      "sha256": "4517ee2cb2bf77beb937bfac13c9dbc4517be7c7f62d9c28620bcc954653a9f7"
+    },
+    {
+      "logicalName": "Unity.RenderPipelines.Core.Runtime.dll",
+      "include": "Unity.RenderPipelines.Core.Runtime",
+      "root": "interop",
+      "sha256": "6f304c0eeead77d67ef8958041edfee2d06d3469c47476b2a2e25df618e4fdec"
+    },
+    {
+      "logicalName": "Unity.Services.Analytics.dll",
+      "include": "Unity.Services.Analytics",
+      "root": "interop",
+      "sha256": "4641e21c6ea891431c7b80557613d063c358ef90e4d79480dc5433df83936fd9"
+    },
+    {
+      "logicalName": "Unity.Services.Core.Configuration.dll",
+      "include": "Unity.Services.Core.Configuration",
+      "root": "interop",
+      "sha256": "40f4f446dca35c272634544c0c9a8de28500106df712ab61cb7d2fb9be8a0a55"
+    },
+    {
+      "logicalName": "Unity.Services.Core.Device.dll",
+      "include": "Unity.Services.Core.Device",
+      "root": "interop",
+      "sha256": "c54f890607edb0f8c6e9eee7e4eed76410738233471f9d147ebcc755d8b2f23f"
+    },
+    {
+      "logicalName": "Unity.Services.Core.Environments.Internal.dll",
+      "include": "Unity.Services.Core.Environments.Internal",
+      "root": "interop",
+      "sha256": "0aaee9be8c42bd408f3fc0c40ed2cf724389cd3d80333bcb9a02902b3d702ece"
+    },
+    {
+      "logicalName": "Unity.Services.Core.Internal.dll",
+      "include": "Unity.Services.Core.Internal",
+      "root": "interop",
+      "sha256": "376c376cb0acb88e73868a224ffa9b956fd2411fe0d9fb1f89a37361527244dc"
+    },
+    {
+      "logicalName": "Unity.Services.Core.Registration.dll",
+      "include": "Unity.Services.Core.Registration",
+      "root": "interop",
+      "sha256": "7ada7c370be15a2fb2e3c5124ee85b16e346d78e3b23639274cc2fc47dbb7c2a"
+    },
+    {
+      "logicalName": "Unity.Services.Core.Scheduler.dll",
+      "include": "Unity.Services.Core.Scheduler",
+      "root": "interop",
+      "sha256": "dc2991d63923d66a82421d0d1d2e0d941bad8195fe27f8fea5410c1b3a25f2c8"
+    },
+    {
+      "logicalName": "Unity.Services.Core.Telemetry.dll",
+      "include": "Unity.Services.Core.Telemetry",
+      "root": "interop",
+      "sha256": "28f5b3071138b12f8103b7440562ac98c316d9e974fcedf53d2e7847decc71f9"
+    },
+    {
+      "logicalName": "Unity.Services.Core.Threading.dll",
+      "include": "Unity.Services.Core.Threading",
+      "root": "interop",
+      "sha256": "a6e2d251a647fcb43fb3cccfe0abcd3c50abc821e4d3b5bdd046ab14f7d00d4c"
+    },
+    {
+      "logicalName": "Unity.Services.Core.dll",
+      "include": "Unity.Services.Core",
+      "root": "interop",
+      "sha256": "3d6fce3911fcfab2bf3b6b0ce1a4db32cb2750f7e7e1cdd5131fe8b72e54aa0b"
+    },
+    {
+      "logicalName": "Unity.TextMeshPro.dll",
+      "include": "Unity.TextMeshPro",
+      "root": "interop",
+      "sha256": "27701c2eec8d7c867284ef15969bf455125fee3fa6e9ee21ebf497ba8ea4cad8"
+    },
+    {
+      "logicalName": "Unity.Timeline.dll",
+      "include": "Unity.Timeline",
+      "root": "interop",
+      "sha256": "82d0c9101079da3acf654a095ab4228944ab5e4af0c3e05a259b3288e70269fe"
+    },
+    {
+      "logicalName": "UnityEngine.AIModule.dll",
+      "include": "UnityEngine.AIModule",
+      "root": "interop",
+      "sha256": "9d14d68f0ede01e97f8bebbedaf0a38a6e90b5bd4438ca465a3b79bac5fcdd21"
+    },
+    {
+      "logicalName": "UnityEngine.AccessibilityModule.dll",
+      "include": "UnityEngine.AccessibilityModule",
+      "root": "interop",
+      "sha256": "862a981b7c0cb62eb0d45748be180ca50db6ad47b6595f5a56fc837994152a28"
+    },
+    {
+      "logicalName": "UnityEngine.AndroidJNIModule.dll",
+      "include": "UnityEngine.AndroidJNIModule",
+      "root": "interop",
+      "sha256": "0a8e2adc8dd5381cf66a490abe7676634539fbfddf1953094a851a332ee08a80"
+    },
+    {
+      "logicalName": "UnityEngine.AnimationModule.dll",
+      "include": "UnityEngine.AnimationModule",
+      "root": "interop",
+      "sha256": "cafae4debd7cd978131fc8d41f6acb3e3b6d8b77bf802af7fb5da881e5723f7b"
+    },
+    {
+      "logicalName": "UnityEngine.AssetBundleModule.dll",
+      "include": "UnityEngine.AssetBundleModule",
+      "root": "interop",
+      "sha256": "bf856c58201bb72081ab090b12dc340278bd83051b598aa66d56fce24e6e707a"
+    },
+    {
+      "logicalName": "UnityEngine.AudioModule.dll",
+      "include": "UnityEngine.AudioModule",
+      "root": "interop",
+      "sha256": "0a82b53025d1881fb3c27f447d2e382ec510c97e6eb04675da3fd6a72a95a927"
+    },
+    {
+      "logicalName": "UnityEngine.ClothModule.dll",
+      "include": "UnityEngine.ClothModule",
+      "root": "interop",
+      "sha256": "bd662d44a45285ea2d7de448ffe08fde0933f2589ce68248045b2a1b5af58fea"
+    },
+    {
+      "logicalName": "UnityEngine.ClusterInputModule.dll",
+      "include": "UnityEngine.ClusterInputModule",
+      "root": "interop",
+      "sha256": "9a3f1a369eb3efac05fe9ceb865bcd0e7273ea633b5e5b0dae8b8cc89a552adb"
+    },
+    {
+      "logicalName": "UnityEngine.ClusterRendererModule.dll",
+      "include": "UnityEngine.ClusterRendererModule",
+      "root": "interop",
+      "sha256": "1d44790184300546ae433e672cfdf9c6dbaca706a0a77c7e524935e9276a0e41"
+    },
+    {
+      "logicalName": "UnityEngine.ContentLoadModule.dll",
+      "include": "UnityEngine.ContentLoadModule",
+      "root": "interop",
+      "sha256": "e5bfeed367b0bd93d2c51f18bcab9b79f6377d6ab817f5d334d9a7453b780815"
+    },
+    {
+      "logicalName": "UnityEngine.CoreModule.dll",
+      "include": "UnityEngine.CoreModule",
+      "root": "interop",
+      "sha256": "6e7741ed9c5fb7b23aa9973272cb958755352d336baeaeb5edfda1cae4e38ede"
+    },
+    {
+      "logicalName": "UnityEngine.CrashReportingModule.dll",
+      "include": "UnityEngine.CrashReportingModule",
+      "root": "interop",
+      "sha256": "0bef5612bffbf233990c759a6968d92bc9e375aced5c675c44389d5eb88dcc52"
+    },
+    {
+      "logicalName": "UnityEngine.DSPGraphModule.dll",
+      "include": "UnityEngine.DSPGraphModule",
+      "root": "interop",
+      "sha256": "f7a2d11fc58f89c089a9aa23d697758c02b5c4b6afeb6dda6cc5045949b91b91"
+    },
+    {
+      "logicalName": "UnityEngine.DirectorModule.dll",
+      "include": "UnityEngine.DirectorModule",
+      "root": "interop",
+      "sha256": "17a7a9dbf25d63d50158d6eff820e8129df39a8cff9d68f96fc36efcb5d37960"
+    },
+    {
+      "logicalName": "UnityEngine.GIModule.dll",
+      "include": "UnityEngine.GIModule",
+      "root": "interop",
+      "sha256": "db2f2259601164ce6c8a43d29326cd08020cb6d8f126f24a8fefc91e9df74675"
+    },
+    {
+      "logicalName": "UnityEngine.GameCenterModule.dll",
+      "include": "UnityEngine.GameCenterModule",
+      "root": "interop",
+      "sha256": "d17a3049f8eb4165af53f41c79ec0138b942a3115b074b87f0d9366e09a2fb74"
+    },
+    {
+      "logicalName": "UnityEngine.GraphicsStateCollectionSerializerModule.dll",
+      "include": "UnityEngine.GraphicsStateCollectionSerializerModule",
+      "root": "interop",
+      "sha256": "0bca36d87633cfe7a84569eab2d1e615c1ae0a5a4250ddfdca53dd1347ba3676"
+    },
+    {
+      "logicalName": "UnityEngine.GridModule.dll",
+      "include": "UnityEngine.GridModule",
+      "root": "interop",
+      "sha256": "2bc773cc330c7e87f6ab52498d54a7cd1ac4dc3bdc99bf17bce5460492c8cc73"
+    },
+    {
+      "logicalName": "UnityEngine.HierarchyCoreModule.dll",
+      "include": "UnityEngine.HierarchyCoreModule",
+      "root": "interop",
+      "sha256": "b96404cf12c442c9b14a2675f87b8b0383df906d894402164c516e539847a594"
+    },
+    {
+      "logicalName": "UnityEngine.HotReloadModule.dll",
+      "include": "UnityEngine.HotReloadModule",
+      "root": "interop",
+      "sha256": "55e03002825ce5dff5874090f4f81e4ad084d6e0a22d6575a0223d1e4fb1afe0"
+    },
+    {
+      "logicalName": "UnityEngine.IMGUIModule.dll",
+      "include": "UnityEngine.IMGUIModule",
+      "root": "interop",
+      "sha256": "5a39d47c352d9112cc43ad12d494b95dbcbb09b3230509852e11abd9846545c5"
+    },
+    {
+      "logicalName": "UnityEngine.ImageConversionModule.dll",
+      "include": "UnityEngine.ImageConversionModule",
+      "root": "interop",
+      "sha256": "c482c1701461553eaa81551a5a1c4bf753e3a144175b68ee007e53866c2f3935"
+    },
+    {
+      "logicalName": "UnityEngine.InputForUIModule.dll",
+      "include": "UnityEngine.InputForUIModule",
+      "root": "interop",
+      "sha256": "fb8849afdd5bf8c83e8d9c91a75173d7f66a291286c531598913521c0cceddd1"
+    },
+    {
+      "logicalName": "UnityEngine.InputLegacyModule.dll",
+      "include": "UnityEngine.InputLegacyModule",
+      "root": "interop",
+      "sha256": "bbeba7dad69a69f3be3a6e50a009f953d9c27ee09c2e4386120986a54f1213c0"
+    },
+    {
+      "logicalName": "UnityEngine.InputModule.dll",
+      "include": "UnityEngine.InputModule",
+      "root": "interop",
+      "sha256": "d84e0e6d010511496bf147913c81519eadc896c6d62d794925b92c962058af50"
+    },
+    {
+      "logicalName": "UnityEngine.JSONSerializeModule.dll",
+      "include": "UnityEngine.JSONSerializeModule",
+      "root": "interop",
+      "sha256": "b3356c58e9914971aa01a56cddc8e766563eb331151664dac0ecb25385cfbba3"
+    },
+    {
+      "logicalName": "UnityEngine.LocalizationModule.dll",
+      "include": "UnityEngine.LocalizationModule",
+      "root": "interop",
+      "sha256": "0d7b94190d9b3feefd8d2429fa4e7c697a729f26c14a1f163260c4d071c5907b"
+    },
+    {
+      "logicalName": "UnityEngine.MarshallingModule.dll",
+      "include": "UnityEngine.MarshallingModule",
+      "root": "interop",
+      "sha256": "b4a686a829cc6af8c263df97d7657db138d713ab47980766fd804de173244cf4"
+    },
+    {
+      "logicalName": "UnityEngine.MultiplayerModule.dll",
+      "include": "UnityEngine.MultiplayerModule",
+      "root": "interop",
+      "sha256": "353058acab0fe2c8b22e914334433ac91aa7dbf95c74c8bcbe02c6b5ffe02f5c"
+    },
+    {
+      "logicalName": "UnityEngine.ParticleSystemModule.dll",
+      "include": "UnityEngine.ParticleSystemModule",
+      "root": "interop",
+      "sha256": "663652c89137add3a9b88d0b88cd4d6acadd86f1b0d1ce6710c380d7c328a805"
+    },
+    {
+      "logicalName": "UnityEngine.PerformanceReportingModule.dll",
+      "include": "UnityEngine.PerformanceReportingModule",
+      "root": "interop",
+      "sha256": "fbf760d20b8723343db8e14893031ccd79a85e7d5998c670d4af3d929ac0d779"
+    },
+    {
+      "logicalName": "UnityEngine.Physics2DModule.dll",
+      "include": "UnityEngine.Physics2DModule",
+      "root": "interop",
+      "sha256": "0d6b977994f4868591fc9f3816cba5db07e9daff448ad33db79f65e73590a673"
+    },
+    {
+      "logicalName": "UnityEngine.PhysicsModule.dll",
+      "include": "UnityEngine.PhysicsModule",
+      "root": "interop",
+      "sha256": "9cfc70572ba8d14152519fc48f88c4cbefdbe1732ef34342fce89f376078520b"
+    },
+    {
+      "logicalName": "UnityEngine.PropertiesModule.dll",
+      "include": "UnityEngine.PropertiesModule",
+      "root": "interop",
+      "sha256": "d7c36d6236405d3e2d0abb42eefd8518dde1a8a2bbcef98c8bf73d53783e8a71"
+    },
+    {
+      "logicalName": "UnityEngine.RuntimeInitializeOnLoadManagerInitializerModule.dll",
+      "include": "UnityEngine.RuntimeInitializeOnLoadManagerInitializerModule",
+      "root": "interop",
+      "sha256": "e589b1b25c5cd8d15b69db23ef3d9c13a45176341691a4927065639b0873a870"
+    },
+    {
+      "logicalName": "UnityEngine.ScreenCaptureModule.dll",
+      "include": "UnityEngine.ScreenCaptureModule",
+      "root": "interop",
+      "sha256": "d0886134652881d74ac6cc6f80d7283a333dc5ea6872a6b034208d5ca51a7c75"
+    },
+    {
+      "logicalName": "UnityEngine.ShaderVariantAnalyticsModule.dll",
+      "include": "UnityEngine.ShaderVariantAnalyticsModule",
+      "root": "interop",
+      "sha256": "c072aee940b89d56cfda34ab92bbf950d1ea4841ba9eb383fc1a137ab6d359e7"
+    },
+    {
+      "logicalName": "UnityEngine.SharedInternalsModule.dll",
+      "include": "UnityEngine.SharedInternalsModule",
+      "root": "interop",
+      "sha256": "36a32e8f5fe601084f09ce9658b0a5e67bd2bfd5907951fd0da139caa3c8ea22"
+    },
+    {
+      "logicalName": "UnityEngine.SpriteMaskModule.dll",
+      "include": "UnityEngine.SpriteMaskModule",
+      "root": "interop",
+      "sha256": "70ad51375f171927e9087d66d84da7538c472f49c8532cd1bbc31c9c6e2b4bb8"
+    },
+    {
+      "logicalName": "UnityEngine.SpriteShapeModule.dll",
+      "include": "UnityEngine.SpriteShapeModule",
+      "root": "interop",
+      "sha256": "c8627eaa07edca4470d45fdf4d4fed10d3d69aec1f6508d4a4da99367efdcd25"
+    },
+    {
+      "logicalName": "UnityEngine.StreamingModule.dll",
+      "include": "UnityEngine.StreamingModule",
+      "root": "interop",
+      "sha256": "e5c87d4b49cdcd4de4ee3f372715d6167d89e99ecc2173e824da71d6d4df7794"
+    },
+    {
+      "logicalName": "UnityEngine.SubstanceModule.dll",
+      "include": "UnityEngine.SubstanceModule",
+      "root": "interop",
+      "sha256": "771fb78ea562695fb43d5bc5eb835c01a6ef57020db57297c22d2942e5ccc957"
+    },
+    {
+      "logicalName": "UnityEngine.SubsystemsModule.dll",
+      "include": "UnityEngine.SubsystemsModule",
+      "root": "interop",
+      "sha256": "59a749bf3190929a8c61944e8a7a57a0badbee761408a996f52d845522a1689b"
+    },
+    {
+      "logicalName": "UnityEngine.TLSModule.dll",
+      "include": "UnityEngine.TLSModule",
+      "root": "interop",
+      "sha256": "25a58a427b12db93a638605f19e5c003f16ea44d533764a69e49a74c142733f8"
+    },
+    {
+      "logicalName": "UnityEngine.TerrainModule.dll",
+      "include": "UnityEngine.TerrainModule",
+      "root": "interop",
+      "sha256": "af44436ff2fb757282dbdbed2dc0038e7cdc344379026f27f7f212f69348e98f"
+    },
+    {
+      "logicalName": "UnityEngine.TerrainPhysicsModule.dll",
+      "include": "UnityEngine.TerrainPhysicsModule",
+      "root": "interop",
+      "sha256": "6cfd809ad6a98d21053891d4e9f4ceabb5c6668411a9683547e16337cb9a19bb"
+    },
+    {
+      "logicalName": "UnityEngine.TextCoreFontEngineModule.dll",
+      "include": "UnityEngine.TextCoreFontEngineModule",
+      "root": "interop",
+      "sha256": "f2c4fd2ee692c14d0680515c5e95663eb8c6badfca3fe2f7e28f5a39f8a6cd38"
+    },
+    {
+      "logicalName": "UnityEngine.TextCoreTextEngineModule.dll",
+      "include": "UnityEngine.TextCoreTextEngineModule",
+      "root": "interop",
+      "sha256": "b67d3e9b8b222714c53bcb7e619dd99c01b0e8ab879c99457cdbd05dcdf66108"
+    },
+    {
+      "logicalName": "UnityEngine.TextRenderingModule.dll",
+      "include": "UnityEngine.TextRenderingModule",
+      "root": "interop",
+      "sha256": "6fa1c6f1527e967c4ad294479c70199da0ad8ce7f4280d5813f7bed9ecbbc10c"
+    },
+    {
+      "logicalName": "UnityEngine.TilemapModule.dll",
+      "include": "UnityEngine.TilemapModule",
+      "root": "interop",
+      "sha256": "97b870524617805a47103d0c02c88f199be0b89eecf2fc510fd93034c1046364"
+    },
+    {
+      "logicalName": "UnityEngine.UI.dll",
+      "include": "UnityEngine.UI",
+      "root": "interop",
+      "sha256": "319e23cf5a72a277dc557d882fa1d5d055b9bb3293c0944eb3d2d11bb2bea948"
+    },
+    {
+      "logicalName": "UnityEngine.UIElementsModule.dll",
+      "include": "UnityEngine.UIElementsModule",
+      "root": "interop",
+      "sha256": "9dc215eab9b9a43e5abd9c3bd1b79c575a4b0f150588fc7a0c425e935c5b6859"
+    },
+    {
+      "logicalName": "UnityEngine.UIModule.dll",
+      "include": "UnityEngine.UIModule",
+      "root": "interop",
+      "sha256": "105ebde48f1cbb3fcbd09a8ae50991d93dd9d326aef1bafedabdf0e8b746fc37"
+    },
+    {
+      "logicalName": "UnityEngine.UmbraModule.dll",
+      "include": "UnityEngine.UmbraModule",
+      "root": "interop",
+      "sha256": "2a684119ccbdd6658c6e06f5076fb7789aad147bbb5b37731a914ae11500212f"
+    },
+    {
+      "logicalName": "UnityEngine.UnityAnalyticsCommonModule.dll",
+      "include": "UnityEngine.UnityAnalyticsCommonModule",
+      "root": "interop",
+      "sha256": "77d5e8c0ca381851abacb47c8dea5695b6a6ca6ad9744679dfa6c2989ea490c8"
+    },
+    {
+      "logicalName": "UnityEngine.UnityAnalyticsModule.dll",
+      "include": "UnityEngine.UnityAnalyticsModule",
+      "root": "interop",
+      "sha256": "9ed5fbc9041d78fbdefa9a2206351337a5ef796c30f0835cfc0d444f51426cee"
+    },
+    {
+      "logicalName": "UnityEngine.UnityConnectModule.dll",
+      "include": "UnityEngine.UnityConnectModule",
+      "root": "interop",
+      "sha256": "c1c50aec8e07aac70da79c3abc777684ed6a06b89b8e5079894fcbc800cf505d"
+    },
+    {
+      "logicalName": "UnityEngine.UnityCurlModule.dll",
+      "include": "UnityEngine.UnityCurlModule",
+      "root": "interop",
+      "sha256": "c6a7c1efec1169781668e51eb87248b588f567a54c24eb9884d124eb27257943"
+    },
+    {
+      "logicalName": "UnityEngine.UnityTestProtocolModule.dll",
+      "include": "UnityEngine.UnityTestProtocolModule",
+      "root": "interop",
+      "sha256": "3b04f03828518bf9a0687b5b5de6d56ee934af78ac96035a74d7cfe0072b856b"
+    },
+    {
+      "logicalName": "UnityEngine.UnityWebRequestAssetBundleModule.dll",
+      "include": "UnityEngine.UnityWebRequestAssetBundleModule",
+      "root": "interop",
+      "sha256": "991213b53906eb48eb2713b5250a65f67268522a6185ba434a33d591affba61e"
+    },
+    {
+      "logicalName": "UnityEngine.UnityWebRequestAudioModule.dll",
+      "include": "UnityEngine.UnityWebRequestAudioModule",
+      "root": "interop",
+      "sha256": "e54c6a96fa03b38d1fea35685679dbfa7c09a33a4600730de1d37aa9c1e0539a"
+    },
+    {
+      "logicalName": "UnityEngine.UnityWebRequestModule.dll",
+      "include": "UnityEngine.UnityWebRequestModule",
+      "root": "interop",
+      "sha256": "e9d2bb385f0c556fd03b52a482f83e8e218eda41542f2d16074fa7b259022ff7"
+    },
+    {
+      "logicalName": "UnityEngine.UnityWebRequestTextureModule.dll",
+      "include": "UnityEngine.UnityWebRequestTextureModule",
+      "root": "interop",
+      "sha256": "4c64664988ec22567f20960dfa2186a1239a2f6044f547dfa2979bbb13fed68b"
+    },
+    {
+      "logicalName": "UnityEngine.UnityWebRequestWWWModule.dll",
+      "include": "UnityEngine.UnityWebRequestWWWModule",
+      "root": "interop",
+      "sha256": "ba7851bcb7306bc84b6b5482124e83875b138804383713359e289b26c0f43671"
+    },
+    {
+      "logicalName": "UnityEngine.VFXModule.dll",
+      "include": "UnityEngine.VFXModule",
+      "root": "interop",
+      "sha256": "a4f78a11011e5ced6e54313db103f6239d47d00315f4b1d11fa3238b560722d9"
+    },
+    {
+      "logicalName": "UnityEngine.VRModule.dll",
+      "include": "UnityEngine.VRModule",
+      "root": "interop",
+      "sha256": "6c9aa25ca85e8d208e72b69cf26da9d64d87347102d9b80b0d286e6178b87cf4"
+    },
+    {
+      "logicalName": "UnityEngine.VehiclesModule.dll",
+      "include": "UnityEngine.VehiclesModule",
+      "root": "interop",
+      "sha256": "d866e1218187b67d7ab178073e3d49d13b8f2ad897123ce32c0ff7bd70fe04c5"
+    },
+    {
+      "logicalName": "UnityEngine.VideoModule.dll",
+      "include": "UnityEngine.VideoModule",
+      "root": "interop",
+      "sha256": "e8ef7b8f986d557eb25377827904965da7579bf1e6872efebdc0b6283b320fb3"
+    },
+    {
+      "logicalName": "UnityEngine.VirtualTexturingModule.dll",
+      "include": "UnityEngine.VirtualTexturingModule",
+      "root": "interop",
+      "sha256": "3e1378c804949415804f71928f90ce9503c9a5c07f7b2da4a82aca24c126ad5d"
+    },
+    {
+      "logicalName": "UnityEngine.WindModule.dll",
+      "include": "UnityEngine.WindModule",
+      "root": "interop",
+      "sha256": "f9437ebaadcc8d17b6c82c74f5776b8461f72727b142c627d0e92ac138d814b0"
+    },
+    {
+      "logicalName": "UnityEngine.XRModule.dll",
+      "include": "UnityEngine.XRModule",
+      "root": "interop",
+      "sha256": "21769ecec873e85fb724c2f46b7f29dab7a24c15aba08b2ec978e83ed420811b"
+    },
+    {
+      "logicalName": "UnityEngine.dll",
+      "include": "UnityEngine",
+      "root": "interop",
+      "sha256": "21ae3dd5e8fc99064c054828b56a8b3c0b305a7ab2c3bc45f3d67b2f789e6071"
+    },
+    {
+      "logicalName": "XGamingRuntime.dll",
+      "include": "XGamingRuntime",
+      "root": "interop",
+      "sha256": "abe70806ad1271121501c11e1ea99396e217438bc18399360d0105f3d794bef6"
+    },
+    {
+      "logicalName": "__Generated.dll",
+      "include": "__Generated",
+      "root": "interop",
+      "sha256": "6235147d748ee90cb1a2f239e77b1cd57d0a7718b30ad25cbd26f72597f9fc59"
+    },
+    {
+      "logicalName": "com.rlabrecque.steamworks.net.dll",
+      "include": "com.rlabrecque.steamworks.net",
+      "root": "interop",
+      "sha256": "9a6e69b05526b1faa253130bf4308093955dbb017503de95ff6083e323241139"
+    }
+  ]
+}

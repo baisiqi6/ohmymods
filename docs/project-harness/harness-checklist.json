@@ -1,7 +1,7 @@
 {
   "project": "ohmymods",
   "harness_root": "docs/project-harness",
-  "updated_at": "2026-09-20",
+  "updated_at": "2026-10-30",
   "items": [
     {
       "id": "identity-hardening-20260920",
@@ -2768,6 +2768,52 @@
         "acceptance": "docs/project-harness/tasks/tax-collector-batch-20260915/acceptance.md",
         "review": "docs/project-harness/tasks/tax-collector-batch-20260915/review.md",
         "install": "docs/project-harness/tasks/tax-collector-batch-20260915/receipts/install.json"
+      }
+    },
+    {
+      "id": "release-win243-1110-20261030",
+      "title": "Windows2.4.3 x64 v11.1.0发行",
+      "status": "todo",
+      "phase": "release",
+      "priority": "p1",
+      "owner": null,
+      "human_gate_required": true,
+      "plan_path": "docs/project-harness/tasks/issue-307/plan.md",
+      "artifact_path": "docs/project-harness/tasks/issue-307/plan.md",
+      "acceptance": "Use the plan acceptance criteria as source of truth: docs/project-harness/tasks/issue-307/plan.md",
+      "blocked_by": [],
+      "blocked_reason": "",
+      "dependencies": [],
+      "handoff": {
+        "from": null,
+        "to": null,
+        "reason": null
+      },
+      "selected_in_session": null,
+      "updated_at": "2026-10-30T14:14:37Z",
+      "workflow": {
+        "status": "todo",
+        "branch": null,
+        "updated_at": "2026-10-30T14:14:37Z"
+      },
+      "artifacts": {
+        "plan": "docs/project-harness/tasks/issue-307/plan.md"
+      },
+      "verification": "",
+      "review": {},
+      "split_operation": {
+        "contract_version": 1,
+        "operation_id": "599cd930-f53a-4e6f-b806-725f5456b83e",
+        "operation_kind": "task.create",
+        "workspace_id": "ohmymods",
+        "target_kind": "checklist_task",
+        "target_id": "release-win243-1110-20261030",
+        "source_kind": null,
+        "source_id": null,
+        "input_fingerprint": "2cf6dcee89c0843cdc72bb0346262c18c3bb3c2ffae235964fb1e9fc704301d2",
+        "before_fingerprint": "55ebfaff6db1a93b832219deb4b3d4b83392c6063b643a540ff89b26dc65e3a7",
+        "after_fingerprint": "db4b6f8da460db472f92cbd4f00edcebc152166f3f360c013fad2b759ca2f705",
+        "files_applied_at": "2026-10-30T14:14:37Z"
       }
     }
   ]

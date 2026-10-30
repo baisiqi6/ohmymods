@@ -1,0 +1,43 @@
+OhMyMods Windows 2.4.3 / 11.1.0 发行说明与第三方声明
+
+一、包范围与游戏版本
+本包仅支持 Kingdom Two Crowns: Call of Olympus Windows x64 2.4.3r23537
+（Unity 6000.0.66f2）。启动器只按本包记录的 KingdomTwoCrowns.exe、
+GameAssembly.dll 与 global-metadata.dat 的 SHA-256 校验用户已有的游戏文件；
+游戏更新后 hash 不匹配时拒绝启动，不泛称兼容任意 2.4.3 或 2.4.0。
+
+二、不包含游戏本体
+本包不包含 GameAssembly.dll、global-metadata.dat、UnityPlayer.dll、
+KingdomTwoCrowns.exe、原始游戏程序集/资源/源代码、游戏存档、ModSave、
+缓存、日志或私人 Mod 配置。使用者必须自行合法拥有并安装游戏。
+BepInEx/config/BepInEx.cfg 只预置四个 IL2CPP 运行键，其余设置由 loader
+在首次启动时生成；本包不携带他人配置或存档。
+
+三、生成的 interop 绑定
+BepInEx/interop/ 下的 131 个 DLL 和 2 个数据库是 Cpp2IL / Il2CppInterop
+根据本游戏 GameAssembly.dll（SHA-256
+cb3f28d73766c9ffb035512161bea1ad82835b0684330ce12f5d83da365e2342）和
+global-metadata.dat（SHA-256
+b10a5c6e7ae16c5526c93d6c81cf5b821ef4e62ecbe4c8d7a23a7c8f93ed01c8）
+生成的包装与地址映射，不是原游戏的 C# 方法实现，也不包含原始游戏代码。
+这些绑定只对上述 2.4.3r23537 x64 文件有效，不能移植到其他游戏版本。
+BepInEx 的 UpdateInteropAssemblies 固定为 false；不要改为 true 或删除
+BepInEx/interop。当前 be752 loader 在缺少 assembly-hash 且启用重新生成时会
+删除并重建已有绑定，从而破坏本包锁定的运行链。
+
+四、第三方组件与许可证
+本包原样附带以下 loader/runtime 组件，未修改其二进制：
+- BepInEx 6.0.0-be.752（LGPL-2.1，https://github.com/BepInEx/BepInEx）
+- UnityDoorstop 4.3.0（LGPL-2.1，https://github.com/NeighTools/UnityDoorstop）
+- Il2CppInterop 1.5.1（LGPL-3.0，https://github.com/BepInEx/Il2CppInterop）
+- .NET 6.0.7 runtime（MIT，https://github.com/dotnet/runtime）
+BepInEx/core 还包含 Cpp2IL、Mono.Cecil、AsmResolver、MonoMod、HarmonyX、
+Iced、Capstone 等依赖，各自适用其上游许可证；本包不改变这些组件的许可，
+许可证与对应源码可从上述项目及其依赖仓库获取。
+BepInEx/unity-libs 下的 Unity 基础程序集与 6000.0.66.zip 版权归
+Unity Technologies，按 Unity 的许可条款随用户已安装的 Unity 运行库使用。
+
+五、验证边界
+打包器只验证文件 SHA-256、包内 CRC 和配置四个关键键，不启动游戏，也不
+替代 Root 对正式 DLL 的程序集元数据、嵌入资源（38 项）和 IL 等价性验证。
+本包不声明性能提升；已知问题与实机边界以发行说明为准。

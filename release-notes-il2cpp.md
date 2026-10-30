@@ -1,4 +1,16 @@
-# Kingdom Enhanced Mod V11.0.0 — IL2CPP（Mac ARM64）
+# Kingdom Enhanced Mod V11.1.0 — Windows 2.4.3 r23537 x64
+
+2026-10-30。本批按已实玩 Windows 修复链独立发行，包含固定加载运行依赖、2.4.3 生成绑定和 Mod；不含游戏本体或存档。版本按整批兼容新功能一次递增 MINOR，旧平台版本不重编号。
+
+Windows 本批新增/累计内容包括双坐骑岛与 8+8 获取点、28+28 一次性宝石箱、宝石盾卫与修盾/随旗、跨世界商店、全世界钱袋外观、储存钻石 HUD、火铳铺快速购买与其他 ≥7 金币项目的单笔加速；修复 2.4.3 保存协程接线、航行选岛输入与付费火枪手运输身份问题。皇冠窃贼恢复原生速度。详见 [Windows 安装与功能说明](release/windows243-11.1.0/README.txt) 和 [本批更新说明](release/windows243-11.1.0/MOD_V11.1.0版本更新说明.txt)。
+
+人口增长造成的低帧率仍在调查；临时计时及未定案优化不纳入。已有第一岛出航、生成、剪影和保存冷重进玩家证据；发行重建未另行启动游戏，不扩大为联机、第二岛、四世界商店全流程通过。当前 Windows 闭包没有下方 Mac 宫廷功能。
+
+本批只支持包内启动器指纹匹配的 Windows 2.4.3 r23537 x64。Windows 2.4.0 继续使用 v10.8.35；Mac ARM64 仍使用 v11.0.0；Android 不随本批发布。实际 tag、资产和校验值见对应 GitHub Release，准备材料不表示已发布。
+
+---
+
+# Kingdom Enhanced Mod V11.0.0 — IL2CPP（Mac ARM64，历史独立批次）
 
 2026-10-25 · 适用 Apple Silicon Mac、Kingdom Two Crowns: Call of Olympus 2.4.0 r23485（Unity 6000.0.61f1）/ BepInEx 6
 
