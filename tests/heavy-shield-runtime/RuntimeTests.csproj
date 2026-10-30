@@ -25,6 +25,7 @@
     <Compile Include="../../il2cpp/Patch_HeavyShieldLeapBash.cs" Link="Production/Patch_HeavyShieldLeapBash.cs" />
     <Compile Include="../../il2cpp/Patch_HeavyShieldGait.cs" Link="Production/Patch_HeavyShieldGait.cs" />
     <Compile Include="$(HeavyShieldActorVisualsSource)" Link="Production/HeavyShieldActorVisuals.cs" />
+    <Compile Include="../../il2cpp/Patch_HeavyShieldBlockFx.cs" Link="Production/Patch_HeavyShieldBlockFx.cs" />
     <Compile Include="../../il2cpp/HeavyShieldContracts.cs" Link="Production/HeavyShieldContracts.cs" />
     <Compile Include="../../il2cpp/HeavyShieldQuota.cs" Link="Production/HeavyShieldQuota.cs" />
     <Compile Include="../../il2cpp/PatchRoles_HeavyShieldArt.cs" Link="Production/ArtLayout.cs" />

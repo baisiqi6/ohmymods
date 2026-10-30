@@ -28,7 +28,7 @@ namespace Il2CppInterop.Runtime.Injection
 { public static class ClassInjector { public static bool IsTypeRegisteredInIl2Cpp(Type t)=>true; public static void RegisterTypeInIl2Cpp<T>(){} public static void RegisterTypeInIl2Cpp(Type t){} } }
 namespace UnityEngine
 {
-    public class Object : Il2CppInterop.Runtime.InteropTypes.Il2CppObjectBase { public virtual int GetInstanceID()=>Pointer.ToInt32();public static void Destroy(Object o) { if(o is GameObject g){g.SetActive(false);g.SendMessage("OnDestroy");} } }
+    public class Object : Il2CppInterop.Runtime.InteropTypes.Il2CppObjectBase { public virtual int GetInstanceID()=>Pointer.ToInt32();public static void Destroy(Object o) { if(o is GameObject g){g.SetActive(false);g.SendMessage("OnDestroy");} else if(o is Texture2D t)t.Destroyed=true; else if(o is Sprite s)s.Destroyed=true; } }
     public class Component : Object { public GameObject gameObject; public Transform transform=>gameObject.transform;
         public T GetComponentInChildren<T>() where T:Component=>gameObject.GetComponent<T>(); public T GetComponent<T>() where T:Component=>gameObject.GetComponent<T>(); }
     public class Behaviour : Component { protected bool On=true;public int EnabledWrites;public bool isActiveAndEnabled=>enabled&&gameObject!=null&&gameObject.activeInHierarchy;
@@ -37,9 +37,9 @@ namespace UnityEngine
     public class MonoBehaviour : Behaviour { public MonoBehaviour(){} public MonoBehaviour(IntPtr p){Pointer=p;} }
     public class GameObject : Object
     {
-        private static int NextId; public static int LifeAdds; private int Id=++NextId; public string name; public int layer; public bool activeInHierarchy=true;
+        private static int NextId; public static int LifeAdds,Created; private int Id=++NextId; public string name; public int layer; public bool activeInHierarchy=true;
         public Transform transform; public Scene scene; public Dictionary<Type,Component> Components=new();
-        public GameObject(string n="root"){NativeBoundaryWrites.Count++;name=n;transform=new Transform{gameObject=this};}
+        public GameObject(string n="root"){NativeBoundaryWrites.Count++;Created++;name=n;transform=new Transform{gameObject=this};}
         public override int GetInstanceID()=>Id;
         public T AddComponent<T>() where T:Component
         { NativeBoundaryWrites.Count++;var ctor=typeof(T).GetConstructor(new[]{typeof(IntPtr)}); T c=(T)(ctor!=null?ctor.Invoke(new object[]{(IntPtr)(Id+10000)}):Activator.CreateInstance(typeof(T)));
@@ -65,9 +65,34 @@ namespace UnityEngine
         public static Vector3 zero=>new();public static Vector3 one=>new(1,1,1);
         public static Vector3 operator -(Vector3 a,Vector3 b)=>new(a.x-b.x,a.y-b.y,a.z-b.z); }
     public struct Quaternion { public static Quaternion identity=>new(); }
-    public struct Color { public int Value; public Color(int n){Value=n;} public static bool operator ==(Color a,Color b)=>a.Value==b.Value;
-        public static bool operator !=(Color a,Color b)=>a.Value!=b.Value;public override bool Equals(object o)=>o is Color c&&c==this;public override int GetHashCode()=>Value; }
-    public class Sprite : Object {}
+    public struct Color { public int Value; public float r,g,b,a;
+        public Color(int n){Value=n;r=g=b=a=1f;} public Color(float rr,float gg,float bb,float aa=1f){Value=0;r=rr;g=gg;b=bb;a=aa;}
+        public static bool operator ==(Color x,Color y)=>x.Value==y.Value&&x.r==y.r&&x.g==y.g&&x.b==y.b&&x.a==y.a;
+        public static bool operator !=(Color x,Color y)=>!(x==y);public override bool Equals(object o)=>o is Color c&&c==this;public override int GetHashCode()=>Value; }
+    public struct Color32 { public byte r,g,b,a; public Color32(byte rr,byte gg,byte bb,byte aa){r=rr;g=gg;b=bb;a=aa;} }
+    public struct Rect { public float x,y,width,height; public Rect(float xx,float yy,float w,float h){x=xx;y=yy;width=w;height=h;} }
+    public enum TextureFormat { RGBA32=4, ARGB32=5 }
+    public enum FilterMode { Point=0, Bilinear=1 }
+    public enum TextureWrapMode { Repeat=0, Clamp=1 }
+    public enum SpriteMeshType { FullRect=0, Tight=1 }
+    public class Texture2D : Object
+    {
+        public int width,height; public TextureFormat format; public FilterMode filterMode; public TextureWrapMode wrapMode; public int anisoLevel;
+        private Color32[] Pixels; public int GetPixels32Calls,SetPixels32Calls,ApplyCalls; public bool Unreadable,Destroyed;
+        public Texture2D(int w,int h,TextureFormat f,bool mipmaps){width=w;height=h;format=f;Pixels=new Color32[w*h];}
+        public Color32[] GetPixels32(){GetPixels32Calls++;if(Unreadable)throw new Exception("texture not readable");var copy=new Color32[Pixels.Length];Array.Copy(Pixels,copy,Pixels.Length);return copy;}
+        public void SetPixels32(Color32[] pixels){SetPixels32Calls++;if(pixels==null||pixels.Length!=Pixels.Length)throw new Exception("texture pixel length");Array.Copy(pixels,Pixels,Pixels.Length);}
+        public void Apply(bool updateMipmaps,bool makeNoLongerReadable){ApplyCalls++;}
+        public ulong GetImageDataSize()=>(ulong)(Pixels.Length*4);
+        public IntPtr GetWritableImageData(int mipLevel)=>IntPtr.Zero;
+    }
+    public class Sprite : Object
+    {
+        public static int CreateCalls; public Texture2D texture; public Rect rect; public float pixelsPerUnit; private Vector2 Pivot; public bool Destroyed;
+        public Vector2 pivot=>Pivot;
+        public static Sprite Create(Texture2D texture,Rect rect,Vector2 pivot,float pixelsPerUnit,uint extrude,SpriteMeshType meshType)
+        {CreateCalls++;if(texture==null)throw new Exception("sprite texture required");return new Sprite{texture=texture,rect=rect,Pivot=new Vector2(pivot.x*rect.width,pivot.y*rect.height),pixelsPerUnit=pixelsPerUnit};}
+    }
     public class RuntimeAnimatorController : Object {}
     public class Animator : Behaviour {public RuntimeAnimatorController runtimeAnimatorController=new();public float Speed;public bool ReadFails;public int SpeedReads;public static int StringReads,IntReads;
         // Unity's string overload is StringToHash(name) + GetFloat(int); the Android 2.4 player has no
@@ -97,17 +122,21 @@ namespace UnityEngine
 #endif
     }
     public class SpriteRenderer : Renderer { public bool flipX;
+        public static Action<SpriteRenderer,bool> BeforeEnabledChange;
+        public override bool enabled { get=>base.enabled; set { BeforeEnabledChange?.Invoke(this,value);base.enabled=value; } }
 #if ANDROID
         public static int FlipYReads,FlipYWrites;
         public bool flipY{get{FlipYReads++;throw new Exception("Android 2.4 SpriteRenderer has no flipY getter");}set{FlipYWrites++;throw new Exception("Android 2.4 SpriteRenderer has no flipY setter");}}
 #else
         public bool flipY;
 #endif
-        public int sortingLayerID,sortingOrder;public Color color;
+        public int sortingLayerID,sortingOrder;public Color color=new(1f,1f,1f,1f);
         public Sprite sprite;public Material sharedMaterial=new(); public void GetPropertyBlock(MaterialPropertyBlock b){}public void SetPropertyBlock(MaterialPropertyBlock b){NativeBoundaryWrites.Count++;} }
     public class Rigidbody2D : Component {public bool VelocityReadFails;public int VelocityReads;private Vector2 Velocity;
         public Vector2 velocity {get{VelocityReads++;if(VelocityReadFails)throw new Exception("physical velocity unavailable");return Velocity;}set=>Velocity=value;} }
-    public static class Time {public static float time,deltaTime=.2f,timeScale=1,unscaledTime;public static int frameCount {get;set;}public static double unscaledTimeAsDouble {get;set;}}
+    public static class Time {public static float time,deltaTime=.2f,timeScale=1,unscaledTime;public static int frameCount {get;set;}public static bool UnscaledFails;
+        private static double Unscaled;
+        public static double unscaledTimeAsDouble {get{if(UnscaledFails)throw new Exception("clock unavailable");return Unscaled;}set{Unscaled=value;}}}
 }
 #if ANDROID
 namespace Il2CppCoatsink.Common { public class IHaglet : Il2CppInterop.Runtime.InteropTypes.Il2CppObjectBase {}
@@ -234,7 +263,57 @@ namespace KingdomEnhancedMod
     internal static class ModConfig {internal static BoolConfig Enabled=new(),HeavyShieldEnabled=new();}
     internal class Logger {internal int Warnings,Infos;internal void LogWarning(string s){Warnings++;}internal void LogInfo(string s){Infos++;} }
     internal class KingdomEnhancedPlugin {internal static KingdomEnhancedPlugin Instance=new();internal Logger LogSource=new();}
-    internal static class HeavyShieldArt {internal static bool Available=true;internal static bool TryGetSoldierSprite(int n,out UnityEngine.Sprite sprite){sprite=Available?new():null;return Available;} }
+    internal static class HeavyShieldArt
+    {
+        internal static bool Available=true;internal static int SpriteReads;
+        private static readonly UnityEngine.Texture2D[] Textures=new UnityEngine.Texture2D[2];
+        private static readonly UnityEngine.Sprite[][] Frames={new UnityEngine.Sprite[HeavyShieldArtLayout.SoldierFrameCount],new UnityEngine.Sprite[HeavyShieldArtLayout.SoldierFrameCount]};
+        internal static bool TryGetSoldierSprite(int n,out UnityEngine.Sprite sprite)=>TryGetSoldierSprite(n,HeavyShieldArtDensity.Detail,out sprite);
+        internal static bool TryGetSoldierSprite(int n,HeavyShieldArtDensity density,out UnityEngine.Sprite sprite)
+        {
+            sprite=null;if(!Available||n<0||n>=HeavyShieldArtLayout.SoldierFrameCount)return false;
+            int d=density==HeavyShieldArtDensity.Coarse?1:density==HeavyShieldArtDensity.Detail?0:-1;if(d<0)return false;
+            var texture=Textures[d]??(Textures[d]=MakeTexture(d==1));
+            var rows=Frames[d];sprite=rows[n]??(rows[n]=MakeSprite(texture,d==1,n));SpriteReads++;return sprite!=null;
+        }
+        // A fixed, varied source atlas: stable texture identity, binary/partial alpha and
+        // several luminance levels so the palette can be inspected without game assets.
+        private static UnityEngine.Texture2D MakeTexture(bool coarse)
+        {
+            int width=coarse?HeavyShieldArtLayout.SoldierColumns*HeavyShieldArtLayout.SoldierCoarseCellWidth:HeavyShieldArtLayout.SoldierSheetWidth;
+            int height=coarse?HeavyShieldArtLayout.SoldierRows*HeavyShieldArtLayout.SoldierCoarseCellHeight:HeavyShieldArtLayout.SoldierSheetHeight;
+            var texture=new UnityEngine.Texture2D(width,height,UnityEngine.TextureFormat.RGBA32,false);
+            var pixels=new UnityEngine.Color32[width*height];
+            for(int y=0;y<height;y++)
+            {
+                int row=y*width;
+                for(int x=0;x<width;x++)
+                {
+                    bool clear=(x%11)<2&&(y%7)<2;
+                    byte v=(byte)((x*7+y*13)&255);
+                    pixels[row+x]=clear?new UnityEngine.Color32(0,0,0,0)
+                        :new UnityEngine.Color32((byte)(v/3),v,(byte)(255-v),(byte)(x%23==0?128:255));
+                }
+            }
+            texture.SetPixels32(pixels);texture.filterMode=UnityEngine.FilterMode.Point;
+            texture.wrapMode=UnityEngine.TextureWrapMode.Clamp;texture.anisoLevel=0;texture.Apply(false,false);
+            return texture;
+        }
+        private static UnityEngine.Sprite MakeSprite(UnityEngine.Texture2D texture,bool coarse,int frame)
+        {
+            int cellWidth=coarse?HeavyShieldArtLayout.SoldierCoarseCellWidth:HeavyShieldArtLayout.SoldierCellWidth;
+            int cellHeight=coarse?HeavyShieldArtLayout.SoldierCoarseCellHeight:HeavyShieldArtLayout.SoldierCellHeight;
+            int columns=HeavyShieldArtLayout.SoldierColumns;
+            int rows=HeavyShieldArtLayout.SoldierRows;
+            int column=frame%columns,row=frame/columns;
+            float y=(rows-1-row)*cellHeight;
+            var rect=new UnityEngine.Rect(column*cellWidth,y,cellWidth,cellHeight);
+            var pivot=coarse?new UnityEngine.Vector2(HeavyShieldArtLayout.SoldierCoarsePivotX,HeavyShieldArtLayout.SoldierCoarsePivotY)
+                :new UnityEngine.Vector2(HeavyShieldArtLayout.SoldierPivotX,HeavyShieldArtLayout.SoldierPivotY);
+            float ppu=coarse?HeavyShieldArtLayout.SoldierCoarsePixelsPerUnit:HeavyShieldArtLayout.SoldierPixelsPerUnit;
+            return UnityEngine.Sprite.Create(texture,rect,pivot,ppu,0u,UnityEngine.SpriteMeshType.FullRect);
+        }
+    }
     internal static class HeroArcherRuntime {internal static bool IsHero(Archer a)=>false;}
     internal static class MusketeerRuntime {internal static bool IsMusketeer(Archer a)=>false;}
     internal static class HeavyShieldIdentity
@@ -304,3 +383,19 @@ namespace KingdomEnhancedMod
         internal static void EndNativeGeneration(GenerationCapture c,CampaignSaveData s,bool n){}
     }
 }
+#if ANDROID
+namespace KingdomEnhancedMod
+{
+    /// <summary>Host stand-in only: the device build links android/AndroidTexturePixels.cs.</summary>
+    internal static class AndroidTexturePixels
+    {
+        internal static int ReadCalls;
+        internal static UnityEngine.Color32[] ReadOwnedPng(UnityEngine.Texture2D texture, int width, int height)
+        {
+            ReadCalls++;
+            if (texture == null) throw new InvalidOperationException("texture required");
+            return texture.GetPixels32();
+        }
+    }
+}
+#endif
