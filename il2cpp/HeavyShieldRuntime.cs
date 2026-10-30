@@ -770,6 +770,7 @@ internal static class HeavyShieldRuntime
         if (!Persist(e)) { e.Attached = false; HeavyShieldActorVisuals.Suspend(e.Carrier, handle.Life); }
         HeavyShieldActorVisuals.Trigger(e.Carrier, handle.Life,
             result == HeavyShieldBlockPolicy.HitResult.ShieldBroken ? HeavyShieldAction.Break : HeavyShieldAction.Block);
+        HeavyShieldActorVisuals.NotifySuccessfulBlock(e.Carrier, handle.Life);
         return true;
     }
     private static void Retire(Entry e)

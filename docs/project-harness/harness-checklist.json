@@ -2815,6 +2815,52 @@
         "after_fingerprint": "db4b6f8da460db472f92cbd4f00edcebc152166f3f360c013fad2b759ca2f705",
         "files_applied_at": "2026-10-30T14:14:37Z"
       }
+    },
+    {
+      "id": "shield-block-gem-fx-313",
+      "title": "Issue313 盾卫全身蓝紫格挡晶光",
+      "status": "todo",
+      "phase": "implementation",
+      "priority": "p1",
+      "owner": null,
+      "human_gate_required": true,
+      "plan_path": "docs/project-harness/tasks/issue-313/plan.md",
+      "artifact_path": "docs/project-harness/tasks/issue-313/plan.md",
+      "acceptance": "Use the plan acceptance criteria as source of truth: docs/project-harness/tasks/issue-313/plan.md",
+      "blocked_by": [],
+      "blocked_reason": "",
+      "dependencies": [],
+      "handoff": {
+        "from": null,
+        "to": null,
+        "reason": null
+      },
+      "selected_in_session": null,
+      "updated_at": "2026-10-30T20:22:16Z",
+      "workflow": {
+        "status": "todo",
+        "branch": null,
+        "updated_at": "2026-10-30T20:22:16Z"
+      },
+      "artifacts": {
+        "plan": "docs/project-harness/tasks/issue-313/plan.md"
+      },
+      "verification": "",
+      "review": {},
+      "split_operation": {
+        "contract_version": 1,
+        "operation_id": "e1202888-aaa3-4d25-b4d3-d2e4908aa466",
+        "operation_kind": "task.create",
+        "workspace_id": "ohmymods",
+        "target_kind": "checklist_task",
+        "target_id": "shield-block-gem-fx-313",
+        "source_kind": null,
+        "source_id": null,
+        "input_fingerprint": "2e8fa8d5d9433cd18149774663d927f4614ea725d0fe60c14f90165f47566d1e",
+        "before_fingerprint": "a1f8c36f10e30d1f9bd7da13df6106ed85f1323c57231b373506186cd291e48c",
+        "after_fingerprint": "941cf1d71488e5b5d53bda1fa829511890af490b63306f70e92dc848e87efdf5",
+        "files_applied_at": "2026-10-30T20:22:16Z"
+      }
     }
   ]
 }

@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>disable</Nullable>
+    <DefaultItemExcludes>$(DefaultItemExcludes);**/obj/**;**/bin/**</DefaultItemExcludes>
+    <DefineConstants>HEAVY_SHIELD_ART_CORE_ONLY</DefineConstants>
+    <!-- Defaults resolve inside the repository. Local staging may pass RepoRoot/FxRoot. -->
+    <RepoRoot Condition="'$(RepoRoot)'==''">$(MSBuildThisFileDirectory)../..</RepoRoot>
+    <FxRoot Condition="'$(FxRoot)'==''">$(RepoRoot)</FxRoot>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="$(RepoRoot)/il2cpp/Patch_HeavyShieldBanner.cs" Link="Production/Patch_HeavyShieldBanner.cs" />
+    <Compile Include="$(RepoRoot)/il2cpp/Patch_HeavyShieldBannerPolicy.cs" Link="Production/Patch_HeavyShieldBannerPolicy.cs" />
+    <Compile Include="$(RepoRoot)/il2cpp/Patch_HeavyShieldDurabilityMigration.cs" Link="Production/Patch_HeavyShieldDurabilityMigration.cs" />
+    <Compile Include="$(RepoRoot)/il2cpp/Patch_HeavyShieldMaintenancePolicy.cs" Link="Production/Patch_HeavyShieldMaintenancePolicy.cs" />
+    <Compile Include="$(RepoRoot)/il2cpp/Patch_HeavyShieldRepair.cs" Link="Production/Patch_HeavyShieldRepair.cs" />
+    <Compile Include="$(RepoRoot)/il2cpp/HeavyShieldRuntime.cs" Link="Production/HeavyShieldRuntime.cs" />
+    <Compile Include="$(RepoRoot)/il2cpp/AndroidUnityCompat.cs" Link="Production/AndroidUnityCompat.cs" />
+    <Compile Include="$(RepoRoot)/il2cpp/HeavyShieldCombat.cs" Link="Production/HeavyShieldCombat.cs" />
+    <Compile Include="$(RepoRoot)/il2cpp/HeavyShieldNativeHooks.cs" Link="Production/HeavyShieldNativeHooks.cs" />
+    <Compile Include="$(RepoRoot)/il2cpp/PatchPerf_HeavyShieldHookQuery.cs" Link="Production/PatchPerf_HeavyShieldHookQuery.cs" />
+    <Compile Include="$(RepoRoot)/il2cpp/HeavyShieldIntegration.cs" Link="Production/HeavyShieldIntegration.cs" />
+    <Compile Include="$(RepoRoot)/il2cpp/HeavyShieldBlockPolicy.cs" Link="Production/HeavyShieldBlockPolicy.cs" />
+    <Compile Include="$(RepoRoot)/il2cpp/Patch_HeavyShieldLeapBash.cs" Link="Production/Patch_HeavyShieldLeapBash.cs" />
+    <Compile Include="$(RepoRoot)/il2cpp/Patch_HeavyShieldGait.cs" Link="Production/Patch_HeavyShieldGait.cs" />
+    <Compile Include="$(FxRoot)/il2cpp/HeavyShieldActorVisuals.cs" Link="Production/HeavyShieldActorVisuals.cs" />
+    <Compile Include="$(FxRoot)/il2cpp/Patch_HeavyShieldBlockFx.cs" Link="Production/Patch_HeavyShieldBlockFx.cs" />
+    <Compile Include="$(RepoRoot)/il2cpp/HeavyShieldContracts.cs" Link="Production/HeavyShieldContracts.cs" />
+    <Compile Include="$(RepoRoot)/il2cpp/HeavyShieldQuota.cs" Link="Production/HeavyShieldQuota.cs" />
+    <Compile Include="$(RepoRoot)/il2cpp/PatchRoles_HeavyShieldArt.cs" Link="Production/ArtLayout.cs" />
+    <Compile Include="$(RepoRoot)/il2cpp/CombatTargetLife.cs" Link="Production/CombatTargetLife.cs" />
+    <Compile Include="$(RepoRoot)/il2cpp/CombatDamage.cs" Link="Production/CombatDamage.cs" />
+    <Compile Include="$(FxRoot)/tests/heavy-shield-runtime/Stubs.cs" Link="Boundary/Stubs.cs" />
+    <Compile Include="$(RepoRoot)/tests/heavy-shield-runtime/BannerNativeBoundary.cs" Link="Boundary/BannerNativeBoundary.cs" />
+    <Compile Include="$(RepoRoot)/tests/custom-shop-boundary/DisabledCustomShopStocks.cs" Link="Boundary/DisabledCustomShopStocks.cs" />
+  </ItemGroup>
+</Project>

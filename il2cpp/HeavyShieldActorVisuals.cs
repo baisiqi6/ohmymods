@@ -229,6 +229,7 @@ internal static class HeavyShieldActorVisuals
         internal HeavyShieldCareerHandle Career;
         internal IntPtr NativePointer;
         internal int NativeId, Scene;
+        internal HeavyShieldBlockFx Fx;
     }
 
     private static readonly Dictionary<int, Visual> Active = new Dictionary<int, Visual>();
@@ -292,6 +293,9 @@ internal static class HeavyShieldActorVisuals
             RootOwner.Add(state.RootId, id);
             Tick(id); // renderer/sprite/driver all ready before we hide native
             if (!HasQualifiedVisual(carrier, life)) { Remove(id); return false; }
+            // Optional decoration only. A null/failed sink never rejects the body visual.
+            try { state.Fx = HeavyShieldBlockFx.TryCreate(state.Own); }
+            catch (Exception) { state.Fx = null; }
             return true;
         }
         catch (Exception e)
@@ -357,6 +361,7 @@ internal static class HeavyShieldActorVisuals
         {
             state.Pose.Gait.InvalidateBaseline();
             state.Suspended = true;
+            HideFx(state);
             if (state.Own != null) state.Own.enabled = false;
         }
     }
@@ -380,6 +385,17 @@ internal static class HeavyShieldActorVisuals
     internal static bool Trigger(Archer carrier, long life, HeavyShieldAction action)
         => TryState(carrier, life, out var state) && state.Pose.Trigger(action);
 
+    // Only the successful runtime damage boundary sends this event. Replaying a saved
+    // Break pose must not manufacture a new impact flash.
+    internal static void NotifySuccessfulBlock(Archer carrier, long life)
+    {
+        try
+        {
+            if (TryState(carrier, life, out var state) && Qualified(state)) state.Fx?.OnBlock();
+        }
+        catch (Exception) { } // Decoration never changes an already accepted block.
+    }
+
     internal static bool Unregister(Archer carrier, long life)
     {
         if (!TryState(carrier, life, out var state)) return false;
@@ -390,6 +406,10 @@ internal static class HeavyShieldActorVisuals
     {
         var keys = new List<int>(Active.Keys);
         for (int i = 0; i < keys.Count; i++) Remove(keys[i]);
+        if (Active.Count == 0)
+        {
+            try { HeavyShieldBlockFx.ClearUnused(); } catch (Exception) { }
+        }
     }
 
     internal static void OnDriverDisabled(int rootId)
@@ -414,14 +434,16 @@ internal static class HeavyShieldActorVisuals
         }
         try
         {
-            if (state.Suspended) { state.Own.enabled = false; return; }
+            bool wasInitialized = state.Initialized;
+            if (state.Suspended) { state.Own.enabled = false; HideFx(state); return; }
             // Initialize one complete safe frame during Register. Later invalidation cannot be silently repaired by LateUpdate.
-            if (state.Initialized && !Qualified(state)) { state.Suspended = true; state.Own.enabled = false; return; }
+            if (state.Initialized && !Qualified(state)) { state.Suspended = true; state.Own.enabled = false; HideFx(state); return; }
             state.Pose.Tick(Time.deltaTime, SampleMotion(state, HeavyShieldRuntime.Playing));
             bool nativeVisible = AndroidUnityCompat.NativeVisible(state.Native, state.HidNative);
             if (!nativeVisible)
             {
                 state.Own.enabled = false;
+                HideFx(state);
                 return;
             }
             if (!state.Pose.TryFrame(out int frame)
@@ -434,7 +456,7 @@ internal static class HeavyShieldActorVisuals
             if (state.LastFrame != frame) { state.Own.sprite = sprite; state.LastFrame = frame; }
             if (!state.HidNative)
             {
-                if (AndroidUnityCompat.IsHidden(state.Native)) { state.Own.enabled = false; return; }
+                if (AndroidUnityCompat.IsHidden(state.Native)) { state.Own.enabled = false; HideFx(state); return; }
                 state.HidNative = true; // record obligation before setter can partially succeed
                 AndroidUnityCompat.Hide(state.Native);
             }
@@ -442,17 +464,46 @@ internal static class HeavyShieldActorVisuals
             {
                 // Another system restored native visibility: relinquish instead of fighting it.
                 state.HidNative = false;
+                HideFx(state);
                 Remove(id);
                 return;
             }
             state.Own.enabled = true;
+            bool firstQualifiedTick = !wasInitialized;
             state.Initialized = true;
+            if (state.Fx != null)
+            {
+                // Bake resources once on the first post-Register visible tick, not on a hit.
+                if (!firstQualifiedTick) PrepareFx(state, frame);
+                SyncFx(state, frame);
+            }
         }
         catch (Exception e)
         {
             LogOnce("tick failed: " + e.GetType().Name);
             Remove(id);
         }
+    }
+
+    private static void PrepareFx(Visual state, int frame)
+    {
+        var fx = state.Fx;
+        if (fx == null) return;
+        try { fx.Prepare(state.Own, frame); } catch (Exception) { HideFx(state); }
+    }
+
+    private static void SyncFx(Visual state, int frame)
+    {
+        var fx = state.Fx;
+        if (fx == null) return;
+        try { fx.Sync(frame, state.Facing); } catch (Exception) { HideFx(state); }
+    }
+
+    private static void HideFx(Visual state)
+    {
+        var fx = state.Fx;
+        if (fx == null) return;
+        try { fx.HideAndCancel(); } catch (Exception) { }
     }
 
     private static bool TryState(Archer carrier, long life, out Visual state)
@@ -472,6 +523,8 @@ internal static class HeavyShieldActorVisuals
         state.Pose.Gait.InvalidateBaseline(); // A retained visibility-return credential cannot retain stride debt.
         try { if (state.Own != null) state.Own.enabled = false; }
         catch (Exception) { }
+        try { state.Fx?.Dispose(); } catch (Exception) { }
+        state.Fx = null;
         if (!Release(state)) return false; // keep the only restoration credential for retry
         Active.Remove(id);
         RootOwner.Remove(state.RootId);

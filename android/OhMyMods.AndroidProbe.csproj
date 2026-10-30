@@ -133,6 +133,7 @@
          verbatim in the #else branch of AndroidUnityCompat. -->
     <Compile Include="../il2cpp/AndroidUnityCompat.cs" Link="Shared/AndroidUnityCompat.cs" />
     <Compile Include="../il2cpp/HeavyShieldActorVisuals.cs" Link="Shared/HeavyShieldActorVisuals.cs" />
+    <Compile Include="../il2cpp/Patch_HeavyShieldBlockFx.cs" Link="Shared/Patch_HeavyShieldBlockFx.cs" />
     <Compile Include="../il2cpp/HeavyShieldBlockPolicy.cs" Link="Shared/HeavyShieldBlockPolicy.cs" />
     <Compile Include="../il2cpp/HeavyShieldCombat.cs" Link="Shared/HeavyShieldCombat.cs" />
     <Compile Include="../il2cpp/HeavyShieldContracts.cs" Link="Shared/HeavyShieldContracts.cs" />
