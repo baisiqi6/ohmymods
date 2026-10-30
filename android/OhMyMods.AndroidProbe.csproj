@@ -140,6 +140,7 @@
     <Compile Include="../il2cpp/HeavyShieldIdentity.cs" Link="Shared/HeavyShieldIdentity.cs" />
     <Compile Include="../il2cpp/HeavyShieldIntegration.cs" Link="Shared/HeavyShieldIntegration.cs" />
     <Compile Include="../il2cpp/HeavyShieldNativeHooks.cs" Link="Shared/HeavyShieldNativeHooks.cs" />
+    <Compile Include="../il2cpp/Patch_HeavyShieldRebound.cs" Link="Shared/Patch_HeavyShieldRebound.cs" />
     <!-- Issue #206 perf closure: the shared consumers above (HeavyShieldNativeHooks /
          Patch_HeavyShieldSnapshot / MusketeerArchive / HeroRecruitmentFingerprint) call these two
          helpers, so the explicit Android source list must carry the real implementations. -->

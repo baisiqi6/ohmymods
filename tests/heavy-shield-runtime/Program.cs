@@ -11,14 +11,15 @@ if (args.Length == 1 && args[0].StartsWith("--lifecycle-"))
     Console.WriteLine($"PASS lifecycle: {checks} assertions");
     return;
 }
-void Step(Fixture f, float dt=.25f) {Time.deltaTime=dt;Time.time+=dt;Time.unscaledTimeAsDouble+=dt;Time.frameCount++;HeavyShieldActorVisuals.Tick(f.Handle.GoId);HeavyShieldRuntime.Tick();}
+void Step(Fixture f, float dt=.25f) {Time.deltaTime=dt;Time.time+=dt;Time.unscaledTime+=dt;Time.unscaledTimeAsDouble+=dt;Time.frameCount++;HeavyShieldActorVisuals.Tick(f.Handle.GoId);HeavyShieldRuntime.Tick();}
 void Guard(Fixture f) {HeavyShieldRuntime.Tick();for(int i=0;i<8;i++)Step(f);Check(HeavyShieldActorVisuals.GuardReady(f.Archer,f.Handle.Life),"equip completes before guard");}
 HeavyShieldSavedCombatState State(Fixture f){Check(HeavyShieldRuntime.CaptureCombat(f.Handle,out var s),"capture exact career");return s;}
+void AdvanceNaturalSecond(){Time.unscaledTime+=1f;Time.unscaledTimeAsDouble+=1d;}
 void HitTroll(Fixture f, Troll troll, DamageSource kind=DamageSource.Troll, int amount=1)
-{ HeavyShieldCombat.ObserveTrollIntent(troll,f.Damage);using var scope=HeavyShieldCombat.EnterTroll(troll,f.Damage);
+{ AdvanceNaturalSecond();HeavyShieldCombat.ObserveTrollIntent(troll,f.Damage);using var scope=HeavyShieldCombat.EnterTroll(troll,f.Damage);
   f.Damage.ReceiveDamage(amount,troll.gameObject,kind); }
 void HitArrow(Fixture f, Arrow arrow, DamageSource? overrideKind=null)
-{using var flight=HeavyShieldCombat.EnterArrowHit(arrow);using var impact=HeavyShieldCombat.EnterArrowDamage(arrow,f.Damage);
+{ AdvanceNaturalSecond();using var flight=HeavyShieldCombat.EnterArrowHit(arrow);using var impact=HeavyShieldCombat.EnterArrowDamage(arrow,f.Damage);
     f.Damage.ReceiveDamage(1,arrow.archer,overrideKind??arrow._damageSource);}
 Troll TrollAt(float x) {var go=new GameObject("troll");go.transform.SetParent(Managers.Inst.world.gameLayer,false);go.transform.position=new(x,0);var troll=go.AddComponent<Troll>();troll.Type=EnemyType.TrollWeak;go.AddComponent<Damageable>();return troll;}
 Arrow ArrowFrom(float vx)
@@ -26,6 +27,10 @@ Arrow ArrowFrom(float vx)
     var go=new GameObject("arrow");go.transform.SetParent(Managers.Inst.world.gameLayer,false);var arrow=go.AddComponent<Arrow>();arrow._rigidbody=go.AddComponent<Rigidbody2D>();arrow._rigidbody.velocity=new(vx,0);arrow.archer=owner;return arrow;}
 Character PeasantResult() {var go=new GameObject("native peasant");go.transform.SetParent(Managers.Inst.world.gameLayer,false);go.AddComponent<Peasant>();return go.AddComponent<Character>();}
 void NativePool(GameObject root) {HeavyShieldIntegration.BeforePoolDespawn(root,0);root.SetActive(false);HeavyShieldIntegration.AfterPoolDespawn(root,0);}
+
+#if !ANDROID
+ReboundOwnershipRegression.Run(Check);
+#endif
 
 // Android 2.4 has no SpriteRenderer.flipY getter/setter and no Renderer forceRenderingOff /
 // Get/SetPropertyBlock ICalls. The platform boundary must skip only those members and keep the
@@ -466,27 +471,50 @@ HeavyShieldPoseMachine Pose(Fixture f) {var row=visualRows[f.Handle.GoId];return
 
 // New art contract: the original integer is retained, including a pending zero, and every
 // stance/action selects that wear. Existing three-hit/life/CAS/native-demote negatives above remain.
-foreach(int durability in new[]{40,31,30,21,20,11,10,1,0})
+foreach(int durability in new[]{90,68,67,46,45,23,22,1,0})
 using(var f=new Fixture())
 {
     Check(f.Attach(new(durability,durability==0,false)),"final four-wear mapping attach");
-    var expected=durability>=31?HeavyShieldWear.Intact:durability>=21?HeavyShieldWear.Worn:durability>=11?HeavyShieldWear.Critical:HeavyShieldWear.Half;
+    var expected=durability>67?HeavyShieldWear.Intact:durability>45?HeavyShieldWear.Worn:durability>22?HeavyShieldWear.Critical:HeavyShieldWear.Half;
     Check(Pose(f).Wear==expected&&State(f).Durability==durability,$"remaining {durability} preserved and maps to {expected}");
     Check((Pose(f).Action==HeavyShieldAction.Break)==(durability==0),"zero only starts terminal break");
 }
 using(var f=new Fixture())
 {
-    Check(f.Attach(new(40,false,false)),"new forty-hit shield attach");Guard(f);var troll=TrollAt(5.5f);int demotes=Character.Demotes,exits=HeavyShieldIdentity.Exits;
+    Check(f.Attach(new(90,false,false)),"new ninety-hit shield attach");Guard(f);var troll=TrollAt(5.5f);int demotes=Character.Demotes,exits=HeavyShieldIdentity.Exits;
     var successor=PeasantResult();f.Archer._character.DemoteResult=()=>{NativePool(f.Go);return successor;};
-    for(int hit=1;hit<=40;hit++)
+    for(int hit=1;hit<=90;hit++)
     {
         HitTroll(f,troll);var state=State(f);
-        Check(state.Durability==40-hit&&state.PendingBreak==(hit==40)&&f.Damage.NativeHits==0,$"new shield lifetime hit {hit} blocks and decrements exactly once");
-        Check(Pose(f).Wear==(hit<10?HeavyShieldWear.Intact:hit<20?HeavyShieldWear.Worn:hit<30?HeavyShieldWear.Critical:HeavyShieldWear.Half),$"hit {hit} retains visible damage");
-        Check((Pose(f).Action==HeavyShieldAction.Break)==(hit==40),"only fortieth new-shield hit is terminal");
+        Check(state.Durability==90-hit&&state.PendingBreak==(hit==90)&&f.Damage.NativeHits==0,$"new shield lifetime hit {hit} blocks and decrements exactly once");
+        var wear=state.Durability>67?HeavyShieldWear.Intact:state.Durability>45?HeavyShieldWear.Worn:state.Durability>22?HeavyShieldWear.Critical:HeavyShieldWear.Half;
+        Check(Pose(f).Wear==wear,$"hit {hit} retains visible damage");
+        Check((Pose(f).Action==HeavyShieldAction.Break)==(hit==90),"only ninetieth new-shield hit is terminal");
     }
     Step(f,.25f);Check(Character.Demotes==demotes,"break does not truncate before final metadata duration");
-    Step(f,.25f);Check(Character.Demotes==demotes+1&&HeavyShieldIdentity.Exits==exits+1&&!HeavyShieldRuntime.IsControlled(f.Archer),"fortieth new-shield hit yields one exact native Peasant demote");
+    Step(f,.25f);Check(Character.Demotes==demotes+1&&HeavyShieldIdentity.Exits==exits+1&&!HeavyShieldRuntime.IsControlled(f.Archer),"ninetieth new-shield hit yields one exact native Peasant demote");
+}
+using(var f=new Fixture())
+{
+    Check(f.Attach(new(90,false,false)),"natural-second runtime attach");Guard(f);
+    var troll=TrollAt(5.5f);
+    void RawHit()
+    { HeavyShieldCombat.ObserveTrollIntent(troll,f.Damage);using var scope=HeavyShieldCombat.EnterTroll(troll,f.Damage);
+      f.Damage.ReceiveDamage(1,troll.gameObject,DamageSource.Troll); }
+    double first=Time.unscaledTimeAsDouble;float firstFloat=Time.unscaledTime;
+    RawHit();Check(State(f).Durability==89,"first runtime valid sample charges one");
+    RawHit();Check(State(f).Durability==89,"same runtime natural instant stays free");
+    Time.unscaledTimeAsDouble=first+.999;Time.unscaledTime=firstFloat+.999f;RawHit();
+    Check(State(f).Durability==89,"runtime 0.999s stays inside the interval");
+    Time.unscaledTimeAsDouble=first+1;Time.unscaledTime=firstFloat+1f;RawHit();
+    Check(State(f).Durability==88,"runtime exact +1s charges once");
+    Time.timeScale=5;Time.time+=100;RawHit();
+    Check(State(f).Durability==88,"game acceleration without natural time cannot charge");
+    Time.unscaledTimeAsDouble=first+2;Time.unscaledTime=firstFloat+2f;RawHit();
+    Check(State(f).Durability==87,"runtime natural boundary after acceleration charges");
+    Time.timeScale=1;Time.unscaledTimeAsDouble=first+.5;Time.unscaledTime=firstFloat+.5f;RawHit();
+    Check(State(f).Durability==86,"runtime backwards clock falls back to per-hit wear");
+    RawHit();Check(State(f).Durability==85,"repeated backwards runtime sample cannot become free");
 }
 using(var f=new Fixture())
 {
@@ -907,6 +935,7 @@ using (var f = new Fixture(side: side))
 RuntimeGaitRegression.Run(Check);
 RuntimeMaintenanceRegression.Run(Check);
 RuntimeLifecycleRegression.Run(Check);
+RuntimeReboundRegression.Run(Check);
 
 Console.WriteLine($"PASS HeavyShield production runtime/combat/life/visuals: {checks} assertions");
 

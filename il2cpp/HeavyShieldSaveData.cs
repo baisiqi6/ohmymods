@@ -15,7 +15,8 @@ internal static class HeavyShieldSaveSchema
     internal const int LegacyVersion = 1;
     internal const int DurabilityVersion = 2;
     internal const int FingerprintVersion = 3;
-    internal const int Version = 4;
+    internal const int FortyDurabilityVersion = 4;
+    internal const int Version = 5;
     internal const int MaxCampaigns = 32;
     internal const int MaxIslands = 128;
     internal const int MaxClaimsPerIsland = 4;
@@ -23,7 +24,8 @@ internal static class HeavyShieldSaveSchema
     internal const int MaxNativeIdLength = 512;
     internal const int LegacyMaxDurability = 3;
     internal const int PreviousMaxDurability = 4;
-    internal const int MaxDurability = 40;
+    internal const int FortyMaxDurability = 40;
+    internal const int MaxDurability = 90;
 }
 
 internal sealed class HeavyShieldSaveDocument
@@ -203,6 +205,7 @@ internal static class HeavyShieldSaveCodec
             if (sourceVersion != HeavyShieldSaveSchema.LegacyVersion
                 && sourceVersion != HeavyShieldSaveSchema.DurabilityVersion
                 && sourceVersion != HeavyShieldSaveSchema.FingerprintVersion
+                && sourceVersion != HeavyShieldSaveSchema.FortyDurabilityVersion
                 && sourceVersion != HeavyShieldSaveSchema.Version)
             { reason = "document"; return false; }
             if (!ValidSourceHashKinds(raw.RootElement, sourceVersion))
@@ -282,12 +285,18 @@ internal static class HeavyShieldSaveCodec
         if (document == null || (document.Version != HeavyShieldSaveSchema.LegacyVersion
                 && document.Version != HeavyShieldSaveSchema.DurabilityVersion
                 && document.Version != HeavyShieldSaveSchema.FingerprintVersion
+                && document.Version != HeavyShieldSaveSchema.FortyDurabilityVersion
                 && document.Version != HeavyShieldSaveSchema.Version)
             || document.Campaigns == null || document.Campaigns.Count > HeavyShieldSaveSchema.MaxCampaigns)
         { reason = "document"; return false; }
-        int maxDurability = document.Version == HeavyShieldSaveSchema.LegacyVersion
-            ? HeavyShieldSaveSchema.LegacyMaxDurability : document.Version < HeavyShieldSaveSchema.Version
-                ? HeavyShieldSaveSchema.PreviousMaxDurability : HeavyShieldSaveSchema.MaxDurability;
+        int maxDurability = document.Version switch
+        {
+            HeavyShieldSaveSchema.LegacyVersion => HeavyShieldSaveSchema.LegacyMaxDurability,
+            HeavyShieldSaveSchema.DurabilityVersion or HeavyShieldSaveSchema.FingerprintVersion
+                => HeavyShieldSaveSchema.PreviousMaxDurability,
+            HeavyShieldSaveSchema.FortyDurabilityVersion => HeavyShieldSaveSchema.FortyMaxDurability,
+            _ => HeavyShieldSaveSchema.MaxDurability,
+        };
         var slots = new HashSet<int>();
         var campaigns = new HashSet<string>(StringComparer.Ordinal);
         var receipts = new HashSet<Guid>();

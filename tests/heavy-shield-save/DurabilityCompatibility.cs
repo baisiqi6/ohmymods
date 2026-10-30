@@ -4,6 +4,8 @@ using KingdomEnhancedMod;
 internal static class DurabilityCompatibility
 {
     private static int checks;
+    private static double _clock = 500d;
+    private static double NextTime() => _clock += 1d;
     private static void Check(bool value, string name)
     { checks++; if (!value) throw new Exception("durability compatibility: " + name); }
 
@@ -11,8 +13,8 @@ internal static class DurabilityCompatibility
     {
         Check(HeavyShieldSaveSchema.Key == "KEM.HeavyShield.Campaigns.v1"
             && new HeavyShieldSaveDocument().Version == HeavyShieldSaveSchema.Version
-            && HeavyShieldBlockPolicy.InitialDurability == 40
-            && HeavyShieldSaveSchema.MaxDurability == 40, "new schema keeps original authority key");
+            && HeavyShieldBlockPolicy.InitialDurability == 90
+            && HeavyShieldSaveSchema.MaxDurability == 90, "new schema keeps original authority key");
         var legacy = Fixture();
         Check(HeavyShieldSaveCodec.TrySerialize(legacy, out var raw, out _), "real v1 fixture serializes");
         Check(legacy.Version == 1 && legacy.Campaigns[0].Islands[0].Claims[0].Durability == 3,
@@ -35,7 +37,7 @@ internal static class DurabilityCompatibility
                 $"v1 remaining {claim.Durability} cannot become fresh four");
             if (claim.Durability > 0)
                 for (int remaining = claim.Durability - 1; remaining >= 0; remaining--)
-                    Check(policy.EvaluateHit(Front()) == (remaining == 0
+                    Check(policy.EvaluateHit(Front(), NextTime()) == (remaining == 0
                             ? HeavyShieldBlockPolicy.HitResult.ShieldBroken : HeavyShieldBlockPolicy.HitResult.Blocked)
                         && policy.Durability == remaining, "old remaining hit budget is exact");
             Check(policy.Durability == 0 && policy.PendingBreak && !policy.TryBeginBash(0),
@@ -48,10 +50,10 @@ internal static class DurabilityCompatibility
         Check(unknownPolicy.Restore(unknown.Durability, unknown.PendingBreak, unknown.RetirementUnknown)
             && unknownPolicy.Durability == 0 && unknownPolicy.RetirementUnknown
             && !unknownPolicy.TryBeginDemote(out _) && !unknownPolicy.Activate()
-            && unknownPolicy.EvaluateHit(Front()) == HeavyShieldBlockPolicy.HitResult.PassThrough,
+            && unknownPolicy.EvaluateHit(Front(), NextTime()) == HeavyShieldBlockPolicy.HitResult.PassThrough,
             "v1 zero unknown retirement cannot retry or resurrect");
-        Check(loaded.Campaigns[0].Islands[1].Claims[0].Durability == 40,
-            "old full paid tool scales to forty before pickup");
+        Check(loaded.Campaigns[0].Islands[1].Claims[0].Durability == 90,
+            "old full paid tool scales to ninety before pickup");
 
         // V1 allowed inconsistent pending flags. Codec compatibility preserves
         // them; it must not invent a repair or tighten unrelated legacy rules.
@@ -59,7 +61,7 @@ internal static class DurabilityCompatibility
         unusual.Durability = 1; unusual.PendingBreak = unusual.RetirementUnknown = true;
         Check(HeavyShieldSaveCodec.TrySerialize(legacy, out var unusualRaw, out _)
             && HeavyShieldSaveCodec.TryParse(unusualRaw, out var unusualLoaded, out _)
-            && unusualLoaded.Campaigns[1].Islands[0].Claims[0].Durability == 14
+            && unusualLoaded.Campaigns[1].Islands[0].Claims[0].Durability == 30
             && unusualLoaded.Campaigns[1].Islands[0].Claims[0].PendingBreak
             && unusualLoaded.Campaigns[1].Islands[0].Claims[0].RetirementUnknown,
             "legacy anomalous pending state is retained without repair");
@@ -72,15 +74,15 @@ internal static class DurabilityCompatibility
         Check(HeavyShieldSaveCodec.TryParse(omitted.ToJsonString(), out var defaulted, out _)
             && defaulted.Version == HeavyShieldSaveSchema.Version
             && defaulted.Campaigns.SelectMany(x => x.Islands).SelectMany(x => x.Claims)
-                .All(x => x.Durability == 40), "missing version/durability use original v1 default three");
+                .All(x => x.Durability == 90), "missing version/durability use original v1 default three");
         Check(HeavyShieldSaveCodec.TrySerialize(defaulted, out var defaultedRaw, out _)
-            && JsonNode.Parse(defaultedRaw)["campaigns"][0]["islands"][0]["claims"][0]["durability"].GetValue<int>() == 40,
-            "old omitted durability becomes explicit forty when later serialized");
+            && JsonNode.Parse(defaultedRaw)["campaigns"][0]["islands"][0]["claims"][0]["durability"].GetValue<int>() == 90,
+            "old omitted durability becomes explicit ninety when later serialized");
         var explicitV1 = JsonNode.Parse(raw).AsObject();
         explicitV1["campaigns"][0]["islands"][0]["claims"][0].AsObject().Remove("durability");
         Check(HeavyShieldSaveCodec.TryParse(explicitV1.ToJsonString(), out var missingClaim, out _)
-            && missingClaim.Campaigns[0].Islands[0].Claims[0].Durability == 40,
-            "explicit v1 with missing claim durability scales original full default to forty");
+            && missingClaim.Campaigns[0].Islands[0].Claims[0].Durability == 90,
+            "explicit v1 with missing claim durability scales original full default to ninety");
         explicitV1["version"] = 2;
         Check(!HeavyShieldSaveCodec.TryParse(explicitV1.ToJsonString(), out var absentV2, out _)
             && absentV2 == null, "v2 claim omission is rejected instead of refilled");
@@ -96,7 +98,7 @@ internal static class DurabilityCompatibility
             && omittedUnknownPolicy.State != HeavyShieldBlockPolicy.LifeState.Guarding,
             "old omitted durability never clears unknown flags to activate a broken career");
         var badVersion = JsonNode.Parse(raw).AsObject();
-        foreach (int version in new[] { -1, 0, 5, 99, int.MaxValue })
+        foreach (int version in new[] { -1, 0, 6, 99, int.MaxValue })
         {
             badVersion["version"] = version;
             Check(!HeavyShieldSaveCodec.TryParse(badVersion.ToJsonString(), out var bad, out _)
@@ -115,7 +117,7 @@ internal static class DurabilityCompatibility
             "missing version retains old upper bound three");
         badDurability["version"] = 2;
         Check(HeavyShieldSaveCodec.TryParse(badDurability.ToJsonString(), out var validFour, out _)
-            && validFour.Campaigns[0].Islands[0].Claims[0].Durability == 40, "v2 explicit four accepted");
+            && validFour.Campaigns[0].Islands[0].Claims[0].Durability == 90, "v2 explicit four accepted");
         badDurability["campaigns"][0]["islands"][0]["claims"][0]["durability"] = 5;
         Check(!HeavyShieldSaveCodec.TryParse(badDurability.ToJsonString(), out _, out _), "v2 five rejected");
         badDurability["campaigns"][0]["islands"][0]["claims"][0]["durability"] = -1;
@@ -131,18 +133,18 @@ internal static class DurabilityCompatibility
 
     private static void NewFortyRoundtrips()
     {
-        var doc = Fixture(); doc.Version = 4;
+        var doc = Fixture(); doc.Version = HeavyShieldSaveSchema.Version;
         var claim = doc.Campaigns[0].Islands[0].Claims[0];
-        claim.Durability = 40;
+        claim.Durability = 90;
         var policy = new HeavyShieldBlockPolicy();
-        Check(policy.Activate() && policy.Durability == 40, "fresh purchase has forty durability");
-        for (int remaining = 40; remaining >= 0; remaining--)
+        Check(policy.Activate() && policy.Durability == 90, "fresh purchase has ninety durability");
+        for (int remaining = 90; remaining >= 0; remaining--)
         {
             claim.Durability = policy.Durability;
             claim.PendingBreak = policy.PendingBreak;
             claim.RetirementUnknown = policy.RetirementUnknown;
             Check(HeavyShieldSaveCodec.TrySerialize(doc, out var raw, out _)
-                && HeavyShieldSaveCodec.TryParse(raw, out doc, out _), $"v4 remaining {remaining} roundtrip");
+                && HeavyShieldSaveCodec.TryParse(raw, out doc, out _), $"v5 remaining {remaining} roundtrip");
             claim = doc.Campaigns[0].Islands[0].Claims[0];
             var restored = new HeavyShieldBlockPolicy();
             Check(restored.Restore(claim.Durability, claim.PendingBreak, claim.RetirementUnknown)
@@ -152,7 +154,7 @@ internal static class DurabilityCompatibility
             {
                 Check(policy.TryBeginBash(0), "each positive stage can fight");
                 policy.EndBash();
-                Check(policy.EvaluateHit(Front()) == (remaining == 1
+                Check(policy.EvaluateHit(Front(), NextTime()) == (remaining == 1
                     ? HeavyShieldBlockPolicy.HitResult.ShieldBroken : HeavyShieldBlockPolicy.HitResult.Blocked),
                     "one frontal hit spends one point");
             }
@@ -175,7 +177,7 @@ internal static class DurabilityCompatibility
         foreach (var campaign in expected["campaigns"].AsArray())
             foreach (var island in campaign["islands"].AsArray())
                 foreach (var claim in island["claims"].AsArray())
-                    claim["durability"] = claim["durability"].GetValue<int>() switch { 0 => 0, 1 => 14, 2 => 27, 3 => 40, _ => throw new Exception("invalid v1 fixture") };
+                    claim["durability"] = claim["durability"].GetValue<int>() switch { 0 => 0, 1 => 30, 2 => 60, 3 => 90, _ => throw new Exception("invalid v1 fixture") };
         return JsonNode.DeepEquals(expected, JsonNode.Parse(after));
     }
     private static HeavyShieldSavedClaim Claim(int durability, HeavyShieldQuota.Side side,

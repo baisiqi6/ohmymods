@@ -6,7 +6,9 @@ namespace KingdomEnhancedMod;
 // identity, native damage, knockback and the deferred Peasant conversion.
 internal sealed class HeavyShieldBlockPolicy
 {
-    internal const int InitialDurability = 40;
+    internal const int InitialDurability = 90;
+    // Half-open natural-second gate: a hit at exactly +1s is charged, +0.999s is not.
+    internal const double ChargeIntervalSeconds = 1d;
     internal const int BashDamage = 1;
     internal const int MaxBashTargets = 3;
     internal const float BashCooldownSeconds = 10f;
@@ -64,6 +66,9 @@ internal sealed class HeavyShieldBlockPolicy
     private ulong _activeDemoteLease;
     private int _demoteAttempts;
     private bool _impactClaimed;
+    // Transient per life: not persisted, never refreshed by repeat attachment or repair.
+    private bool _hasChargeAt;
+    private double _lastChargeAt;
 
     // Call on unload, disable, load/restore and pool reuse before binding a new life.
     internal void Reset()
@@ -75,6 +80,8 @@ internal sealed class HeavyShieldBlockPolicy
         _activeDemoteLease = 0;
         _demoteAttempts = 0;
         RetirementUnknown = false;
+        _hasChargeAt = false;
+        _lastChargeAt = 0d;
         ClearBash();
     }
 
@@ -94,6 +101,8 @@ internal sealed class HeavyShieldBlockPolicy
         if (State != LifeState.Inactive) return false;
         State = LifeState.Guarding;
         Durability = InitialDurability;
+        _hasChargeAt = false;
+        _lastChargeAt = 0d;
         return true;
     }
 
@@ -109,7 +118,11 @@ internal sealed class HeavyShieldBlockPolicy
         return true;
     }
 
-    internal HitResult EvaluateHit(in Hit hit)
+    // nowSeconds is the production unscaled natural clock sampled once per impact.
+    // A valid forward sample charges at most one point per ChargeIntervalSeconds;
+    // invalid or backwards samples keep the old once-per-hit charge without moving
+    // the stamp, so a bad clock can never grant unlimited free blocks.
+    internal HitResult EvaluateHit(in Hit hit, double nowSeconds)
     {
         if (State != LifeState.Guarding) return HitResult.PassThrough;
         if (!hit.IsDirect || !hit.HasSource || (hit.Facing != -1 && hit.Facing != 1)
@@ -122,6 +135,18 @@ internal sealed class HeavyShieldBlockPolicy
         if (relativeX == 0f || Math.Sign(relativeX) != hit.Facing)
             return HitResult.PassThrough;
 
+        bool charge;
+        if (!double.IsFinite(nowSeconds) || (_hasChargeAt && nowSeconds < _lastChargeAt))
+            charge = true; // fallback: old per-hit wear, preserve the prior stamp
+        else if (!_hasChargeAt || nowSeconds - _lastChargeAt >= ChargeIntervalSeconds)
+        {
+            charge = true;
+            _hasChargeAt = true;
+            _lastChargeAt = nowSeconds;
+        }
+        else charge = false;
+
+        if (!charge) return HitResult.Blocked;
         --Durability;
         if (Durability > 0) return HitResult.Blocked;
         State = LifeState.PendingDemote;
@@ -174,6 +199,8 @@ internal sealed class HeavyShieldBlockPolicy
         Durability = 0;
         _activeDemoteLease = 0;
         RetirementUnknown = false;
+        _hasChargeAt = false;
+        _lastChargeAt = 0d;
         ClearBash();
     }
 

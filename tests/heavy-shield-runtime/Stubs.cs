@@ -8,6 +8,10 @@ namespace Il2CppInterop.Runtime.InteropTypes
     public class Il2CppObjectBase { private static int Next; public IntPtr Pointer = (IntPtr)(++Next);
         public T TryCast<T>() where T : class => this as T; }
 }
+namespace Il2CppSystem.Collections
+{
+    public class IEnumerator : Il2CppInterop.Runtime.InteropTypes.Il2CppObjectBase { }
+}
 namespace Il2CppInterop.Runtime.InteropTypes.Arrays
 {
     public class Il2CppReferenceArray<T> : Il2CppInterop.Runtime.InteropTypes.Il2CppObjectBase { private T[] Rows; public Il2CppReferenceArray(T[] rows){Rows=rows;} public int Length=>Rows.Length;
@@ -151,11 +155,28 @@ public class Character : UnityEngine.Behaviour {public bool grabbed;public Unity
 public class Damageable : UnityEngine.Behaviour
 {
     public bool invulnerable,isDead;public int Health=10,NativeHits;public bool Allowed=true;
+    public int surface;
+    public bool IsInBlockingFormation;
+    public Action AfterReceive; // Controlled synchronous extension before the real damage Finalizer.
+    private static readonly System.Reflection.MethodInfo Prefix = typeof(HeavyShieldReceiveDamage)
+        .GetMethod("Prefix", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+    private static readonly System.Reflection.MethodInfo Finalizer = typeof(HeavyShieldReceiveDamage)
+        .GetMethod("Finalizer", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
     public bool IsDamagedBy(DamageSource d)=>Allowed;
     public void ReceiveDamage(int damage,UnityEngine.GameObject source,DamageSource kind)=>ReceiveDamage(damage,source,kind,new());
     public void ReceiveDamage(int damage,UnityEngine.GameObject source,DamageSource kind,UnityEngine.Vector2 push)
-    {using var scope=HeavyShieldCombat.EnterDamage();try {if(!HeavyShieldCombat.TryBlock(this,damage,source,kind)&&!invulnerable&&Allowed){NativeHits++;Health-=damage;isDead=Health<=0;}}
-        finally{HeavyShieldCombat.ObserveDamageEnd(this);} }
+    {
+        object[] args = { this, damage, source, kind, null };
+        Exception fault = null;
+        try
+        {
+            bool original = (bool)Prefix.Invoke(null, args);
+            if(original && !invulnerable && Allowed){NativeHits++;Health-=damage;isDead=Health<=0;}
+            AfterReceive?.Invoke();
+        }
+        catch (Exception ex) { fault = ex; throw; }
+        finally { Finalizer.Invoke(null, new object[] { this, fault, args[4] }); }
+    }
 }
 public class ArrowAttack : UnityEngine.Object {}
 public class Scanner
@@ -201,7 +222,35 @@ public class Archer : UnityEngine.Behaviour
     }}
 }
 public class Enemy : UnityEngine.Component {public EnemyType Type;}
-public class Troll : Enemy {public DamageSource damageSource=DamageSource.Troll;public void TryDamage(Damageable d){}public void ApplyCollisionDamage(Damageable d){} }
+public class Troll : Enemy
+{
+    public DamageSource damageSource=DamageSource.Troll;
+    public UnityEngine.Vector2 knightBounceForce;
+    private Il2CppSystem.Collections.IEnumerator _currentPause;
+    public bool PauseReadFault;
+    public Il2CppSystem.Collections.IEnumerator _pauseMotion
+    {
+        get { if(PauseReadFault) throw new InvalidOperationException("controlled pause getter fault"); return _currentPause; }
+        set => _currentPause = value;
+    }
+    public int PushCalls,PauseCalls,CoroutineCalls;
+    public void TryDamage(Damageable d){}
+    public void ApplyCollisionDamage(Damageable d){}
+    public void OnPush(UnityEngine.Vector2 v){PushCalls++;}
+    public Il2CppSystem.Collections.IEnumerator PauseMotion(float duration,UnityEngine.Vector2 after)
+    {PauseCalls++;return new _PauseMotion_d__114{__4__this=this,duration=duration,velocityAfter=after};}
+    public void StartCoroutine(Il2CppSystem.Collections.IEnumerator e){CoroutineCalls++;}
+    public class _PauseMotion_d__114 : Il2CppSystem.Collections.IEnumerator
+    {
+        public int __1__state;
+        public Troll __4__this;
+        public float duration;
+        private UnityEngine.Vector2 _velocityAfter;
+        public int VectorWrites;
+        public UnityEngine.Vector2 velocityAfter
+        {get=>_velocityAfter;set{_velocityAfter=value;VectorWrites++;}}
+    }
+}
 public class GreedArcher : Enemy {}
 public class Arrow : UnityEngine.Component {private UnityEngine.Rigidbody2D _body;public int BodyReads;public UnityEngine.Rigidbody2D _rigidbody {get{BodyReads++;return _body;}set=>_body=value;}public UnityEngine.GameObject archer;public DamageSource _damageSource=DamageSource.GreedProjectile;
     public void HitObject(UnityEngine.GameObject g,bool water){}public bool TryDamage(Damageable d)=>true;}
@@ -255,7 +304,7 @@ namespace KingdomEnhancedMod
         {
             if(!ValidateCareer(h)||!Saved.TryGetValue(h.Receipt,out var old)||old.Durability!=c.ExpectedDurability
                 ||old.PendingBreak||old.RetirementUnknown||!policy.TryRepair(c.ExpectedDurability))return false;
-            Saved[h.Receipt]=new(40,false,false);return true;
+            Saved[h.Receipt]=new(90,false,false);return true;
         }
         internal static int Exits,Proofs;internal static bool FailUpdate;internal static bool ValidateCareer(in HeavyShieldCareerHandle h)
             =>Careers.Contains(h)&&h.World==Managers.Inst.world.gameLayer.Pointer.ToInt64()&&Lives.TryGetValue(h.Root,out var life)&&life==h.Life;

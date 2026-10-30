@@ -75,11 +75,17 @@ internal static class HeavyShieldCombat
         internal readonly HeavyShieldCareerHandle Career;
         internal readonly float VelocityX;
         internal readonly bool Arrow;
+        // Null unless this frame came from a Troll.ApplyCollisionDamage prefix. The
+        // reference makes a successful block visible to exactly that frame's postfix.
+        internal readonly HeavyShieldTrollScope Witness;
         internal Impact(Damageable target, GameObject source, DamageSource kind,
             CombatTargetToken targetLife, CombatTargetToken sourceLife,
-            HeavyShieldCareerHandle career, bool arrow, float velocityX)
+            HeavyShieldCareerHandle career, bool arrow, float velocityX,
+            HeavyShieldTrollScope witness = null)
         { Target = target; Source = source; Kind = kind; TargetLife = targetLife; SourceLife = sourceLife;
-          Career = career; Arrow = arrow; VelocityX = velocityX; }
+          Career = career; Arrow = arrow; VelocityX = velocityX; Witness = witness; }
+        internal Impact WithWitness(HeavyShieldTrollScope witness)
+            => new(Target, Source, Kind, TargetLife, SourceLife, Career, Arrow, VelocityX, witness);
     }
     internal readonly struct Flight
     {
@@ -118,16 +124,27 @@ internal static class HeavyShieldCombat
     {
         Impact value = default;
         bool active = false;
+        HeavyShieldCampaignToken campaign = default;
         try
         {
             int id = troll.gameObject.GetInstanceID();
             active = HeavyShieldRuntime.Playing && ResetIntentContext() && TrollIntents.TryGetValue(id, out var intent)
                 && TryImpact(target, troll.gameObject, troll.damageSource, false, 0, out value)
                 && SameImpact(intent, value);
+            if (active) HeavyShieldIdentity.TryGetCampaign(out campaign);
             TrollIntents.Remove(id);
         }
         catch { }
-        return Impacts.Push(value, active);
+        if (!active) return Impacts.Push(default, false);
+        IntPtr oldPause = IntPtr.Zero;
+        bool oldPauseKnown = false;
+        try { var pause = troll._pauseMotion; oldPause = pause?.Pointer ?? IntPtr.Zero; oldPauseKnown = true; }
+        catch { }
+        var scope = new HeavyShieldTrollScope(troll, oldPause, oldPauseKnown);
+        value = value.WithWitness(scope);
+        scope.Bind(value, true, campaign);
+        scope.Attach(Impacts.Push(value, true));
+        return scope;
     }
     internal static IDisposable EnterArrowHit(Arrow arrow)
     {
@@ -215,13 +232,26 @@ internal static class HeavyShieldCombat
                 || !CombatTargetLife.TryResolve(source.GetComponent<Damageable>(), out var sourceLife)
                 || !CombatTargetToken.Matches(defenderLife, ticket.TargetLife)
                 || !CombatTargetToken.Matches(sourceLife, ticket.SourceLife)) return false;
-            return HeavyShieldRuntime.TryBlock(ticket.Career, ticket.Arrow, ticket.VelocityX, source.transform.position.x);
+            float sourceX = source.transform.position.x;
+            float relativeX = ticket.Witness != null ? sourceX - target.transform.position.x : 0f;
+            bool blocked = HeavyShieldRuntime.TryBlock(ticket.Career, ticket.Arrow, ticket.VelocityX, sourceX);
+            // Only the exact ApplyCollisionDamage frame that owns this active ticket may
+            // observe the block. A nested frame has already masked this ticket.
+            if (blocked) ticket.Witness?.MarkBlocked(relativeX);
+            return blocked;
         }
         catch { return false; }
     }
-    internal static void ObserveDamageEnd(Damageable target)
+    internal static void ObserveDamageEnd(Damageable target, bool completedNormally)
     {
         try { HeavyShieldRuntime.ObserveNativeDeath(target); } catch { }
+        try
+        {
+            if (target != null && Impacts.TryPeek(out var ticket) && ticket.Target != null
+                && ticket.Target.Pointer == target.Pointer)
+                ticket.Witness?.RecordDamageReturn(completedNormally);
+        }
+        catch { }
     }
 }
 #endif

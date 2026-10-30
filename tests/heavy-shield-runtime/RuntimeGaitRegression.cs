@@ -45,7 +45,7 @@ internal static class RuntimeGaitRegression
         using (var f = new Fixture())
         {
             f.Go.transform.position = new(3.5f, 0);
-            check(f.Attach(new(40, false, false)), "runtime moving gait attaches");
+            check(f.Attach(new(90, false, false)), "runtime moving gait attaches");
             var p = Pose(f); p.SetStance(HeavyShieldStance.BackWalk);
             f.Archer._animator.Speed = .6f;
             float step = (float)(HeavyShieldGaitClock.BackWalkStrideWorld * .1);
@@ -68,7 +68,7 @@ internal static class RuntimeGaitRegression
         foreach (var row in clips)
         using (var f = new Fixture())
         {
-            check(f.Attach(new(40, false, false)), "gait fixture attaches " + row.Item2);
+            check(f.Attach(new(90, false, false)), "gait fixture attaches " + row.Item2);
             var p = Pose(f); p.SetStance(row.Item1);
             int commands = f.Archer._mover.CommandWrites;
             float scaleX = f.Go.transform.localScale.x;
@@ -98,7 +98,7 @@ internal static class RuntimeGaitRegression
 
         using (var f = new Fixture())
         {
-            check(f.Attach(new(40, false, false)), "duplicate/transport gait fixture");
+            check(f.Attach(new(90, false, false)), "duplicate/transport gait fixture");
             var p = Pose(f); p.SetStance(HeavyShieldStance.BackWalk);
             float tenth = (float)(HeavyShieldGaitClock.BackWalkStrideWorld * .1);
             Render(f); Render(f, tenth);
@@ -134,7 +134,7 @@ internal static class RuntimeGaitRegression
 
         using (var f = new Fixture())
         {
-            check(f.Attach(new(40, false, false)), "pause/event gait fixture");
+            check(f.Attach(new(90, false, false)), "pause/event gait fixture");
             var p = Pose(f); p.SetStance(HeavyShieldStance.BackWalk);
             float step = (float)(HeavyShieldGaitClock.BackWalkStrideWorld * .1);
             Render(f); Render(f, step); double phase = p.Gait.Phase;
@@ -176,7 +176,7 @@ internal static class RuntimeGaitRegression
 
         using (var f = new Fixture())
         {
-            check(f.Attach(new(40, false, false)), "suspended gait fixture");
+            check(f.Attach(new(90, false, false)), "suspended gait fixture");
             var p = Pose(f); p.SetStance(HeavyShieldStance.BackWalk);
             Render(f); Render(f, .1f);
             check(p.Gait.HasBaseline && p.Gait.Phase > 0, "suspend begins with a live stride baseline");
@@ -189,7 +189,7 @@ internal static class RuntimeGaitRegression
 
         using (var f = new Fixture())
         {
-            check(f.Attach(new(40, false, false)), "pending visibility return gait fixture");
+            check(f.Attach(new(90, false, false)), "pending visibility return gait fixture");
             var p = Pose(f); p.SetStance(HeavyShieldStance.BackWalk);
             Render(f); Render(f, .1f);
             check(p.Gait.HasBaseline, "pending return begins with a live stride baseline");
@@ -211,7 +211,7 @@ internal static class RuntimeGaitRegression
 
         using (var f = new Fixture())
         {
-            check(f.Attach(new(40, false, false)), "driver disable gait fixture");
+            check(f.Attach(new(90, false, false)), "driver disable gait fixture");
             var p = Pose(f); p.SetStance(HeavyShieldStance.BackWalk);
             Render(f); Render(f, .1f);
             check(p.Gait.HasBaseline, "driver disable begins with a live stride baseline");
