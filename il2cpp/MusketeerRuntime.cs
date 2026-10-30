@@ -1366,4 +1366,81 @@ internal static class MusketeerRuntime
             catch (Exception) { return true; }
         }
     }
+
+    // ============================================================
+    // 登船降级（Issue281 PC-only：异常已登船火枪手 → 到岸普通弓箭手）
+    // ============================================================
+
+#if !ANDROID
+    /// <summary>
+    /// 登船降级的运行时准备（Boarding Policy 在源保存捕获前调用；只动**该 actor 自有**的战斗包与视觉）：
+    /// 1) **唯一一次**身份读：一次成功捕获键（pointer + goId）；读取异常 = 未知 actor → false，
+    ///    绝不折叠成"无包"，后续任何步骤也不再读身份；
+    /// 2) 视觉先行：键直传 <see cref="MusketeerVisuals.TryPrepareBoardingDemotion(Archer, IntPtr, int)"/>
+    ///    ——自有 renderer 隐藏证明 + native-hide 债务读回确认结清（未知保留回执 = false，不 Strip）；
+    /// 3) 捕获键直接查 <see cref="Table"/>（owner 由键查找证明：指针主证据、GoId 确认）；无条目 = 无包 → true；
+    /// 4) <see cref="TryStripForDemotion"/>：strict 归还（复用既有 Restore* CAS 与
+    ///    <see cref="SettleClone"/>），绝不经旧 <see cref="Strip"/> 的"未知 owner → ClearLedgerFlags"分支。
+    /// 返回 true = 自有借用已全部归还（或从未装包/已让位）且克隆已不被 native 字段引用
+    /// （剩余销毁由下一帧 Tick/Sync 负责）；false = 任意未知/不完整（回执保留、可重试收敛）。
+    /// 按键查表，视觉侧只遍历已有待退回执；不扫世界、不伪调 native OnEnable/OnDisable、不做任何 Destroy、
+    /// 不写 identity/metadata/rolecounts；第三方接管按既有 CAS 语义让位。
+    /// </summary>
+    internal static bool TryPrepareBoardingDemotion(Archer actor)
+    {
+        try
+        {
+            if (actor == null || actor.gameObject == null) return false;
+            if (!Identity(actor, out IntPtr pointer, out int goId)) return false;   // 唯一身份读；异常=未知
+
+            // 视觉先行（键直传，绝不二次读身份）：失败不 Strip、不退职业。
+            if (!MusketeerVisuals.TryPrepareBoardingDemotion(actor, pointer, goId)) return false;
+
+            if (!Table.TryGetValue(new MusketeerUnitKey(pointer, goId), out MusketeerUnit unit))
+                return true;                              // 身份已证 + 无包：无借用责任
+            return TryStripForDemotion(unit, actor);
+        }
+        catch (Exception)
+        {
+            return false;   // 未知状态一律不放行（fail-closed：绝不宣称已普通）
+        }
+    }
+
+    /// <summary>
+    /// Desktop 严格归还：owner 已由捕获键的表查找证明（指针主证据、GoId 确认），全程**不再读身份**，
+    /// 绝不落入旧 <see cref="Strip"/> 的 SameActor 未知 → <see cref="ClearLedgerFlags"/> 清账分支——
+    /// 未知/异常只保留回执（下一帧 Tick 或下次调用可重试收敛，identity 保留供 Tick 重装）。
+    /// 复用既有 <see cref="RestoreWildlifeFilter"/>/<see cref="RestoreRangeFields"/>/
+    /// <see cref="RestoreCadenceFields"/>/<see cref="RestoreAttackRedirect"/>（字段级 CAS）与
+    /// <see cref="SettleClone(unit, archer, ownerOk:true, destroyAllowed:false)"/>（物理回调安全）。
+    /// </summary>
+    private static bool TryStripForDemotion(MusketeerUnit unit, Archer archer)
+    {
+        try
+        {
+            unit.Applied = false;
+            unit.ClaimLost = false;
+            bool restoresOk = true;
+            restoresOk &= RestoreWildlifeFilter(unit, archer);
+            restoresOk &= RestoreRangeFields(unit, archer);
+            restoresOk &= RestoreCadenceFields(unit, archer);
+            restoresOk &= RestoreAttackRedirect(unit, archer);
+            bool cloneSettled = SettleClone(unit, archer, ownerOk: true, destroyAllowed: false);
+            if (restoresOk && cloneSettled)
+            {
+                unit.PendingDestroy = false;
+                Release(unit);
+                return true;
+            }
+            unit.PendingDestroy = true;    // 保留回执：下一帧 Tick 继续收尾
+            // 只剩"克隆下一帧销毁"这一种无害残留时可放行（与既有语义一致）。
+            return restoresOk && !Referenced(archer, unit.Clone);
+        }
+        catch (Exception)
+        {
+            unit.PendingDestroy = true;    // 未知：只保留回执，绝不清账
+            return false;
+        }
+    }
+#endif
 }

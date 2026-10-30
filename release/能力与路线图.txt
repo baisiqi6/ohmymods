@@ -1,3 +1,7 @@
+Windows 11.1.0（仅2.4.3 r23537 x64）范围见 windows243-11.1.0/README.txt。
+本批无Mac400u宫廷，人口相关低帧率、旧空岛回填与盾卫旧档恢复等后续问题仍独立保留。
+以下Mac11.0.0及历史内容保留原平台边界，不将Mac实测套用于Windows。
+
 Kingdom Enhanced Mod V11.0.0 能力与后续计划（Mac ARM64）
 2026-10-25
 

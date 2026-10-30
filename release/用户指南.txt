@@ -1,3 +1,6 @@
+Windows 11.1.0：安装、功能和已知边界见 windows243-11.1.0/README.txt；只支持2.4.3 r23537 x64。
+Mac正式包仍为11.0.0。以下内容为Mac11.0.0独立平台说明，不能据此判断Windows功能或安装方式。
+
 Kingdom Enhanced Mod V11.0.0 中文用户指南（Mac ARM64）
 正式版 · 2026-10-25
 
