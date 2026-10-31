@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "version": "1.0.0",
+  "files": [
+    {
+      "path": "OhMyMods-CollectDiagnostics.ps1",
+      "size": 45505,
+      "sha256": "be8bc9d3f83b235cbaa582b27a1f3303ddafb8e20d5894e22c75ad4a7436edd7"
+    },
+    {
+      "path": "一键收集排查资料.cmd",
+      "size": 357,
+      "sha256": "e9eb9536296c26f75f3c8dee4a7297b88385bc51923bbbada393902b2133f1d2"
+    },
+    {
+      "path": "排查资料工具说明.txt",
+      "size": 1410,
+      "sha256": "233d6120bf8af2131f015dc101a58b2dbd40f3dfa2454de41e6f1ee5bb434dff"
+    }
+  ]
+}

@@ -2458,3 +2458,8 @@ PR229发布后仅进展文档追加段冲突；已保留主线与Android两端�
 - 2026-10-21 Android #232/#262 N11增量：私有0.0.5以单次dladdr代全maps遍历，删除旧预检和重复地址检查；Root0W0E/17地址ABI host，未变67复用、controller37/parser启动28通过。实际模块/RVA及两个target安装成立，无entry/九池身份；单条日志快照2秒超时令局部facts未合并，raw保留，不定挂死。F后读未执行；严格owner TERM→KILL/wait-9与独立八项完整metadata/资源交还另证，旧postflight失败保留。正常计划fbbe4a7d受管登记/镜像、其他184rows/168plans保持；仅接受有限安装和物理事实，产品Main未变、Pool目标与根因未知。继续修只读snapshot阶段预算/错误交接，详见[同一记录](tasks/issue-262/verification.md#g20-boat-upstream-pool-phase)。
 
 - 2026-10-21 Android #232/#262 N12入口诊断：保持Main2e55/cfg16b/F35fae与私有0.0.5 c58；修正单次日志读取固定2秒上限及错误交接后，新的受控单例完整采到同PM的OnLevelLoaded入口9池：银行助手8个30120..30127、北境Archer30000；随后Apply同PM/Count9、raw-prefab-key缺entry，仍同Boat NRE/Loading。入口diagnosticGoal/entryFactsValid=true，仅该诊断目标；无InitPools entry继续unknown，不把静态Count分支当运行分支证明，也不宣称实际swap-key或完整根因。原生加载/玩法/手机仍未验。后读F一致仅READ，严格owned TERM/wait0，Root八项bytes/完整metadata和自身AVD/端口保持；独审接受入口身份与物理事实。旧ADB1490消失后明确一次同SDK前台nodaemon重获86762，身份重新冻结并增量审查；中断消失的W4由同4bb3提交恢复为W5，原始失败保留。新正常plan cea19dc6受管登记/独立镜像、其他184行168计划保持/validator0；产品未改，PR263 Draft、232/262 OPEN。下一阶段收拢提前注册writer，先闭合保存/网络/晚到资产/重建依赖，不加forceInit或下游补池。详见[本次现场与边界](tasks/issue-262/verification.md#g20-boat-upstream-pool-phase)。
+
+
+## 2026-10-31 — Windows 一键排查资料收集工具（Issue #316）
+
+新增懒人包根目录中文CMD/PS5.1收集工具，固定范围复制日志、原生Release与OhMyMods配置/ModSave，生成本机ZIP、逐项缺失/失败/变化与哈希报告；不改原档、不关游戏、不上传。完整包与补充工具包复用同一白名单和哈希来源，已发布11.1.0资产/插件/435运行依赖不变。当前公开打包17项、独立打包25项、实际Windows合成13+4+3项通过；独立最终审查APPROVE。源资料零内容改写、中文ZIP名/EFS及默认解码器回读已核。源码已提交 [PR #317](https://github.com/baisiqi6/ohmymods/pull/317)，补充工具ZIP已从clean commit生成并核对三份文件；未合并、未安装或发布新版完整包。玩家第二岛保存失败仍待其日志/存档定位。详见 [Issue316验证](tasks/issue-316/verification.md)。
