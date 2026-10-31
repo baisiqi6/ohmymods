@@ -1,0 +1,13 @@
+private static void UpdatePaymentGates()
+    {
+        if (_points == null) return;
+        for (int i = 0; i < _points.Length; i++)
+        {
+            var point = _points[i]; if (point?.Payable == null) continue;
+            // Started stays usable for native completion even while the shop waits to retire.
+            point.Payable.forceBlockPayment = point.Payment.Busy ? !CanPay(i, _shopLife, point.Payer)
+                : (_economyFault || _retiring || _menuSuspended || IslandSaveData.isSavingGame
+                    || !HeavyShieldRuntime.CarrierPreflightReady || !BowUsable()
+                    || !HeavyShieldIdentity.CanReservePurchase(point.Payment.Kind) || AnyBusy() || point.Disabled);
+        }
+    }
