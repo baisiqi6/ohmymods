@@ -41,10 +41,12 @@
 - [x] Run synthetic WindowsPS5.1 suite only under fresh TEMP roots: Chinese/spaces, ZIP/manifest equality, source hashes unchanged, missing/locked files, shared writer, reparse and bounds, invalid/overlapping roots, unavailable output and repeat no-overwrite. Do not start fake global game-named processes while another performance task may run.
 - [x] Run Python packaging regression and support add-on equivalence/tamper tests. No unrelated IL2CPP rebuild needed (no product code changes).
 - [x] Independent fixed-input source and native fixture review, address findings and reverify relevant cases; decision acceptance review.
-- [ ] Commit/push own source, open linked PR, provide verified tool ZIP and clear extraction location. Do not call this a fix of the player's save error.
+- [x] Commit/push own source, open linked PR, provide verified tool ZIP and clear extraction location. Do not call this a fix of the player's save error.
 
 ## Reviewed implementation refinements
 
 R3 final verification is in verification.md. Aggregate actual reads include incomplete attempts and metadata; directory visits cap at twice MaxFiles. Copy changes compare pre/copied/post size. Existing ancestors are checked for reparse before IO; non-adversarial aliases/TOCTOU are not an atomic guarantee. Tests use only a child-process-local presence probe, with both false/true assertions. Normal ZIP name decoding and EFS are verified after the Framework-specific encoding correction. The accepted P3 for advanced drive-relative overrides does not affect the no-argument entry; all fixtures use fully qualified roots. No immutable published package was overwritten. All implementation/review/Windows evidence is distinct from game-save diagnosis.
 
 Source-boundary note: eight intended player-README usage lines are part of this PR. Old runtime/plugin bytes and published assets remain unchanged. See verification.md for the accepted advanced-root/SUBST/TOCTOU and best-effort snapshot limitations.
+
+Delivery: Ready PR https://github.com/baisiqi6/ohmymods/pull/317 . Standalone tool ZIP built from clean source commit 9af1ad6bb33b31f0f1144fb209a673df2bc5541c; exact three-entry readback matches committed blobs. PR and Issue remain unmerged/open; no normal installation changed.

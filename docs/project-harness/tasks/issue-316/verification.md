@@ -47,3 +47,9 @@ The bounded external worker produced leaf files but exited 1 without its final r
 Private local evidence: `.local/tasks/windows-support-collector-20261031/`; key receipts `windows-r3.receipt.json`, `unicode-positive-r3-proof.json`, `package-final-tests.log`, `package-review/review.md`, `collector-review/r3/source-review-r3.md`, and source pins under `candidate-r3/pins.json`. Raw Windows fixtures/provider logs are not committed.
 
 Final decision gate: GLM5.3 max approved commit/push/Ready PR/local add-on build after reading actual receipts. Source-tree README diff was explicitly accepted as intended tool documentation; delivery sidecar records the clean source commit and exact ZIP/file hashes. Checklist schema validation passed with 0 warnings; existing cross-task missing-plan/state-builder warnings remain and were not repaired in this tooling task.
+
+## Delivery
+
+Ready PR: https://github.com/baisiqi6/ohmymods/pull/317 . Tool source commit: `9af1ad6bb33b31f0f1144fb209a673df2bc5541c`.
+
+Standalone `OhMyMods-Windows-SupportTools-v1.0.0.zip`: 11,612 bytes; SHA256 `673e7d0ee25b411e4426ea5422d6530d5a89582d017650a847eadd4ffcd95dc2`. Built through the clean-SHA CLI; all three entries reopened and compared byte-for-byte with the committed Git blobs. Source commit, archive hash and each entry hash are recorded in its DELIVERY.json sidecar; only the three user files are inside the ZIP. No Release upload, mainline merge or normal installation was performed.
