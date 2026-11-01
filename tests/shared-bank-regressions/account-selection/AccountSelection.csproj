@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <AssemblyName>SharedBankAccountSelection</AssemblyName>
+    <NoWarn>$(NoWarn);CS0649;CS0169;CS0414;CS0162;CS8509;CS0067;CS0108;CS0618</NoWarn>
+    <!-- Default: this checkout. RED/GREEN runs may point SourceRoot at an immutable export. -->
+    <SourceRoot Condition="'$(SourceRoot)'==''">$(MSBuildThisFileDirectory)../../../il2cpp</SourceRoot>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <!-- Existing whole-source bank-combo boundary + production-state harness. -->
+    <Compile Include="../../hero-purchase-consistency/bank-combo/Harness.cs" />
+    <Compile Include="../../hero-purchase-consistency/bank-combo/Stubs.cs" />
+    <Compile Include="../../hero-purchase-consistency/bank-combo/NativeStubs.cs" />
+    <Compile Include="../../hero-purchase-consistency/bank-combo/HeroStubs.cs" />
+    <!-- Same real production dependency set as bank-combo/Proof.csproj. -->
+    <Compile Include="$(SourceRoot)/SharedBankNative.cs" />
+    <Compile Include="$(SourceRoot)/HeroNativeRights.cs" />
+    <Compile Include="$(SourceRoot)/SharedBankState.cs" />
+    <Compile Include="$(SourceRoot)/PatchEconomy_Banker.cs" />
+    <Compile Include="$(SourceRoot)/MainBankerFixedDomain.cs" />
+    <Compile Include="$(SourceRoot)/CoinCourierPurse.cs" />
+    <Compile Include="$(SourceRoot)/CoinCourierEconomy.cs" />
+    <Compile Include="$(SourceRoot)/CoinCourierRules.cs" />
+    <Compile Include="$(SourceRoot)/CoinCourierTargeting.cs" />
+    <Compile Include="$(SourceRoot)/CoinCourierBankScope.cs" />
+    <Compile Include="$(SourceRoot)/GreekBankScope.cs" />
+    <Compile Include="$(SourceRoot)/HeroRecruitmentArchive.cs" />
+    <Compile Include="$(SourceRoot)/HeroRecruitmentContext.cs" />
+    <Compile Include="$(SourceRoot)/HeroRecruitmentFingerprint.cs" />
+    <Compile Include="$(SourceRoot)/PatchPerf_CanonicalHashBuffer.cs" />
+  </ItemGroup>
+</Project>
