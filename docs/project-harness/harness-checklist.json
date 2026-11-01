@@ -1,7 +1,7 @@
 {
   "project": "ohmymods",
   "harness_root": "docs/project-harness",
-  "updated_at": "2026-10-30",
+  "updated_at": "2026-10-31",
   "items": [
     {
       "id": "identity-hardening-20260920",
@@ -2814,6 +2814,52 @@
         "before_fingerprint": "55ebfaff6db1a93b832219deb4b3d4b83392c6063b643a540ff89b26dc65e3a7",
         "after_fingerprint": "db4b6f8da460db472f92cbd4f00edcebc152166f3f360c013fad2b759ca2f705",
         "files_applied_at": "2026-10-30T14:14:37Z"
+      }
+    },
+    {
+      "id": "windows-save-diagnostics-318",
+      "title": "Windows 保存失败最小诊断与安全懒人包",
+      "status": "todo",
+      "phase": "diagnostics",
+      "priority": "p1",
+      "owner": null,
+      "human_gate_required": true,
+      "plan_path": "docs/project-harness/tasks/issue-318/plan.md",
+      "artifact_path": "docs/project-harness/tasks/issue-318/plan.md",
+      "acceptance": "Use the plan acceptance criteria as source of truth: docs/project-harness/tasks/issue-318/plan.md",
+      "blocked_by": [],
+      "blocked_reason": "",
+      "dependencies": [],
+      "handoff": {
+        "from": null,
+        "to": null,
+        "reason": null
+      },
+      "selected_in_session": null,
+      "updated_at": "2026-10-31T14:33:27Z",
+      "workflow": {
+        "status": "todo",
+        "branch": null,
+        "updated_at": "2026-10-31T14:33:27Z"
+      },
+      "artifacts": {
+        "plan": "docs/project-harness/tasks/issue-318/plan.md"
+      },
+      "verification": "",
+      "review": {},
+      "split_operation": {
+        "contract_version": 1,
+        "operation_id": "5b14bf44-70a9-4502-8636-edbc64bc8ef9",
+        "operation_kind": "task.create",
+        "workspace_id": "ohmymods",
+        "target_kind": "checklist_task",
+        "target_id": "windows-save-diagnostics-318",
+        "source_kind": null,
+        "source_id": null,
+        "input_fingerprint": "d3cdd36c170e72bf6956272fc58c212368ec33d990df0a40a74a3c80690f0922",
+        "before_fingerprint": "3a1ae8174ea949edcad4f760c86908b941227b2362057fbf6aa642d2584d60af",
+        "after_fingerprint": "75592f8476c8246d2013d8addbb5b4897021bb459ff65195edded2eff9a74bad",
+        "files_applied_at": "2026-10-31T14:33:27Z"
       }
     }
   ]

@@ -170,15 +170,23 @@ internal static class SharedBankNative
         {
             if (!Ensure() || _campaignRefs == null) return false;
             CampaignSaveData current = _global.GetCurrentCampaign();
-            if (current == null) return false;
+            if (current == null || current.Pointer == IntPtr.Zero) return false;
             int normalCount = _global.campaigns.Count;
-            int slot = _global.currentChallenge == 0
-                ? _global.currentCampaign
-                : normalCount + _global.currentChallenge - 1;
-            if (slot < 0 || slot >= _campaignRefs.Length) return false;
-            CampaignSaveData held = _campaignRefs[slot];
-            if (held == null || held.Pointer != current.Pointer) return false;
-            account = (nint)held.Pointer;
+            if (normalCount < 0 || normalCount > _campaignRefs.Length) return false;
+            bool challenge = _global.currentChallenge != 0;
+            int match = -1;
+            for (int index = 0; index < _campaignRefs.Length; index++)
+            {
+                CampaignSaveData held = _campaignRefs[index];
+                if (held == null || held.Pointer != current.Pointer) continue;
+                if (match >= 0) return false; // duplicate wrapper/pointer across the whole catalog
+                match = index;
+            }
+            if (match < 0) return false;
+            // Native challenge rows live only in the challenges suffix; normal rows only in
+            // the campaigns prefix. A pointer from the other partition is not the current row.
+            if (challenge ? match < normalCount : match >= normalCount) return false;
+            account = (nint)current.Pointer;
             return true;
         }
         catch (Exception e) { return Fault("account read " + e.GetType().Name); }
