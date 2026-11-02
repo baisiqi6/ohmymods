@@ -17,6 +17,7 @@ internal static class RuntimeUniversalDamageRegression
             ("back same-x null source and all DamageSource", Universal),
             ("equip stow idle and facing transition", Poses),
             ("native no-damage requests", NativeNoDamage),
+            ("false source mask does not reject long-entry damage", FalseMask),
             ("native Character inspiration immunity", Inspiration),
             ("nonshield disabled and stale life", Invalid),
             ("current world attachment and visual ownership", OwnershipGates),
@@ -107,8 +108,43 @@ internal static class RuntimeUniversalDamageRegression
         foreach(int amount in new[]{0,-1}) { f.Damage.ReceiveDamage(amount,null,DamageSource.Ogre);check(Wear(f)==90,"nonpositive no wear"); }
         f.Damage.invulnerable=true;f.Damage.ReceiveDamage(1,null,DamageSource.Ogre);f.Damage.invulnerable=false;
         check(f.Damage.NativeCalls==3 && Wear(f)==90,"invulnerable passes through native and consumes no shield");
-        f.Damage.Allowed=false;f.Damage.ReceiveDamage(1,null,DamageSource.Fire);f.Damage.Allowed=true;
-        check(f.Damage.NativeCalls==4 && Wear(f)==90,"IsDamagedBy refusal passes through native and consumes no shield");
+        // IsDamagedBy is a caller query, not a no-damage gate in the long entry.
+        // The formerly asserted mask-immunity case now lives in FalseMask below.
+    }
+    static void FalseMask(Action<bool,string> check)
+    {
+        var ordinary=Source("ordinary false-mask control",1).AddComponent<Damageable>();
+        ordinary.Allowed=false;int nativeHealth=ordinary.Health;
+        ordinary.ReceiveDamage(2,null,DamageSource.Ogre);
+        check(ordinary.NativeCalls==1 && ordinary.Health==nativeHealth-2,
+            "ordinary false-mask long entry actually loses HP");
+        Console.WriteLine("PASS false-mask native HP control");
+        using var f=new Fixture();Prepare(f);Guard(f);f.Damage.Allowed=false;
+        if(f.Damage.IsDamagedBy(DamageSource.Ogre))f.Damage.ReceiveDamage(1,null,DamageSource.Ogre);
+        check(f.Damage.NativeCalls==0 && Wear(f)==90,
+            "caller query can prevent invocation, with no shield consumption");
+        int health=f.Damage.Health;
+        f.Damage.ReceiveDamage(2,Source("portal false-mask",-10),DamageSource.Ogre);
+        check(f.Damage.NativeCalls==0 && f.Damage.Health==health && Wear(f)==89,
+            "false-mask Ogre long entry must block and charge instead of leaking HP");
+        var trollGo=Source("witness owner",6);var troll=trollGo.AddComponent<Troll>();
+        troll.Type=EnemyType.TrollWeak;trollGo.AddComponent<Damageable>();
+        HeavyShieldCombat.ObserveTrollIntent(troll,f.Damage);
+        using(var outer=HeavyShieldCombat.EnterTroll(troll,f.Damage))
+        {
+            foreach(var kind in new[]{(DamageSource)(1<<25),DamageSource.Fire|DamageSource.Ogre})
+            {
+                f.Damage.ReceiveDamage(2,null,kind);
+                check(f.Damage.NativeCalls==0 && f.Damage.Health==health && Wear(f)==89,
+                    "false-mask unknown/combined kinds and null source share charge window: "+kind);
+            }
+            check(outer is HeavyShieldTrollScope scope && !scope.Blocked,
+                "false-mask foreign kinds cannot acquire an outer Troll witness");
+        }
+        f.Damage.Allowed=true;f.Damage.ReceiveDamage(2,Source("other source",10),DamageSource.Fire);
+        check(f.Damage.NativeCalls==0 && Wear(f)==89,"mask changes and another source do not reset the charge window");
+        Advance();f.Damage.Allowed=false;f.Damage.ReceiveDamage(2,null,DamageSource.Ogre);
+        check(f.Damage.NativeCalls==0 && Wear(f)==88,"false-mask next natural second charges exactly once");
     }
     static void Inspiration(Action<bool,string> check)
     {

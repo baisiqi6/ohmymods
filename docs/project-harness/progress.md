@@ -2477,3 +2477,5 @@ PR229发布后仅进展文档追加段冲突；已保留主线与Android两端�
 用户明确取消方向/普通来源限制，90耐久与每life自然1秒限耗统一覆盖公共伤害入口；原生鼓舞免伤保留、可选反弹凭据仍精确绑定来源。Root13组相关回归与Mac240/Win243 net8/net6真实interop NoDeploy构建通过，独立v2审查APPROVE；原生静态入口和实际游戏体验边界分开。未安装/未实机/未发版，Issue未合并前保持开放；详见tasks/issue-320/plan.md和verification.md。
 
 盾卫#320累计收口：任务分支已纳入#319银行存档修复（3af7ec6），新累计树四NoDeploy产品0W0E、275资源一致、actual-product banner43与账户选择18通过；盾卫v2 source未变。清单冲突经原operation受控重放保留两边122任务、状态todo，validator0warnings；不代表PR已合并/已安装。
+
+盾卫#320最终v3更正：原生证据推翻IsDamagedBy可否定长入口伤害的假设，已删门并纠正host桩，留非盾卫false-mask真扣血控制与旧v2红→v3绿。重新Root13组通过（runtime1663/全向67/原pause82），Mac/Win net8/net6四NoDeploy0W0E、五产物Cecil核v3/no-mask+Inspired与资源保持；独立增量实现APPROVE。v2批准被hold后按新证据修正，不再将旧绿当完整覆盖。银行/清单基线未变，尚未安装/实机/合并PR。

@@ -160,10 +160,10 @@ using(var f=new Fixture())
     Check(f.Attach(new(3,false,false))&&State(f).Durability==20,"duplicate attach never repairs worn shield");
     var troll=TrollAt(5.5f);HitTroll(f,troll);Check(State(f).Durability==19&&f.Damage.NativeHits==0,"qualified unfinished equip protects");
     Guard(f);f.Damage.invulnerable=true;HitTroll(f,troll);Check(State(f).Durability==19,"native invulnerable consumes no shield");f.Damage.invulnerable=false;
-    f.Damage.Allowed=false;HitTroll(f,troll);Check(State(f).Durability==19,"native kind immunity consumes no shield");f.Damage.Allowed=true;
-    HitTroll(f,troll,DamageSource.Fire);Check(State(f).Durability==18&&f.Damage.NativeHits==0,"Fire protected without borrowing Troll ticket");
-    f.Damage.ReceiveDamage(1,troll.gameObject,DamageSource.Troll);Check(State(f).Durability==18&&f.Damage.NativeHits==0,"no point impact protected within same window");
-    troll.transform.position=new(4,0);HitTroll(f,troll);Check(State(f).Durability==17&&f.Damage.NativeHits==0,"rear Troll protected");
+    f.Damage.Allowed=false;HitTroll(f,troll);Check(State(f).Durability==18&&f.Damage.NativeHits==0,"false-mask long entry still blocks and spends shield");f.Damage.Allowed=true;
+    HitTroll(f,troll,DamageSource.Fire);Check(State(f).Durability==17&&f.Damage.NativeHits==0,"Fire protected without borrowing Troll ticket");
+    f.Damage.ReceiveDamage(1,troll.gameObject,DamageSource.Troll);Check(State(f).Durability==17&&f.Damage.NativeHits==0,"no point impact protected within same window");
+    troll.transform.position=new(4,0);HitTroll(f,troll);Check(State(f).Durability==16&&f.Damage.NativeHits==0,"rear Troll protected");
     Check(HeavyShieldRuntime.DetachCarrier(f.Handle),"return fields");
     Check(f.Archer.enabled&&f.Archer.Embarkee.enabled&&!f.Archer._spriteRenderer.forceRenderingOff,"native AI and renderer returned");
     Check(f.Archer._guardSide==Side.Right&&f.Archer._guardDepth==3&&f.Archer._absoluteFaceIndex==9&&f.Archer._cooldown==7,"native borrowed fields restored");

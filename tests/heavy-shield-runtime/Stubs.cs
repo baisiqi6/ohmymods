@@ -175,7 +175,7 @@ public class Damageable : UnityEngine.Behaviour
         {
             bool original = (bool)Prefix.Invoke(null, args);
             if(original){NativeCalls++;var character=GetComponent<Character>();if(character!=null)character.OnPreDamageInspired(ref damage,source,kind);}
-            if(original && !invulnerable && Allowed){NativeHits++;Health-=damage;isDead=Health<=0;}
+            if(original && !invulnerable){NativeHits++;Health-=damage;isDead=Health<=0;}
             AfterReceive?.Invoke();
         }
         catch (Exception ex) { fault = ex; throw; }

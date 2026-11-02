@@ -6,7 +6,7 @@
 
 - 90耐久。每名当前life的盾卫首次受击扣1，之后距上次实际扣耗至少1自然秒才再次扣1；窗口内继续拦伤，不扣、不改stamp。不是整秒桶，不因换来源/姿态/重复挂载/维修重置。
 - 公共Damageable.ReceiveDamage前缀按目标的付费身份、当前世界/life、Playing、开关、挂载及自有视觉所有权保护；取消方向、source组件、攻击类别白名单与GuardReady动画门。空source、失活source、相同x、背击、触手/范围、箭/火等在原生实际伤害入口一视同仁。
-- 原生零/负伤害、invulnerable、IsDamagedBy拒绝、Character.IsInspired免伤，以及非盾卫/无效life/过期职业等仍透传原函数，不凭空扣盾。鼓舞判断复用当前原生公开bool IsInspired()，不执行回调来探测。
+- 原生零/负伤害、invulnerable、Character.IsInspired免伤，以及非盾卫/无效life/过期职业等仍透传原函数，不凭空扣盾。攻击种类mask不作为长伤害入口的拒伤门；原生该分支只影响AddForce，仍会扣HP。鼓舞判断复用当前原生公开bool IsInspired()，不执行回调来探测。
 - 防护结果与反弹凭据分开：只有当前Troll碰撞顶帧且本次source/target/kind/career/life精确匹配时才给Witness；保持原生pause归属/方向检查。Portal、箭发射者和其它来源不能借票反弹。
 - Policy提交后，即使持久记录或显示/可选反馈失败，本次仍挡下；持久拒绝按既有机制暂停后续防护，不捏造购买/身份状态。第90次仍挡下后按原破盾退职，不复活。
 - schema5比例迁移、维修等待/工作、购买记录、AI迎敌距离保持；不拦正常回收/卸载。坏/倒退时钟维持#311的逐击扣耗降级，不能宣称异常时钟下仍有自然秒保证。

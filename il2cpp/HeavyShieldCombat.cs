@@ -219,7 +219,7 @@ internal static class HeavyShieldCombat
             // Match native would-damage gates first. Ineligible requests still run
             // native (including its no-damage side effects), without spending shield.
             if (damage <= 0 || target == null || target.invulnerable || target.isDead
-                || !target.enabled || !target.gameObject.activeInHierarchy || !target.IsDamagedBy(kind)
+                || !target.enabled || !target.gameObject.activeInHierarchy
                 || !HeavyShieldRuntime.TryGetCareer(target, out var career)
                 || !HeavyShieldRuntime.TryBlock(career)) return false;
         }
