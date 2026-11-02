@@ -46,9 +46,19 @@ public class GlobalSaveData : UnityEngine.Object
     public int currentChallenge;
 
     public bool ThrowOnCurrentRead;
+    // Shipped 2.4.3 native contract: normal campaigns by index when currentChallenge == 0,
+    // otherwise the first challenge whose CampaignSaveData.challengeId equals currentChallenge.
+    // No ordinal-minus-one mapping: challenge IDs are sparse and not in enum order.
     public CampaignSaveData GetCurrentCampaign() {
         if (ThrowOnCurrentRead) throw new InvalidOperationException("current campaign read");
-        return currentChallenge == 0 ? campaigns[currentCampaign] : challenges[currentChallenge - 1];
+        if (currentChallenge == 0)
+            return currentCampaign >= 0 && currentCampaign < campaigns.Count
+                ? campaigns[currentCampaign] : null;
+        // Native FindCampaignForChallengeId dereferences every list row: a null row throws.
+        // The real production Catalog rejects null/zero rows before Find is reached.
+        foreach (CampaignSaveData item in challenges)
+            if (item.challengeId == currentChallenge) return item;
+        return null;
     }
     public void SaveAsync(Il2CppSystem.Action<Coatsink.Common.SaveLoadResult> callback) { }
     // Catalog mutation surface referenced by the hero rights patch classes.
@@ -77,6 +87,7 @@ public class GlobalSaveData : UnityEngine.Object
 public class CampaignSaveData : UnityEngine.Object
 {
     public static CampaignSaveData current;
+    public int challengeId;
     public List<IslandSaveData> _islands = new();
     public IslandSaveData CurrentIsland;
 }

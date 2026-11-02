@@ -3,6 +3,13 @@
 按用户确认，每life有效格挡的实际扣耗至少间隔1自然秒，间隔内仍挡伤反弹；上限90，旧v1–v4先验证再比例迁移到schema5，破盾/购买/身份/unknown保持。复用原生本次pause恢复速度，基准×1.2；伤害Finalizer与碰撞Postfix共同证明归属，修掉独审发现的同Troll子pause误借，原3红例已转绿。A/B最终独审均APPROVE；Root相关13组通过，runtime1601断言，独立原56断言旧源3红/新源全绿，Mac/Win net6/net8 NoDeploy编译均0W0E，Android实际编译0E/1既有warning、host平台6断言通过。[PR #312](https://github.com/baisiqi6/ohmymods/pull/312) 已提交供合并审查；未合并、未安装、未操作正常档，游戏和设备体验仍待对应平台验证。详见[tasks/issue-311/verification.md](tasks/issue-311/verification.md)。
 
 重要任务已通过Coordinate受管file入口登记 `heavy-shield-combat-311`，operation `81ec8cbe-7044-48ee-afbc-1dd4d57f6ab3`；合并部署后沿同operation补record侧，当前未宣称managed done。保留schema5旧DLL不回读与配对备份边界；本轮不正式发版或递增版本。
+## 2026-11-01 · #318 银行账户误选修复，准备代码 PR
+
+新诊断资料确认英雄6/6通过、银行 save-account 首拒；实际原生挑战目录按ID查找，银行却按 enum-1 索引。已改为原生当前对象的全目录唯一匹配与分区校验，不改余额/购买档案或清除保护。Root相关回归50项、独立20项通过；Win243闭包0W0E、IL仅Account及38资源保持。旧hotpath桩错误与Mac离线依赖缺口单列，未做游戏/正常安装。见[根因与修复记录](tasks/issue-318/account-selection-fix.md)；PR、合并、发行和玩家复测分别记账。
+
+## 2026-10-31 · #318 Windows 保存失败诊断懒人包
+
+独立诊断候选 `11.1.0-win-save-diag318-r1` 已准备，基于公开 Windows11.1.0 闭包，保留原保存保护与购买记录语义。源审、0W0E 构建、IL/资源核对及 PS5.1 合成测试18/18通过；完整519项 ZIP 在Mac/Windows逐项核对，包内首次/重复CheckOnly以假数据通过，玩家70个原件内容/mtime保持。没有启动真实游戏、确认根因、更新公开发行或创建修复PR；用户转交玩家复现后继续定位。Issue318开放，受管任务仅create-files、record待后续，见[候选记录](tasks/issue-318/diagnostic-candidate.md)。
 
 ## 2026-10-28 — #303 Git 工作区实际退役收尾
 
