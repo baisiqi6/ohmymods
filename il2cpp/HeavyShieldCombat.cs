@@ -44,13 +44,6 @@ internal sealed class HeavyShieldIngressStack<T>
     }
 }
 
-internal static class HeavyShieldDirection
-{
-    internal static bool ArrowFront(float velocityX, int facing)
-        => float.IsFinite(velocityX) && velocityX != 0f && (facing == -1 || facing == 1)
-            && Math.Sign(velocityX) == -facing;
-}
-
 #if !HEAVY_SHIELD_COMBAT_CORE_ONLY
 internal static class HeavyShieldCombat
 {
@@ -220,27 +213,30 @@ internal static class HeavyShieldCombat
 
     internal static bool TryBlock(Damageable target, int damage, GameObject source, DamageSource kind)
     {
-        // A rear/unsupported hit is still a threat even though the shield lets it pass.
         HeavyShieldRuntime.ObserveIncomingDamage(target, damage);
         try
         {
-            if (damage <= 0 || target == null || source == null || !Impacts.TryPeek(out var ticket)
-                || ticket.Target.Pointer != target.Pointer || ticket.Source.Pointer != source.Pointer || ticket.Kind != kind
-                || target.invulnerable || target.isDead || !target.enabled || !target.gameObject.activeInHierarchy
-                || !target.IsDamagedBy(kind) || !HeavyShieldIdentity.ValidateCareer(ticket.Career)
-                || !CombatTargetLife.TryResolve(target, out var defenderLife)
-                || !CombatTargetLife.TryResolve(source.GetComponent<Damageable>(), out var sourceLife)
-                || !CombatTargetToken.Matches(defenderLife, ticket.TargetLife)
-                || !CombatTargetToken.Matches(sourceLife, ticket.SourceLife)) return false;
-            float sourceX = source.transform.position.x;
-            float relativeX = ticket.Witness != null ? sourceX - target.transform.position.x : 0f;
-            bool blocked = HeavyShieldRuntime.TryBlock(ticket.Career, ticket.Arrow, ticket.VelocityX, sourceX);
-            // Only the exact ApplyCollisionDamage frame that owns this active ticket may
-            // observe the block. A nested frame has already masked this ticket.
-            if (blocked) ticket.Witness?.MarkBlocked(relativeX);
-            return blocked;
+            // Match native would-damage gates first. Ineligible requests still run
+            // native (including its no-damage side effects), without spending shield.
+            if (damage <= 0 || target == null || target.invulnerable || target.isDead
+                || !target.enabled || !target.gameObject.activeInHierarchy || !target.IsDamagedBy(kind)
+                || !HeavyShieldRuntime.TryGetCareer(target, out var career)
+                || !HeavyShieldRuntime.TryBlock(career)) return false;
         }
         catch { return false; }
+
+        // Protection belongs to the target life, independent of the ingress stack,
+        // source type, location or animation. Only optional Troll feedback needs a
+        // real top-frame witness with exact current source and target life proofs.
+        try
+        {
+            if (source != null && Impacts.TryPeek(out var ticket) && ticket.Witness != null && !ticket.Arrow
+                && ticket.Target.Pointer == target.Pointer && ticket.Source.Pointer == source.Pointer && ticket.Kind == kind
+                && TryImpact(target, source, kind, false, 0f, out var current) && SameImpact(ticket, current))
+                ticket.Witness.MarkBlocked(source.transform.position.x - target.transform.position.x);
+        }
+        catch { } // feedback can never revoke the committed block
+        return true;
     }
     internal static void ObserveDamageEnd(Damageable target, bool completedNormally)
     {

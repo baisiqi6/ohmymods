@@ -31,24 +31,6 @@ internal sealed class HeavyShieldBlockPolicy
         Dead
     }
 
-    internal readonly struct Hit
-    {
-        internal readonly bool IsDirect;
-        internal readonly bool HasSource;
-        internal readonly float SourceX;
-        internal readonly float DefenderX;
-        internal readonly int Facing; // -1 or +1; any other value is unknown.
-
-        internal Hit(bool isDirect, bool hasSource, float sourceX, float defenderX, int facing)
-        {
-            IsDirect = isDirect;
-            HasSource = hasSource;
-            SourceX = sourceX;
-            DefenderX = defenderX;
-            Facing = facing;
-        }
-    }
-
     internal LifeState State { get; private set; }
     internal int Durability { get; private set; }
     internal bool BashActive => _bashActive;
@@ -122,19 +104,9 @@ internal sealed class HeavyShieldBlockPolicy
     // A valid forward sample charges at most one point per ChargeIntervalSeconds;
     // invalid or backwards samples keep the old once-per-hit charge without moving
     // the stamp, so a bad clock can never grant unlimited free blocks.
-    internal HitResult EvaluateHit(in Hit hit, double nowSeconds)
+    internal HitResult EvaluateHit(double nowSeconds)
     {
         if (State != LifeState.Guarding) return HitResult.PassThrough;
-        if (!hit.IsDirect || !hit.HasSource || (hit.Facing != -1 && hit.Facing != 1)
-            || float.IsNaN(hit.SourceX) || float.IsInfinity(hit.SourceX)
-            || float.IsNaN(hit.DefenderX) || float.IsInfinity(hit.DefenderX))
-            return HitResult.PassThrough;
-
-        float relativeX = hit.SourceX - hit.DefenderX;
-        // A zero separation does not provide evidence of a frontal strike.
-        if (relativeX == 0f || Math.Sign(relativeX) != hit.Facing)
-            return HitResult.PassThrough;
-
         bool charge;
         if (!double.IsFinite(nowSeconds) || (_hasChargeAt && nowSeconds < _lastChargeAt))
             charge = true; // fallback: old per-hit wear, preserve the prior stamp

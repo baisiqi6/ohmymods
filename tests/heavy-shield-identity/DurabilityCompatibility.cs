@@ -153,7 +153,7 @@ internal static class DurabilityCompatibility
         if (remaining == 0)
         {
             Check(!policy.TryBeginBash(0)
-                && policy.EvaluateHit(new(true, true, 1, 0, 1), 0d) == HeavyShieldBlockPolicy.HitResult.PassThrough,
+                && policy.EvaluateHit(0d) == HeavyShieldBlockPolicy.HitResult.PassThrough,
                 "loaded zero is terminal in actual policy");
             Check(unknown ? !policy.TryBeginDemote(out _) : policy.TryBeginDemote(out _) && !policy.TryBeginDemote(out _),
                 "pending gets once, unknown gets no repeated native retirement");
@@ -446,7 +446,7 @@ internal static class DurabilityCompatibility
         var policy = new HeavyShieldBlockPolicy(); Require(policy.Restore(90, false, false), "fresh policy");
         for (int remaining = 89; remaining >= 0; remaining--)
         {
-            var result = policy.EvaluateHit(new(true, true, 1, 0, 1), 1000d - remaining);
+            var result = policy.EvaluateHit(1000d - remaining);
             Check(HeavyShieldIdentity.UpdateCombatState(soldier, new(policy.Durability, policy.PendingBreak, policy.RetirementUnknown))
                 && HeavyShieldIdentity.TryGetCombatState(soldier, out var state) && state.Durability == remaining
                 && result == (remaining == 0 ? HeavyShieldBlockPolicy.HitResult.ShieldBroken : HeavyShieldBlockPolicy.HitResult.Blocked),

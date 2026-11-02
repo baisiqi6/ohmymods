@@ -752,25 +752,39 @@ internal static class HeavyShieldRuntime
             catch { } // one partially faulted native hit is never retried
         }
     }
-    internal static bool TryBlock(in HeavyShieldCareerHandle handle, bool arrow, float vx, float sourceX)
+    internal static bool TryBlock(in HeavyShieldCareerHandle handle)
     {
         if (!Playing || !HeavyShieldIdentity.ValidateCareer(handle) || !TryEntry(handle, out var e) || !e.Attached || e.Carrier.enabled
             || e.RepairUncertain
             || !HasNativeSourceLife(e.Carrier, handle.Life, false)
-            || !HeavyShieldActorVisuals.GuardReady(e.Carrier, handle.Life)) return false;
-        float defenderX = e.Carrier.transform.position.x;
-        if (arrow)
-        {
-            if (!HeavyShieldDirection.ArrowFront(vx, e.Facing)) return false;
-            sourceX = defenderX + e.Facing; // already-proved velocity direction, not shooter position
-        }
-        var result = e.Policy.EvaluateHit(new(true, true, sourceX, defenderX, e.Facing),
-            AndroidUnityCompat.UnscaledSeconds());
+            || !HeavyShieldActorVisuals.HasQualifiedVisual(e.Carrier, handle.Life)) return false;
+        // Native Character.OnPreDamageInspired zeroes this request before HP damage.
+        // Read the same native condition; let its callback and side effects run.
+        if (e.Character.IsInspired()) return false;
+        var result = e.Policy.EvaluateHit(AndroidUnityCompat.UnscaledSeconds());
         if (result == HeavyShieldBlockPolicy.HitResult.PassThrough) return false;
-        Wear(e);
-        if (!Persist(e)) { e.Attached = false; HeavyShieldActorVisuals.Suspend(e.Carrier, handle.Life); }
-        HeavyShieldActorVisuals.Trigger(e.Carrier, handle.Life,
-            result == HeavyShieldBlockPolicy.HitResult.ShieldBroken ? HeavyShieldAction.Break : HeavyShieldAction.Block);
+        // The life policy has committed this block. Persistence/visual feedback may
+        // suspend later protection, but must never give this damage back to native.
+        try
+        {
+            if (!Persist(e))
+            {
+                e.Attached = false;
+                HeavyShieldActorVisuals.Suspend(e.Carrier, handle.Life);
+            }
+        }
+        catch
+        {
+            e.Attached = false;
+            try { HeavyShieldActorVisuals.Suspend(e.Carrier, handle.Life); } catch { }
+        }
+        try { Wear(e); } catch { }
+        try
+        {
+            HeavyShieldActorVisuals.Trigger(e.Carrier, handle.Life,
+                result == HeavyShieldBlockPolicy.HitResult.ShieldBroken ? HeavyShieldAction.Break : HeavyShieldAction.Block);
+        }
+        catch { }
         return true;
     }
     private static void Retire(Entry e)

@@ -32,7 +32,7 @@ internal static class RuntimeReboundRegression
         SameSecondSecondBlock();
         NestedScopes();
         TwoSequentialImpactsSameFrame();
-        RearPass();
+        RearProtected();
         SpecialTroll();
         FailureCases();
         Console.WriteLine("PASS HeavyShield rebound boundary: right/left replace, failures preserve native pause");
@@ -242,7 +242,7 @@ internal static class RuntimeReboundRegression
         }
     }
 
-    private static void RearPass()
+    private static void RearProtected()
     {
         using var f = new Fixture();
         Prepare(f, "rear");
@@ -252,9 +252,9 @@ internal static class RuntimeReboundRegression
         var pause = BlockingImpact(f, troll, out state);
         using (state)
         {
-            Check(f.Damage.NativeHits == 1, "rear hit reaches native damage");
+            Check(f.Damage.NativeHits == 0, "rear hit protected independent of facing");
             InvokePostfix(troll, f.Damage, state);
-            Check(pause.VectorWrites == 0, "rear pass never rebounds");
+            Check(pause.VectorWrites == 0, "rear inward native vector remains untouched");
         }
     }
 
@@ -269,7 +269,7 @@ internal static class RuntimeReboundRegression
         var pause = BlockingImpact(f, troll, out state);
         using (state)
         {
-            Check(f.Damage.NativeHits == 1, "special troll reaches native damage");
+            Check(f.Damage.NativeHits == 0, "special troll protected without a rebound ticket");
             InvokePostfix(troll, f.Damage, state);
             Check(pause.VectorWrites == 0, "special troll never rebounds");
         }

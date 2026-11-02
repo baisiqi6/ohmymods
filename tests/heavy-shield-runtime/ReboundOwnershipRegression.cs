@@ -76,7 +76,7 @@ internal static class ReboundOwnershipRegression
         var outer = Impact(troll, outerTarget.Damage, true, false);
         Check(outerTarget.Damage.NativeHits == 0, label + " outer real TryBlock succeeded");
         Check(inner != null && inner.Created != null, label + " nested native path allocated pause");
-        Check(innerTarget.Damage.NativeHits == (innerIntent ? 0 : 1), label + " inner block/native outcome");
+        Check(innerTarget.Damage.NativeHits == 0, label + " inner protected even without rebound intent");
         Check(inner.PostfixRan == !innerFault && outer.PostfixRan, label + " actual normal/exception postfix schedule");
         int expectedInnerWrites = innerIntent && !innerFault ? 1 : 0;
         int actualInnerWrites = inner.Created.VectorWrites;

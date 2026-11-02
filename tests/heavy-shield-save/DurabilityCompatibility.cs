@@ -37,7 +37,7 @@ internal static class DurabilityCompatibility
                 $"v1 remaining {claim.Durability} cannot become fresh four");
             if (claim.Durability > 0)
                 for (int remaining = claim.Durability - 1; remaining >= 0; remaining--)
-                    Check(policy.EvaluateHit(Front(), NextTime()) == (remaining == 0
+                    Check(policy.EvaluateHit(NextTime()) == (remaining == 0
                             ? HeavyShieldBlockPolicy.HitResult.ShieldBroken : HeavyShieldBlockPolicy.HitResult.Blocked)
                         && policy.Durability == remaining, "old remaining hit budget is exact");
             Check(policy.Durability == 0 && policy.PendingBreak && !policy.TryBeginBash(0),
@@ -50,7 +50,7 @@ internal static class DurabilityCompatibility
         Check(unknownPolicy.Restore(unknown.Durability, unknown.PendingBreak, unknown.RetirementUnknown)
             && unknownPolicy.Durability == 0 && unknownPolicy.RetirementUnknown
             && !unknownPolicy.TryBeginDemote(out _) && !unknownPolicy.Activate()
-            && unknownPolicy.EvaluateHit(Front(), NextTime()) == HeavyShieldBlockPolicy.HitResult.PassThrough,
+            && unknownPolicy.EvaluateHit(NextTime()) == HeavyShieldBlockPolicy.HitResult.PassThrough,
             "v1 zero unknown retirement cannot retry or resurrect");
         Check(loaded.Campaigns[0].Islands[1].Claims[0].Durability == 90,
             "old full paid tool scales to ninety before pickup");
@@ -154,9 +154,9 @@ internal static class DurabilityCompatibility
             {
                 Check(policy.TryBeginBash(0), "each positive stage can fight");
                 policy.EndBash();
-                Check(policy.EvaluateHit(Front(), NextTime()) == (remaining == 1
+                Check(policy.EvaluateHit(NextTime()) == (remaining == 1
                     ? HeavyShieldBlockPolicy.HitResult.ShieldBroken : HeavyShieldBlockPolicy.HitResult.Blocked),
-                    "one frontal hit spends one point");
+                    "one charged hit spends one point");
             }
         }
         Check(policy.TryBeginDemote(out var lease) && !policy.TryBeginDemote(out _), "final break opens one demotion");
@@ -170,7 +170,6 @@ internal static class DurabilityCompatibility
         Check(policy.ConfirmDemote(lease) && !policy.TryBeginDemote(out _), "verified replacement confirms exactly once");
     }
 
-    private static HeavyShieldBlockPolicy.Hit Front() => new(true, true, 1, 0, 1);
     private static bool SameExceptVersion(string before, string after)
     {
         var expected = JsonNode.Parse(before); expected["version"] = HeavyShieldSaveSchema.Version;

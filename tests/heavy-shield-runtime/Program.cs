@@ -11,6 +11,12 @@ if (args.Length == 1 && args[0].StartsWith("--lifecycle-"))
     Console.WriteLine($"PASS lifecycle: {checks} assertions");
     return;
 }
+if (args.Length == 1 && args[0] == "--universal")
+{
+    RuntimeUniversalDamageRegression.Run(Check);
+    Console.WriteLine($"PASS universal: {checks} assertions");
+    return;
+}
 void Step(Fixture f, float dt=.25f) {Time.deltaTime=dt;Time.time+=dt;Time.unscaledTime+=dt;Time.unscaledTimeAsDouble+=dt;Time.frameCount++;HeavyShieldActorVisuals.Tick(f.Handle.GoId);HeavyShieldRuntime.Tick();}
 void Guard(Fixture f) {HeavyShieldRuntime.Tick();for(int i=0;i<8;i++)Step(f);Check(HeavyShieldActorVisuals.GuardReady(f.Archer,f.Handle.Life),"equip completes before guard");}
 HeavyShieldSavedCombatState State(Fixture f){Check(HeavyShieldRuntime.CaptureCombat(f.Handle,out var s),"capture exact career");return s;}
@@ -29,6 +35,7 @@ Character PeasantResult() {var go=new GameObject("native peasant");go.transform.
 void NativePool(GameObject root) {HeavyShieldIntegration.BeforePoolDespawn(root,0);root.SetActive(false);HeavyShieldIntegration.AfterPoolDespawn(root,0);}
 
 #if !ANDROID
+RuntimeUniversalDamageRegression.Run(Check);
 ReboundOwnershipRegression.Run(Check);
 #endif
 
@@ -128,8 +135,6 @@ using(var outer=stack.Push(1,true))
     Check(stack.TryPeek(out v)&&v==1,"exception finally restores outer");
 }
 Check(!stack.TryPeek(out _)&&stack.Depth==0,"all finalizers close");
-Check(HeavyShieldDirection.ArrowFront(-1,1)&&HeavyShieldDirection.ArrowFront(1,-1),"velocity mirrored front");
-foreach(float bad in new[]{0,float.NaN,float.PositiveInfinity,1})Check(!HeavyShieldDirection.ArrowFront(bad,1),"invalid or rear vx pass");
 
 using(var loaded=new Fixture(deferBind:true))
 {
@@ -146,19 +151,19 @@ using(var f=new Fixture())
 {
     HarmonyLib.Harmony.Installed=false;Check(!HeavyShieldRuntime.CarrierPreflightReady,"missing installed hook gate");HarmonyLib.Harmony.Installed=true;
     HeavyShieldArt.Available=false;Check(!HeavyShieldRuntime.CarrierPreflightReady,"missing approved sprite gate");HeavyShieldArt.Available=true;
-    Check(f.Attach(new(1,false,false)),"attach saved worn life");
+    Check(f.Attach(new(20,false,false)),"attach saved worn life");
     Check(HeavyShieldRuntime.IsCarrierActive(f.Handle),"attached exact career is active");Time.timeScale=0;
     Check(!HeavyShieldRuntime.IsCarrierActive(f.Handle)&&HeavyShieldRuntime.IsControlled(f.Archer),"paused career retains ownership but is not active");Time.timeScale=1;
     Check(HeavyShieldRuntime.CarrierMutationInProgress==false,"carrier mutation stack closes");
     Check(!f.Archer.enabled&&!f.Archer.Embarkee.enabled&&f.Damage.enabled&&f.Archer.persistent.enabled&&f.Archer._mover.enabled,"only native Archer and Embarkee paused");
     Check(Managers.Inst.targetCache._trollPriorityTargets.Count(d=>d==f.Damage)==1,"one own target registration");
-    Check(f.Attach(new(3,false,false))&&State(f).Durability==1,"duplicate attach never repairs worn shield");
-    var troll=TrollAt(5.5f);HitTroll(f,troll);Check(State(f).Durability==1&&f.Damage.NativeHits==1,"back shield/unfinished equip cannot block");
-    Guard(f);f.Damage.invulnerable=true;HitTroll(f,troll);Check(State(f).Durability==1,"native invulnerable consumes no shield");f.Damage.invulnerable=false;
-    f.Damage.Allowed=false;HitTroll(f,troll);Check(State(f).Durability==1,"native kind immunity consumes no shield");f.Damage.Allowed=true;
-    HitTroll(f,troll,DamageSource.Fire);Check(State(f).Durability==1,"Fire cannot borrow Troll ticket");
-    f.Damage.ReceiveDamage(1,troll.gameObject,DamageSource.Troll);Check(State(f).Durability==1,"no point impact passes");
-    troll.transform.position=new(4,0);HitTroll(f,troll);Check(State(f).Durability==1,"rear Troll passes");
+    Check(f.Attach(new(3,false,false))&&State(f).Durability==20,"duplicate attach never repairs worn shield");
+    var troll=TrollAt(5.5f);HitTroll(f,troll);Check(State(f).Durability==19&&f.Damage.NativeHits==0,"qualified unfinished equip protects");
+    Guard(f);f.Damage.invulnerable=true;HitTroll(f,troll);Check(State(f).Durability==19,"native invulnerable consumes no shield");f.Damage.invulnerable=false;
+    f.Damage.Allowed=false;HitTroll(f,troll);Check(State(f).Durability==19,"native kind immunity consumes no shield");f.Damage.Allowed=true;
+    HitTroll(f,troll,DamageSource.Fire);Check(State(f).Durability==18&&f.Damage.NativeHits==0,"Fire protected without borrowing Troll ticket");
+    f.Damage.ReceiveDamage(1,troll.gameObject,DamageSource.Troll);Check(State(f).Durability==18&&f.Damage.NativeHits==0,"no point impact protected within same window");
+    troll.transform.position=new(4,0);HitTroll(f,troll);Check(State(f).Durability==17&&f.Damage.NativeHits==0,"rear Troll protected");
     Check(HeavyShieldRuntime.DetachCarrier(f.Handle),"return fields");
     Check(f.Archer.enabled&&f.Archer.Embarkee.enabled&&!f.Archer._spriteRenderer.forceRenderingOff,"native AI and renderer returned");
     Check(f.Archer._guardSide==Side.Right&&f.Archer._guardDepth==3&&f.Archer._absoluteFaceIndex==9&&f.Archer._cooldown==7,"native borrowed fields restored");
@@ -168,7 +173,7 @@ using(var f=new Fixture())
 }
 using(var f=new Fixture())
 {
-    Check(f.Attach(new(3,false,false)),"arrow test attach");Guard(f);
+    Check(f.Attach(new(20,false,false)),"arrow test attach");Guard(f);
     var off=ArrowFrom(-2);int markerAdds=GameObject.LifeAdds,bodyReads=off.BodyReads;ModConfig.HeavyShieldEnabled.Value=false;
     using(var hit=HeavyShieldCombat.EnterArrowHit(off)){Check(!HeavyShieldCombat.TryBlock(f.Damage,1,off.archer,DamageSource.GreedProjectile),"default off native pass");}
     Check(GameObject.LifeAdds==markerAdds&&off.BodyReads==bodyReads&&off.gameObject.GetComponent<CombatTargetLifeMarker>()==null,"default off zero marker/native body reads");
@@ -179,32 +184,32 @@ using(var f=new Fixture())
         arrow._rigidbody.velocity=new(0,0); // native HitObject changes velocity before TryDamage
         using(var child=HeavyShieldCombat.EnterArrowDamage(arrow,f.Damage))f.Damage.ReceiveDamage(1,arrow.archer,DamageSource.GreedProjectile);
     }
-    Check(State(f).Durability==2&&f.Damage.NativeHits==0,"pre-HitObject vx blocks despite rear owner and later zero velocity");
-    arrow._rigidbody.velocity=new(2,0);HitArrow(f,arrow);Check(State(f).Durability==2&&f.Damage.NativeHits==1,"rear arrow passes");
-    arrow._rigidbody.velocity=new(-2,0);HitArrow(f,arrow,DamageSource.Fire);Check(State(f).Durability==2,"arrow scope Fire passes");
+    Check(State(f).Durability==19&&f.Damage.NativeHits==0,"arrow protected despite rear owner and later zero velocity");
+    arrow._rigidbody.velocity=new(2,0);HitArrow(f,arrow);Check(State(f).Durability==18&&f.Damage.NativeHits==0,"rear arrow protected");
+    arrow._rigidbody.velocity=new(-2,0);HitArrow(f,arrow,DamageSource.Fire);Check(State(f).Durability==17,"arrow scope Fire protected");
     using(var hit=HeavyShieldCombat.EnterArrowHit(arrow))
     using(var child=HeavyShieldCombat.EnterArrowDamage(arrow,f.Damage))
     using(var disabled=HeavyShieldCombat.EnterArrowDamage(new Arrow(),f.Damage))
         f.Damage.ReceiveDamage(1,arrow.archer,DamageSource.GreedProjectile);
-    Check(State(f).Durability==2,"invalid nested child masks outer active impact");
+    Check(State(f).Durability==17,"invalid nested child does not remove target protection");
     using(var hit=HeavyShieldCombat.EnterArrowHit(arrow))
     using(var child=HeavyShieldCombat.EnterArrowDamage(arrow,f.Damage))
     using(var disabledHit=HeavyShieldCombat.EnterArrowHit(new Arrow()))
         f.Damage.ReceiveDamage(1,arrow.archer,DamageSource.GreedProjectile);
-    Check(State(f).Durability==2,"invalid nested HitObject masks outer even without child");
+    Check(State(f).Durability==17,"invalid nested HitObject does not remove target protection");
     using(var hit=HeavyShieldCombat.EnterArrowHit(arrow))
     using(var child=HeavyShieldCombat.EnterArrowDamage(arrow,f.Damage))
     using(var intent=HeavyShieldCombat.EnterTrollIntent(null,f.Damage))
         f.Damage.ReceiveDamage(1,arrow.archer,DamageSource.GreedProjectile);
-    Check(State(f).Durability==2,"nested non-impact Troll intent masks outer ticket");
+    Check(State(f).Durability==17,"nested non-impact intent does not remove target protection");
     using(var hit=HeavyShieldCombat.EnterArrowHit(arrow))
     {arrow.gameObject.SetActive(false);arrow.gameObject.SetActive(true);using var child=HeavyShieldCombat.EnterArrowDamage(arrow,f.Damage);
         f.Damage.ReceiveDamage(1,arrow.archer,DamageSource.GreedProjectile);}
-    Check(State(f).Durability==2,"pooled projectile new life cannot borrow old flight");
+    Check(State(f).Durability==17,"pooled projectile life does not remove target protection");
     using(var hit=HeavyShieldCombat.EnterArrowHit(arrow))
     using(var child=HeavyShieldCombat.EnterArrowDamage(arrow,f.Damage))
     {arrow.archer.SetActive(false);arrow.archer.SetActive(true);f.Damage.ReceiveDamage(1,arrow.archer,DamageSource.GreedProjectile);}
-    Check(State(f).Durability==2,"pooled shooter new life cannot borrow child receipt");
+    Check(State(f).Durability==17,"pooled shooter life does not remove target protection");
     Check(!HeavyShieldCombat.InNativeDamageStack,"native flight/impact/damage stack restored");
     object[] prefixArgs={arrow,null};
     typeof(HeavyShieldArrowHit).GetMethod("Prefix",BindingFlags.NonPublic|BindingFlags.Static).Invoke(null,prefixArgs);
@@ -854,7 +859,7 @@ for(int fault=0;fault<7;fault++)
         var troll=TrollAt(4.2f);int hits=f.Damage.NativeHits;
         NoSourceWrites(f,()=>
         {
-            Check(!HeavyShieldRuntime.TryBlock(f.Handle,false,0,4.2f),"old Combat token cannot authorize new native damage");
+            Check(!HeavyShieldRuntime.TryBlock(f.Handle),"old Combat token cannot authorize new native damage");
             HitTroll(f,troll);HeavyShieldActorVisuals.Tick(f.Handle.GoId);HeavyShieldRuntime.Tick();
             root.SetActive(false);root.SendMessage("OnDestroy");
             Check(!HeavyShieldRuntime.DetachCarrier(f.Handle),"unproven source refuses old native return");
