@@ -46,3 +46,9 @@ Provenance: Mac Max / Codex · Maintainer Operator · acting_for=ohmymods Mac Op
 ## 最终v2证据身份
 
 Root13组与上述四次NoDeploy编译全部发生在Operator应用v2并核验11文件SHA之后，均对应aggregate patch `5b4c9dfa8582978f14d1e2d28860b2832a370357099570a282fe396ab943359d`（原84a0ae8加v2增量），不是修鼓舞前的产物。元数据独立读回四个真实产品DLL和Root RuntimeTests DLL：都含Character.IsInspired调用、单参数Runtime.TryBlock/EvaluateHit且不含旧Hit结构，四产品275份嵌入资源逐名逐字节一致。输入映射与时序见本机verification-inputs-v2.json、artifact-audit/result.json。旧独立56断言仅作为old→v1红绿历史；最终v2证据为Root1656/新增60、worker v2及独立鼓舞12断言，不混记。
+
+## 累计主线核对
+
+代码累计点`3af7ec60d3708205a3430211bbef318061b63aab`已包含主线`5ce82cfa9bd68d471748eef40b725f73ea2ed332`的#319保存修复，SharedBankNative.cs SHA256保持`6e12f472f037cbd6879bf064b1f3f03779e2fa30fa95b8e06c21a044c13231fe`；盾卫11文件逐项仍为review过的v2 SHA。累计树再次完整Mac240/Win243 net8/net6编译均0W0E，Cecil再读回四产物的v2方法特征和275资源与合并前一致；新产物adapter43、主线#319账户选择18检查/0失败。其它13组沿相同盾卫source的既有v2证据，不伪称重新跑过或实机通过。
+
+主线更新只在本任务分支进行。两份任务记录冲突通过恢复已批准基线清单原字节、Coordinate create-files重放原#311 operation `81ec8cbe-7044-48ee-afbc-1dd4d57f6ab3`解决，input/before/after fingerprints均与原操作一致；121个基线item内容全部保持、总计122、status仍todo，未执行DB record半边。Markdown用正常三方union保留两边记录；EXharness validator通过0warnings。原#311 plan字节保留绑定，新范围明确由本#320 plan与用户新授权覆盖，未裸改JSON或伪造managed done。

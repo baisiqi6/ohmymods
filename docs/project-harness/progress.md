@@ -2475,3 +2475,5 @@ PR229发布后仅进展文档追加段冲突；已保留主线与Android两端�
 ## 2026-11-02 盾卫全向伤害保护（#320，PR#312增量）
 
 用户明确取消方向/普通来源限制，90耐久与每life自然1秒限耗统一覆盖公共伤害入口；原生鼓舞免伤保留、可选反弹凭据仍精确绑定来源。Root13组相关回归与Mac240/Win243 net8/net6真实interop NoDeploy构建通过，独立v2审查APPROVE；原生静态入口和实际游戏体验边界分开。未安装/未实机/未发版，Issue未合并前保持开放；详见tasks/issue-320/plan.md和verification.md。
+
+盾卫#320累计收口：任务分支已纳入#319银行存档修复（3af7ec6），新累计树四NoDeploy产品0W0E、275资源一致、actual-product banner43与账户选择18通过；盾卫v2 source未变。清单冲突经原operation受控重放保留两边122任务、状态todo，validator0warnings；不代表PR已合并/已安装。
