@@ -44,13 +44,6 @@ internal sealed class HeavyShieldIngressStack<T>
     }
 }
 
-internal static class HeavyShieldDirection
-{
-    internal static bool ArrowFront(float velocityX, int facing)
-        => float.IsFinite(velocityX) && velocityX != 0f && (facing == -1 || facing == 1)
-            && Math.Sign(velocityX) == -facing;
-}
-
 #if !HEAVY_SHIELD_COMBAT_CORE_ONLY
 internal static class HeavyShieldCombat
 {
@@ -75,11 +68,17 @@ internal static class HeavyShieldCombat
         internal readonly HeavyShieldCareerHandle Career;
         internal readonly float VelocityX;
         internal readonly bool Arrow;
+        // Null unless this frame came from a Troll.ApplyCollisionDamage prefix. The
+        // reference makes a successful block visible to exactly that frame's postfix.
+        internal readonly HeavyShieldTrollScope Witness;
         internal Impact(Damageable target, GameObject source, DamageSource kind,
             CombatTargetToken targetLife, CombatTargetToken sourceLife,
-            HeavyShieldCareerHandle career, bool arrow, float velocityX)
+            HeavyShieldCareerHandle career, bool arrow, float velocityX,
+            HeavyShieldTrollScope witness = null)
         { Target = target; Source = source; Kind = kind; TargetLife = targetLife; SourceLife = sourceLife;
-          Career = career; Arrow = arrow; VelocityX = velocityX; }
+          Career = career; Arrow = arrow; VelocityX = velocityX; Witness = witness; }
+        internal Impact WithWitness(HeavyShieldTrollScope witness)
+            => new(Target, Source, Kind, TargetLife, SourceLife, Career, Arrow, VelocityX, witness);
     }
     internal readonly struct Flight
     {
@@ -118,16 +117,27 @@ internal static class HeavyShieldCombat
     {
         Impact value = default;
         bool active = false;
+        HeavyShieldCampaignToken campaign = default;
         try
         {
             int id = troll.gameObject.GetInstanceID();
             active = HeavyShieldRuntime.Playing && ResetIntentContext() && TrollIntents.TryGetValue(id, out var intent)
                 && TryImpact(target, troll.gameObject, troll.damageSource, false, 0, out value)
                 && SameImpact(intent, value);
+            if (active) HeavyShieldIdentity.TryGetCampaign(out campaign);
             TrollIntents.Remove(id);
         }
         catch { }
-        return Impacts.Push(value, active);
+        if (!active) return Impacts.Push(default, false);
+        IntPtr oldPause = IntPtr.Zero;
+        bool oldPauseKnown = false;
+        try { var pause = troll._pauseMotion; oldPause = pause?.Pointer ?? IntPtr.Zero; oldPauseKnown = true; }
+        catch { }
+        var scope = new HeavyShieldTrollScope(troll, oldPause, oldPauseKnown);
+        value = value.WithWitness(scope);
+        scope.Bind(value, true, campaign);
+        scope.Attach(Impacts.Push(value, true));
+        return scope;
     }
     internal static IDisposable EnterArrowHit(Arrow arrow)
     {
@@ -203,25 +213,41 @@ internal static class HeavyShieldCombat
 
     internal static bool TryBlock(Damageable target, int damage, GameObject source, DamageSource kind)
     {
-        // A rear/unsupported hit is still a threat even though the shield lets it pass.
         HeavyShieldRuntime.ObserveIncomingDamage(target, damage);
         try
         {
-            if (damage <= 0 || target == null || source == null || !Impacts.TryPeek(out var ticket)
-                || ticket.Target.Pointer != target.Pointer || ticket.Source.Pointer != source.Pointer || ticket.Kind != kind
-                || target.invulnerable || target.isDead || !target.enabled || !target.gameObject.activeInHierarchy
-                || !target.IsDamagedBy(kind) || !HeavyShieldIdentity.ValidateCareer(ticket.Career)
-                || !CombatTargetLife.TryResolve(target, out var defenderLife)
-                || !CombatTargetLife.TryResolve(source.GetComponent<Damageable>(), out var sourceLife)
-                || !CombatTargetToken.Matches(defenderLife, ticket.TargetLife)
-                || !CombatTargetToken.Matches(sourceLife, ticket.SourceLife)) return false;
-            return HeavyShieldRuntime.TryBlock(ticket.Career, ticket.Arrow, ticket.VelocityX, source.transform.position.x);
+            // Match native would-damage gates first. Ineligible requests still run
+            // native (including its no-damage side effects), without spending shield.
+            if (damage <= 0 || target == null || target.invulnerable || target.isDead
+                || !target.enabled || !target.gameObject.activeInHierarchy
+                || !HeavyShieldRuntime.TryGetCareer(target, out var career)
+                || !HeavyShieldRuntime.TryBlock(career)) return false;
         }
         catch { return false; }
+
+        // Protection belongs to the target life, independent of the ingress stack,
+        // source type, location or animation. Only optional Troll feedback needs a
+        // real top-frame witness with exact current source and target life proofs.
+        try
+        {
+            if (source != null && Impacts.TryPeek(out var ticket) && ticket.Witness != null && !ticket.Arrow
+                && ticket.Target.Pointer == target.Pointer && ticket.Source.Pointer == source.Pointer && ticket.Kind == kind
+                && TryImpact(target, source, kind, false, 0f, out var current) && SameImpact(ticket, current))
+                ticket.Witness.MarkBlocked(source.transform.position.x - target.transform.position.x);
+        }
+        catch { } // feedback can never revoke the committed block
+        return true;
     }
-    internal static void ObserveDamageEnd(Damageable target)
+    internal static void ObserveDamageEnd(Damageable target, bool completedNormally)
     {
         try { HeavyShieldRuntime.ObserveNativeDeath(target); } catch { }
+        try
+        {
+            if (target != null && Impacts.TryPeek(out var ticket) && ticket.Target != null
+                && ticket.Target.Pointer == target.Pointer)
+                ticket.Witness?.RecordDamageReturn(completedNormally);
+        }
+        catch { }
     }
 }
 #endif

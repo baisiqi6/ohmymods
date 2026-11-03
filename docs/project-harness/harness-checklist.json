@@ -1,7 +1,7 @@
 {
   "project": "ohmymods",
   "harness_root": "docs/project-harness",
-  "updated_at": "2026-10-31",
+  "updated_at": "2026-11-02",
   "items": [
     {
       "id": "identity-hardening-20260920",
@@ -2860,6 +2860,52 @@
         "before_fingerprint": "3a1ae8174ea949edcad4f760c86908b941227b2362057fbf6aa642d2584d60af",
         "after_fingerprint": "75592f8476c8246d2013d8addbb5b4897021bb459ff65195edded2eff9a74bad",
         "files_applied_at": "2026-10-31T14:33:27Z"
+      }
+    },
+    {
+      "id": "heavy-shield-combat-311",
+      "title": "Issue311 宝石盾卫自然秒限耗与原生格挡反弹",
+      "status": "todo",
+      "phase": "implementation",
+      "priority": "p1",
+      "owner": null,
+      "human_gate_required": true,
+      "plan_path": "docs/project-harness/tasks/issue-311/plan.md",
+      "artifact_path": "docs/project-harness/tasks/issue-311/plan.md",
+      "acceptance": "Use the plan acceptance criteria as source of truth: docs/project-harness/tasks/issue-311/plan.md",
+      "blocked_by": [],
+      "blocked_reason": "",
+      "dependencies": [],
+      "handoff": {
+        "from": null,
+        "to": null,
+        "reason": null
+      },
+      "selected_in_session": null,
+      "updated_at": "2026-11-02T13:34:47Z",
+      "workflow": {
+        "status": "todo",
+        "branch": null,
+        "updated_at": "2026-11-02T13:34:47Z"
+      },
+      "artifacts": {
+        "plan": "docs/project-harness/tasks/issue-311/plan.md"
+      },
+      "verification": "",
+      "review": {},
+      "split_operation": {
+        "contract_version": 1,
+        "operation_id": "81ec8cbe-7044-48ee-afbc-1dd4d57f6ab3",
+        "operation_kind": "task.create",
+        "workspace_id": "ohmymods",
+        "target_kind": "checklist_task",
+        "target_id": "heavy-shield-combat-311",
+        "source_kind": null,
+        "source_id": null,
+        "input_fingerprint": "3318baa59d8df64d3a864fca9a58f6e0ffbe6f8eb4e1f68b5e539c22d6fc5ca9",
+        "before_fingerprint": "23714d819df1820a5009541bf0594344ce43b16ed06bbb2203bd9e645d49c90b",
+        "after_fingerprint": "c89ade76c00215ac3c470cbe1c8ff5dd66792eb9f3174f811c2263d92657cfb3",
+        "files_applied_at": "2026-11-02T13:34:47Z"
       }
     }
   ]

@@ -2,12 +2,20 @@ namespace KingdomEnhancedMod;
 
 internal static class HeavyShieldDurabilityMigration
 {
-    internal const int CurrentVersion = 4;
-    internal const int Maximum = 40;
+    internal const int CurrentVersion = 5;
+    internal const int Maximum = 90;
+    internal static int MaximumForVersion(int version) => version switch
+    {
+        1 => 3,
+        2 or 3 => 4,
+        4 => 40,
+        CurrentVersion => Maximum,
+        _ => 0,
+    };
     internal static bool TryUpgrade(int sourceVersion, int durability, bool broken, out int upgraded)
     {
         upgraded = 0;
-        int oldMaximum = sourceVersion switch { 1 => 3, 2 or 3 => 4, CurrentVersion => Maximum, _ => 0 };
+        int oldMaximum = MaximumForVersion(sourceVersion);
         if (oldMaximum == 0 || durability < 0 || durability > oldMaximum || broken != (durability == 0))
             return false;
 
@@ -18,9 +26,9 @@ internal static class HeavyShieldDurabilityMigration
     internal static int WearBand(int durability) => durability switch
     {
         < 0 or > Maximum => -1,
-        > 30 => 0,
-        > 20 => 1,
-        > 10 => 2,
+        > 67 => 0, // > 75%
+        > 45 => 1, // > 50%
+        > 22 => 2, // > 25%
         _ => 3,
     };
 }

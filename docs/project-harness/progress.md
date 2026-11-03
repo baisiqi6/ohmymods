@@ -1,3 +1,8 @@
+## 2026-10-30 — #311 宝石盾卫90耐久、自然秒限耗与原生格挡反弹（源码交付）
+
+按用户确认，每life有效格挡的实际扣耗至少间隔1自然秒，间隔内仍挡伤反弹；上限90，旧v1–v4先验证再比例迁移到schema5，破盾/购买/身份/unknown保持。复用原生本次pause恢复速度，基准×1.2；伤害Finalizer与碰撞Postfix共同证明归属，修掉独审发现的同Troll子pause误借，原3红例已转绿。A/B最终独审均APPROVE；Root相关13组通过，runtime1601断言，独立原56断言旧源3红/新源全绿，Mac/Win net6/net8 NoDeploy编译均0W0E，Android实际编译0E/1既有warning、host平台6断言通过。[PR #312](https://github.com/baisiqi6/ohmymods/pull/312) 已提交供合并审查；未合并、未安装、未操作正常档，游戏和设备体验仍待对应平台验证。详见[tasks/issue-311/verification.md](tasks/issue-311/verification.md)。
+
+重要任务已通过Coordinate受管file入口登记 `heavy-shield-combat-311`，operation `81ec8cbe-7044-48ee-afbc-1dd4d57f6ab3`；合并部署后沿同operation补record侧，当前未宣称managed done。保留schema5旧DLL不回读与配对备份边界；本轮不正式发版或递增版本。
 ## 2026-11-01 · #318 银行账户误选修复，准备代码 PR
 
 新诊断资料确认英雄6/6通过、银行 save-account 首拒；实际原生挑战目录按ID查找，银行却按 enum-1 索引。已改为原生当前对象的全目录唯一匹配与分区校验，不改余额/购买档案或清除保护。Root相关回归50项、独立20项通过；Win243闭包0W0E、IL仅Account及38资源保持。旧hotpath桩错误与Mac离线依赖缺口单列，未做游戏/正常安装。见[根因与修复记录](tasks/issue-318/account-selection-fix.md)；PR、合并、发行和玩家复测分别记账。
@@ -2466,3 +2471,11 @@ PR229发布后仅进展文档追加段冲突；已保留主线与Android两端�
 - 2026-10-21 Android #232/#262 N11增量：私有0.0.5以单次dladdr代全maps遍历，删除旧预检和重复地址检查；Root0W0E/17地址ABI host，未变67复用、controller37/parser启动28通过。实际模块/RVA及两个target安装成立，无entry/九池身份；单条日志快照2秒超时令局部facts未合并，raw保留，不定挂死。F后读未执行；严格owner TERM→KILL/wait-9与独立八项完整metadata/资源交还另证，旧postflight失败保留。正常计划fbbe4a7d受管登记/镜像、其他184rows/168plans保持；仅接受有限安装和物理事实，产品Main未变、Pool目标与根因未知。继续修只读snapshot阶段预算/错误交接，详见[同一记录](tasks/issue-262/verification.md#g20-boat-upstream-pool-phase)。
 
 - 2026-10-21 Android #232/#262 N12入口诊断：保持Main2e55/cfg16b/F35fae与私有0.0.5 c58；修正单次日志读取固定2秒上限及错误交接后，新的受控单例完整采到同PM的OnLevelLoaded入口9池：银行助手8个30120..30127、北境Archer30000；随后Apply同PM/Count9、raw-prefab-key缺entry，仍同Boat NRE/Loading。入口diagnosticGoal/entryFactsValid=true，仅该诊断目标；无InitPools entry继续unknown，不把静态Count分支当运行分支证明，也不宣称实际swap-key或完整根因。原生加载/玩法/手机仍未验。后读F一致仅READ，严格owned TERM/wait0，Root八项bytes/完整metadata和自身AVD/端口保持；独审接受入口身份与物理事实。旧ADB1490消失后明确一次同SDK前台nodaemon重获86762，身份重新冻结并增量审查；中断消失的W4由同4bb3提交恢复为W5，原始失败保留。新正常plan cea19dc6受管登记/独立镜像、其他184行168计划保持/validator0；产品未改，PR263 Draft、232/262 OPEN。下一阶段收拢提前注册writer，先闭合保存/网络/晚到资产/重建依赖，不加forceInit或下游补池。详见[本次现场与边界](tasks/issue-262/verification.md#g20-boat-upstream-pool-phase)。
+
+## 2026-11-02 盾卫全向伤害保护（#320，PR#312增量）
+
+用户明确取消方向/普通来源限制，90耐久与每life自然1秒限耗统一覆盖公共伤害入口；原生鼓舞免伤保留、可选反弹凭据仍精确绑定来源。Root13组相关回归与Mac240/Win243 net8/net6真实interop NoDeploy构建通过，独立v2审查APPROVE；原生静态入口和实际游戏体验边界分开。未安装/未实机/未发版，Issue未合并前保持开放；详见tasks/issue-320/plan.md和verification.md。
+
+盾卫#320累计收口：任务分支已纳入#319银行存档修复（3af7ec6），新累计树四NoDeploy产品0W0E、275资源一致、actual-product banner43与账户选择18通过；盾卫v2 source未变。清单冲突经原operation受控重放保留两边122任务、状态todo，validator0warnings；不代表PR已合并/已安装。
+
+盾卫#320最终v3更正：原生证据推翻IsDamagedBy可否定长入口伤害的假设，已删门并纠正host桩，留非盾卫false-mask真扣血控制与旧v2红→v3绿。重新Root13组通过（runtime1663/全向67/原pause82），Mac/Win net8/net6四NoDeploy0W0E、五产物Cecil核v3/no-mask+Inspired与资源保持；独立增量实现APPROVE。v2批准被hold后按新证据修正，不再将旧绿当完整覆盖。银行/清单基线未变，尚未安装/实机/合并PR。
