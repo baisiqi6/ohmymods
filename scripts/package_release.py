@@ -62,9 +62,14 @@ WIN243_CMD = "ohmymods-win243-preview.cmd"
 WIN243_EASY_CMD = "启动_OhMyMods_Windows243.cmd"
 WIN243_CATALOG = "ohmymods-win243-preview.json"
 WIN243_MANIFEST = "BUILD-MANIFEST.txt"
+SUPPORT_TOOLS_REL = Path("release/support-tools/windows")
+SUPPORT_TOOL_VERSION = "1.0.0"
+SUPPORT_TOOL_FILES = (
+    "OhMyMods-CollectDiagnostics.ps1", "一键收集排查资料.cmd", "排查资料工具说明.txt",
+)
 WIN243_CATEGORY_ORDER = (
     "loader", "runtime", "generatedBindings", "bootstrap",
-    "loaderConfig", "mod", "docs", "launcher", "manifest", "catalog",
+    "loaderConfig", "mod", "docs", "launcher", "supportTools", "manifest", "catalog",
 )
 
 
@@ -627,6 +632,86 @@ def load_player_docs(repo: Path, lock: dict) -> dict:
     return docs
 
 
+def load_support_tools(repo: Path) -> dict:
+    """One pinned byte source for both full packages and the small add-on ZIP."""
+    root = Path(repo) / SUPPORT_TOOLS_REL
+    manifest_path = _safe_under(repo, (SUPPORT_TOOLS_REL / "manifest.json").as_posix(), "support tools")
+    try:
+        manifest = json.loads(_read_regular(manifest_path, "support manifest", 16384).decode("utf-8-sig"))
+    except (ValueError, UnicodeError) as exc:
+        _fail(f"support manifest: invalid JSON: {exc}")
+    if (not isinstance(manifest, dict) or manifest.get("schema") != 1
+            or manifest.get("version") != SUPPORT_TOOL_VERSION):
+        _fail("support manifest: unsupported schema/version")
+    rows = manifest.get("files")
+    if not isinstance(rows, list) or len(rows) != len(SUPPORT_TOOL_FILES):
+        _fail("support manifest: incorrect file count")
+    if {p.name for p in root.iterdir()} != set(SUPPORT_TOOL_FILES) | {"manifest.json"}:
+        _fail("support tools: missing or unexpected source file")
+    result = {}
+    for row in rows:
+        entry = _check_entry(row, "support tools")
+        name = entry["path"]
+        if name not in SUPPORT_TOOL_FILES or name in result:
+            _fail(f"support tools: unexpected or duplicate path: {name}")
+        path = _safe_under(repo, (SUPPORT_TOOLS_REL / name).as_posix(), "support tools")
+        st = os.lstat(path)
+        if getattr(st, "st_file_attributes", 0) & 0x400:
+            _fail(f"support tools: reparse point rejected: {name}")
+        data = _read_regular(path, "support tools", 1 << 20)
+        if len(data) != entry["size"] or _hash_bytes(data) != entry["sha256"]:
+            _fail(f"support tools: size/hash mismatch for {name}")
+        if name.endswith(".ps1") and not data.startswith(b"\xef\xbb\xbf"):
+            _fail("support tools: PowerShell must be UTF-8 BOM for Windows PowerShell 5.1")
+        if name.endswith(".cmd") and (not data.isascii() or b"\r\n" not in data):
+            _fail("support tools: CMD must be ASCII with CRLF")
+        result[name] = data
+    return result
+
+
+def build_support_tools_zip(repo: Path, output_dir: Path) -> dict:
+    tools = load_support_tools(repo)  # validate before creating any output
+    out_dir = Path(output_dir)
+    out = out_dir / f"OhMyMods-Windows-SupportTools-v{SUPPORT_TOOL_VERSION}.zip"
+    sidecar = out.with_name(out.name + ".sha256")
+    if out.exists() or sidecar.exists():
+        _fail("support tools: output already exists")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    fd, temp_name = tempfile.mkstemp(prefix="support-tools-", suffix=".tmp", dir=out_dir)
+    os.close(fd)
+    temp = Path(temp_name)
+    created_output = False
+    try:
+        with zipfile.ZipFile(temp, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
+            for name, data in sorted(tools.items()):
+                info = zipfile.ZipInfo(name, date_time=(1980, 1, 1, 0, 0, 0))
+                info.compress_type = zipfile.ZIP_DEFLATED
+                info.external_attr = 0o100644 << 16
+                archive.writestr(info, data, compresslevel=9)
+        with zipfile.ZipFile(temp) as archive:
+            if set(archive.namelist()) != set(tools) or archive.testzip() is not None:
+                _fail("support tools: ZIP readback failed")
+            for name, data in tools.items():
+                if archive.read(name) != data:
+                    _fail(f"support tools: ZIP content mismatch: {name}")
+        checksum = sha256(temp)
+        # Exclusive creation also rejects a concurrent output of the same name.
+        with out.open("xb") as target, temp.open("rb") as source:
+            created_output = True
+            for chunk in iter(lambda: source.read(1 << 20), b""):
+                target.write(chunk)
+        with sidecar.open("x", encoding="ascii") as target:
+            target.write(f"{checksum}  {out.name}\n")
+    except Exception:
+        if created_output:
+            out.unlink()
+        raise
+    finally:
+        temp.unlink(missing_ok=True)
+    return {"output": str(out), "sidecar": str(sidecar), "zipSha256": checksum,
+            "entries": len(tools), "version": SUPPORT_TOOL_VERSION}
+
+
 def validate_mod_dll(path: Path, lock: dict) -> tuple:
     path = _regular_file(path, "mod DLL")
     if path.suffix.lower() != ".dll":
@@ -782,6 +867,7 @@ def _manifest_text(lock: dict, commit: str, built: str, source: dict,
         "ModFiles: 1",
         "DocFiles: 3 (README.txt, MOD_V11.1.0版本更新说明.txt, NOTICE.txt)",
         "LauncherFiles: 3",
+        f"SupportToolFiles: {len([e for e in entries if e['category'] == 'supportTools'])}",
         "ManifestFiles: 1",
         "CatalogFiles: 1",
         f"LoaderConfig: {cfg['path']} size={cfg['size']} sha256={cfg['sha256']}",
@@ -930,6 +1016,7 @@ def build_win243_package(repo: Path, lock: dict, runtime_root: Path, bootstrap_r
     cfg_bytes = load_loader_config(repo, lock)
     launcher = load_launcher_files(repo, lock)
     docs = load_player_docs(repo, lock)
+    support_tools = load_support_tools(repo)
     mod_bytes, mod_sha = validate_mod_dll(mod_dll, lock)
     source = validate_source_archive(source_archive)
 
@@ -963,6 +1050,8 @@ def build_win243_package(repo: Path, lock: dict, runtime_root: Path, bootstrap_r
             _write_bytes(zf, lock["notice"], docs[lock["notice"]], "docs", entries, seen)
             for name in lock["launcher"]["files"]:
                 _write_bytes(zf, name, launcher[name], "launcher", entries, seen)
+            for name, data in sorted(support_tools.items()):
+                _write_bytes(zf, name, data, "supportTools", entries, seen)
 
             manifest = _manifest_text(lock, commit, built, source, entries, version)
             _write_bytes(zf, WIN243_MANIFEST, manifest.encode("utf-8"),
@@ -1046,6 +1135,20 @@ def main(argv=None):
         return 2
     if len(argv) == 1 and not argv[0].startswith("-"):
         legacy_main(argv[0].strip())
+        return 0
+    if "--support-tools-only" in argv:
+        parser = argparse.ArgumentParser(description="Build the standalone Windows support tools")
+        parser.add_argument("--support-tools-only", action="store_true", required=True)
+        parser.add_argument("--output-dir", required=True, type=Path)
+        parser.add_argument("--commit", required=True)
+        args = parser.parse_args(argv)
+        try:
+            _check_commit(REPO, args.commit)
+            result = build_support_tools_zip(REPO, args.output_dir)
+        except (PackageError, OSError) as exc:
+            print(f"ERROR: {exc}", file=sys.stderr)
+            return 1
+        print(f"OK: {result['output']}  sha256={result['zipSha256']}")
         return 0
     args = parse_win243_args(argv)
     try:

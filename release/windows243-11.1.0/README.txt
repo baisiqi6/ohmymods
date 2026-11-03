@@ -52,6 +52,14 @@ OhMyMods / Kingdom Enhanced Mod 11.1.0 — Windows x64
 - 曾见首次出航的 Knight.EmbarkArchers 集合变动异常与 Forest 容量日志，冷重进未重复；
   根因未定，保留后续调查，不声称所有日志均无异常。
 
+排查资料收集工具（带工具的新构建，或另外解压工具补充包后）
+
+将三份工具文件放在 KingdomTwoCrowns.exe 同一目录，双击“一键收集排查资料.cmd”。
+它会复制当前用户的游戏日志、原生存档、OhMyMods 配置和附加档，生成 ZIP 并打开结果目录。
+默认结果位于 %LOCALAPPDATA%\OhMyMods\Diagnostics。工具不上传、不修改原档、不结束游戏。
+ZIP 含个人游戏资料，只私下发送维护者。运行中或缺件时摘要会注明，不作为一致备份恢复。
+历史已发布的 v11.1.0 ZIP 不会自动增加工具；可另取小工具补充包，游戏插件无需替换。
+
 反馈请提供：世界/岛屿、单机或主客机、操作步骤、面板相关设置，以及
 BepInEx/LogOutput.log 和 Player.log。不要公开个人存档或机器账号。
 源码、完整包、SHA256与本次变更说明在 GitHub baisiqi6/ohmymods 的 v11.1.0 发布页。
