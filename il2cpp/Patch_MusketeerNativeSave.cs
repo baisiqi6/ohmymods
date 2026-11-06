@@ -742,6 +742,9 @@ internal static class MusketeerNativeSave
         reason = null;
         try
         {
+#if !ANDROID
+            if (!MountIslandGemRewards.CanWriteNativePayload(folder, filename, data, out reason)) return WriterVerdict.Fail;
+#endif
             if (!MusketeerNativeArchive.ValidFile(filename)) return WriterVerdict.Pass;
             OwnerState owner = _owner;
             if (owner == null || !string.Equals(filename, owner.File, StringComparison.Ordinal)) return WriterVerdict.Pass;

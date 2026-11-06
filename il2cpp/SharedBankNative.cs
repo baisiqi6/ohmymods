@@ -10,6 +10,21 @@ using HarmonyLib;
 using PrivateBankR3;
 using UnityEngine;
 
+// Bind the typed MoveNext hooks to the explicitly selected interop version.
+#if ANDROID
+#if KTC_GAME_243
+using SaveRoutine = Il2Cpp.GlobalSaveData._Save_d__92;
+#else
+using SaveRoutine = Il2Cpp.GlobalSaveData._Save_d__89;
+#endif
+#else
+#if KTC_GAME_243
+using SaveRoutine = GlobalSaveData._Save_d__92;
+#else
+using SaveRoutine = GlobalSaveData._Save_d__89;
+#endif
+#endif
+
 namespace KingdomEnhancedMod;
 
 // H-side override of the bank file (B copy, SHA 4d83443f06f0875e54015ae648b47bb340719a78cfdeb4a22f741953311aa01d).
@@ -155,15 +170,23 @@ internal static class SharedBankNative
         {
             if (!Ensure() || _campaignRefs == null) return false;
             CampaignSaveData current = _global.GetCurrentCampaign();
-            if (current == null) return false;
+            if (current == null || current.Pointer == IntPtr.Zero) return false;
             int normalCount = _global.campaigns.Count;
-            int slot = _global.currentChallenge == 0
-                ? _global.currentCampaign
-                : normalCount + _global.currentChallenge - 1;
-            if (slot < 0 || slot >= _campaignRefs.Length) return false;
-            CampaignSaveData held = _campaignRefs[slot];
-            if (held == null || held.Pointer != current.Pointer) return false;
-            account = (nint)held.Pointer;
+            if (normalCount < 0 || normalCount > _campaignRefs.Length) return false;
+            bool challenge = _global.currentChallenge != 0;
+            int match = -1;
+            for (int index = 0; index < _campaignRefs.Length; index++)
+            {
+                CampaignSaveData held = _campaignRefs[index];
+                if (held == null || held.Pointer != current.Pointer) continue;
+                if (match >= 0) return false; // duplicate wrapper/pointer across the whole catalog
+                match = index;
+            }
+            if (match < 0) return false;
+            // Native challenge rows live only in the challenges suffix; normal rows only in
+            // the campaigns prefix. A pointer from the other partition is not the current row.
+            if (challenge ? match < normalCount : match >= normalCount) return false;
+            account = (nint)current.Pointer;
             return true;
         }
         catch (Exception e) { return Fault("account read " + e.GetType().Name); }
@@ -634,10 +657,10 @@ internal static class SharedBankNative
         }
     }
 
-    [HarmonyPatch(typeof(GlobalSaveData._Save_d__89), nameof(GlobalSaveData._Save_d__89.MoveNext))]
+    [HarmonyPatch(typeof(SaveRoutine), nameof(SaveRoutine.MoveNext))]
     private static class SyncGate
     {
-        [HarmonyPrefix] private static bool Prefix(GlobalSaveData._Save_d__89 __instance, ref bool __result)
+        [HarmonyPrefix] private static bool Prefix(SaveRoutine __instance, ref bool __result)
         {
             if (__instance.__1__state != 0 || Prepare(__instance.__4__this)) return true;
             try

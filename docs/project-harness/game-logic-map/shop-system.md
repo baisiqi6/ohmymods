@@ -213,3 +213,12 @@ PC 2.4.0 把希腊方案泛化为 `WorldShopPlan`（`il2cpp/WorldShopPlan.cs`）
 - 池/角色依赖：Ninja 的 ThrowingStar(sync41)/Smokebomb(local)、Berserker/BerserkerLeader/Tool 池，
   每次 `PoolManager.InitPools` 后由 `ReRegisterModPools` 按世界计划重注册。
 - 实机购买→领取→转职→战斗、迁址库存、读档/换岛、照明与联机仍待验收（见 `tasks/issue-255/`）。
+
+
+## 快速购买与自定义店履约（#300，IL2CPP2.4.0 / Win2.4.3 source/host）
+
+火枪4 Coins由自有 PayableComponent 付款，不能按原生工具店tag或自动补货资格识别手动购买：AutoRestock主动排除手动交互。`MusketeerShop.ManualPurchase`只核当前付款点/owner/GO/层身份；原生CanPay/库存/存档保护仍决定可否交易。
+
+HoldPurchase的goods资格允许加速与续买；非goods且当前整价≥7 Coins只加速当笔，完成/取消即结束，不把“钱包仍够整单”用于已投币的加速。不要通过扩goods白名单实现全部高价单次功能。
+
+火枪OnPay出货失败可退4币后正常返回，故这个自定义路径的PerformPay本身不是履约成功证明。两处实际拒绝责任边界先通知终止精确本地hold，再保留原取消/退款，避免自动重发；AlreadySettled重复回调不通知。源码链接133场景/独立144反例、三端编译与产物IL已核；Native未验，见[任务回执](../tasks/issue-300/receipt.md)。

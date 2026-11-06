@@ -1,0 +1,507 @@
+<?xml version='1.0' encoding='utf-8'?>
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <AssemblyName>KingdomEnhancedMod</AssemblyName>
+    <LangVersion>latest</LangVersion>
+    <DefineConstants>IL2CPP;BIE;BIE6</DefineConstants>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <EnableDefaultEmbeddedResourceItems>false</EnableDefaultEmbeddedResourceItems>
+    <Version>11.0.0</Version>
+    <Description>Phase B isolated Palace400 integration candidate; no installation or native acceptance.</Description>
+    <SourceRevisionId>e94342e38c922f593b6152be3b43bec0d9e3cf5a</SourceRevisionId><BepInExPluginsPath />
+    <OutputPath>$(ReleaseOutputDir)/</OutputPath>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <UseSharedCompilation>false</UseSharedCompilation>
+  <BaseIntermediateOutputPath>$(ReleaseObjDir)/</BaseIntermediateOutputPath><MSBuildProjectExtensionsPath>$(ReleaseObjDir)/</MSBuildProjectExtensionsPath><NoDeploy>true</NoDeploy></PropertyGroup>
+  <Import Project="$(ModSourceDir)/EmbeddedAssets.props" />
+  <Import Project="$(ModSourceDir)/PalaceAssets.props" />
+  <ItemGroup>
+    <Compile Include="$(ModSourceDir)/**/*.cs" Exclude="$(ModSourceDir)/**/obj/**/*.cs;$(ModSourceDir)/**/bin/**/*.cs" />
+    <Compile Include="$(PluginInfoPath)" />
+    <Reference Include="$(ReferenceRoot)/core/0Harmony.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/core/AsmResolver.DotNet.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/core/AsmResolver.PE.File.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/core/AsmResolver.PE.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/core/AsmResolver.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/core/AssetRipper.CIL.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/core/AssetRipper.Primitives.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/core/BepInEx.Core.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/core/BepInEx.Preloader.Core.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/core/BepInEx.Unity.Common.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/core/BepInEx.Unity.IL2CPP.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/core/Cpp2IL.Core.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/core/Disarm.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/core/Gee.External.Capstone.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/core/Iced.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/core/Il2CppInterop.Common.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/core/Il2CppInterop.Generator.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/core/Il2CppInterop.HarmonySupport.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/core/Il2CppInterop.Runtime.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/core/LibCpp2IL.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/core/Mono.Cecil.Mdb.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/core/Mono.Cecil.Pdb.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/core/Mono.Cecil.Rocks.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/core/Mono.Cecil.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/core/MonoMod.Backports.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/core/MonoMod.ILHelpers.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/core/MonoMod.RuntimeDetour.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/core/MonoMod.Utils.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/core/OhMyMods.Arm64Entry.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/core/OhMyMods.Arm64Injection.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/core/OhMyMods.MacCompatibility.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/core/SemanticVersioning.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/core/StableNameDotNet.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/core/WasmDisassembler.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/Assembly-CSharp-firstpass.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/Assembly-CSharp.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/DOTween.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/DOTween43.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/DOTween46.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/DOTweenPro.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/GalaxyCSharp.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/Haglet-Assembly-CSharp-02.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/Il2CppMono.Security.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/Il2CppSystem.Configuration.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/Il2CppSystem.Core.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/Il2CppSystem.Data.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/Il2CppSystem.Drawing.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/Il2CppSystem.Numerics.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/Il2CppSystem.Runtime.Serialization.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/Il2CppSystem.Xml.Linq.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/Il2CppSystem.Xml.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/Il2CppSystem.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/Il2Cppmscorlib.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/Newtonsoft.Json.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/PlayFab.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/Rewired_Core.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/Rewired_OSX.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/SonyPS4SavedGames.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/Unity.2D.Animation.Runtime.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/Unity.Burst.Unsafe.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/Unity.Burst.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/Unity.Collections.LowLevel.ILSupport.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/Unity.Collections.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/Unity.InternalAPIEngineBridge.001.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/Unity.Mathematics.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/Unity.MemoryProfiler.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/Unity.Networking.Transport.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/Unity.Purchasing.AppleMacos.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/Unity.Purchasing.AppleStub.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/Unity.Purchasing.Security.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/Unity.Purchasing.SecurityCore.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/Unity.Purchasing.Stores.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/Unity.Purchasing.Utilities.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/Unity.Purchasing.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/Unity.RenderPipelines.Core.Runtime.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/Unity.Services.Analytics.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/Unity.Services.Core.Configuration.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/Unity.Services.Core.Device.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/Unity.Services.Core.Environments.Internal.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/Unity.Services.Core.Internal.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/Unity.Services.Core.Registration.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/Unity.Services.Core.Scheduler.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/Unity.Services.Core.Telemetry.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/Unity.Services.Core.Threading.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/Unity.Services.Core.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/Unity.TextMeshPro.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/Unity.Timeline.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/UnityEngine.AIModule.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/UnityEngine.AccessibilityModule.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/UnityEngine.AndroidJNIModule.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/UnityEngine.AnimationModule.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/UnityEngine.AssetBundleModule.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/UnityEngine.AudioModule.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/UnityEngine.ClothModule.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/UnityEngine.ClusterInputModule.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/UnityEngine.ClusterRendererModule.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/UnityEngine.ContentLoadModule.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/UnityEngine.CoreModule.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/UnityEngine.CrashReportingModule.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/UnityEngine.DSPGraphModule.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/UnityEngine.DirectorModule.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/UnityEngine.GIModule.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/UnityEngine.GameCenterModule.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/UnityEngine.GraphicsStateCollectionSerializerModule.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/UnityEngine.GridModule.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/UnityEngine.HierarchyCoreModule.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/UnityEngine.HotReloadModule.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/UnityEngine.IMGUIModule.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/UnityEngine.ImageConversionModule.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/UnityEngine.InputForUIModule.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/UnityEngine.InputLegacyModule.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/UnityEngine.InputModule.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/UnityEngine.JSONSerializeModule.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/UnityEngine.LocalizationModule.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/UnityEngine.MarshallingModule.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/UnityEngine.MultiplayerModule.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/UnityEngine.ParticleSystemModule.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/UnityEngine.PerformanceReportingModule.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/UnityEngine.Physics2DModule.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/UnityEngine.PhysicsModule.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/UnityEngine.PropertiesModule.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/UnityEngine.RuntimeInitializeOnLoadManagerInitializerModule.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/UnityEngine.ScreenCaptureModule.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/UnityEngine.ShaderVariantAnalyticsModule.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/UnityEngine.SharedInternalsModule.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/UnityEngine.SpriteMaskModule.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/UnityEngine.SpriteShapeModule.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/UnityEngine.StreamingModule.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/UnityEngine.SubstanceModule.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/UnityEngine.SubsystemsModule.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/UnityEngine.TLSModule.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/UnityEngine.TerrainModule.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/UnityEngine.TerrainPhysicsModule.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/UnityEngine.TextCoreFontEngineModule.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/UnityEngine.TextCoreTextEngineModule.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/UnityEngine.TextRenderingModule.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/UnityEngine.TilemapModule.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/UnityEngine.UI.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/UnityEngine.UIElementsModule.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/UnityEngine.UIModule.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/UnityEngine.UmbraModule.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/UnityEngine.UnityAnalyticsCommonModule.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/UnityEngine.UnityAnalyticsModule.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/UnityEngine.UnityConnectModule.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/UnityEngine.UnityCurlModule.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/UnityEngine.UnityTestProtocolModule.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/UnityEngine.UnityWebRequestAssetBundleModule.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/UnityEngine.UnityWebRequestAudioModule.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/UnityEngine.UnityWebRequestModule.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/UnityEngine.UnityWebRequestTextureModule.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/UnityEngine.UnityWebRequestWWWModule.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/UnityEngine.VFXModule.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/UnityEngine.VRModule.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/UnityEngine.VehiclesModule.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/UnityEngine.VideoModule.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/UnityEngine.VirtualTexturingModule.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/UnityEngine.WindModule.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/UnityEngine.XRModule.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/UnityEngine.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/__Generated.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="$(ReferenceRoot)/interop/com.rlabrecque.steamworks.net.dll">
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+</Project>

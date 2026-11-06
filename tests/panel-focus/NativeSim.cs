@@ -1,9 +1,12 @@
-// NativeSim.cs: faithful reproduction of the vanilla 2.1.0 Game.Update input pump +
-// CheckForPause + TryShowMenu, Menu.Update ESC tail and Menu close-tail flows (game-source
-// Game.cs:1901-1920 / 2032-2044 / 2316-2358, Menu.cs:664-675 / 697-712 / 724 / 733 / 986 /
-// 2729-2736) so the tests can run the production code in front of the real native flow,
-// plus the panel-update script (the production ModPanel.Update wiring: shortcut handling
-// then PanelFocus.Tick) and the fixture.
+// NativeSim.cs: faithful reproduction of the vanilla Game.Update input pump + CheckForPause
+// + TryShowMenu (2.1 source clues: Game.cs:1901-1920 / 2032-2044 / 2316-2358), Menu.Update
+// ESC/back-out and Menu close-tail flows (2.1 Menu.cs:664-675 / 697-712 / 724 / 733 / 986 /
+// 2729-2736), cross-checked against the actual Windows 2.4.3 PE evidence in
+// native-menu-review: Menu.Update 0x609260 reads internal(+4B0) before ESC, Menu.Hide
+// 0x5FF8A0 zeroes the active map targetDepth and bare-writes internal=false at 0x5FFE1A,
+// ShowMainPanel exit bare-writes false at 0x61E6C8. Tests run the production code in front
+// of this flow, plus the panel-update script (the production ModPanel.Update wiring:
+// shortcut handling then PanelFocus.Tick) and the fixture.
 using System;
 using System.Collections.Generic;
 using System.Reflection;
@@ -60,9 +63,10 @@ internal static class NativeGameLoop
     }
 }
 
-/// <summary>Vanilla Menu.Update back-out tail (Menu.cs:2729-2736): while a map is up the map
-/// owns back-out (DoesControlMenuHolding simplified to map-not-closed), a gated menu
-/// (interactable false) ignores ESC entirely, an interactive menu HideOne's exactly once.</summary>
+/// <summary>Vanilla Menu.Update back-out tail (Menu.cs:2729-2736; 243 Update 0x609260 reads
+/// internal +4B0, false skips to 0x609267 past the ESC path): while a map is up the map owns
+/// back-out (DoesControlMenuHolding simplified to map-not-closed), a gated menu (interactable
+/// false) ignores ESC entirely, an interactive menu HideOne's exactly once.</summary>
 internal static class NativeMenuUpdate
 {
     public static void Update(Env env, StubRewired rewired)

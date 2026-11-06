@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using KingdomEnhancedMod;
 using static KingdomEnhancedMod.MusketeerLegacyCompensationPolicy;
 
@@ -627,6 +628,343 @@ internal static class Program
             ContextName, HexA), "invalid receipt never excludes");
     }
 
+    // ------------------------------------------------------- retirement witness protection (Record eviction)
+
+    private static readonly string SourceOldHash = new('d', 64);
+    private static readonly string GrantWitnessHash = new('e', 64);
+    private static readonly string BootstrapHash = new('0', 64);
+    private static readonly string SecondContext = new('9', 64);
+    private static readonly string SecondSource = new('2', 64);
+    private static readonly string SecondMigration = new('3', 64);
+    private static readonly string SecondOldHash = new('4', 64);
+    private static readonly string SecondGrantHash = new('5', 64);
+    private static readonly string SecondBootstrap = new('6', 64);
+    private const string Rid2 = "11112222333344445555666677778889";
+
+    private static string CareerId(int index) => "000000000000000000000000" + index.ToString("x8");
+
+    private static Guid CareerGuid(int index) => Guid.ParseExact(CareerId(index), "N");
+
+    private static MusketeerCareer CareerRow(int index) => new()
+    {
+        Id = CareerGuid(index),
+        Kind = MusketeerCareer.KindUnit,
+        NativeId = "native-" + index,
+        StockSlot = MusketeerCareer.NoStockSlot
+    };
+
+    private static MusketeerCareer[] RetiredRows() => Enumerable.Range(102, 7).Select(CareerRow).ToArray();
+
+    private static MusketeerCareer[] FullRows() => Enumerable.Range(101, 8).Select(CareerRow).ToArray();
+
+    private static string SnapHash(int index) => index.ToString("x64");
+
+    private static bool Encodes(MusketeerArchive archive, out byte[] bytes)
+    {
+        try { bytes = archive.Encode(); return true; }
+        catch (FormatException) { bytes = null; return false; }
+    }
+
+    private static string Dump(MusketeerArchive archive)
+    {
+        var builder = new StringBuilder();
+        foreach (var key in archive.Scopes.Keys.OrderBy(x => x, StringComparer.Ordinal))
+        {
+            builder.Append(key).Append('@').Append(archive.Baselines.TryGetValue(key, out var baseline) ? baseline : "-").Append('(');
+            foreach (var snapshot in archive.Scopes[key])
+            {
+                builder.Append(snapshot.Hash).Append('/').Append(snapshot.HashKind).Append('[');
+                foreach (var record in snapshot.Records)
+                    builder.Append(record.Id.ToString("N")).Append(',').Append(record.Kind).Append(',').Append(record.NativeId)
+                        .Append(',').Append(record.StockSlot).Append('|');
+                builder.Append(']');
+            }
+            builder.Append(')');
+        }
+        foreach (var key in archive.Contexts.Keys.OrderBy(x => x, StringComparer.Ordinal))
+            builder.Append(key).Append('=').Append(archive.Contexts[key].Active).Append('<')
+                .Append(string.Join(",", archive.Contexts[key].Epochs)).Append(';');
+        builder.Append('#').Append(archive.Compensations.Count);
+        return builder.ToString();
+    }
+
+    private static string ScopeDump(MusketeerArchive archive, string scope)
+    {
+        var builder = new StringBuilder();
+        builder.Append(archive.Baselines.TryGetValue(scope, out var baseline) ? baseline : "-").Append(':');
+        foreach (var snapshot in archive.Scopes[scope])
+        {
+            builder.Append(snapshot.Hash).Append('[');
+            foreach (var record in snapshot.Records)
+                builder.Append(record.Id.ToString("N")).Append(',').Append(record.Kind).Append(',').Append(record.NativeId)
+                    .Append(',').Append(record.StockSlot).Append('|');
+            builder.Append(']');
+        }
+        return builder.ToString();
+    }
+
+    private static JsonObject RecordNode(int index) => new JsonObject
+    {
+        ["id"] = CareerId(index),
+        ["kind"] = 1,
+        ["nativeId"] = "native-" + index,
+        ["stockSlot"] = -1
+    };
+
+    private static JsonObject SnapshotNode(string hash, params int[] indexes) => new JsonObject
+    {
+        ["hash"] = hash,
+        ["hashKind"] = 2,
+        ["records"] = new JsonArray(indexes.Select(index => (JsonNode)RecordNode(index)).ToArray())
+    };
+
+    private static JsonObject ScopeNode(string scope, string baseline, params JsonObject[] snapshots) => new JsonObject
+    {
+        ["scope"] = scope,
+        ["baseline"] = baseline,
+        ["snapshots"] = new JsonArray(snapshots)
+    };
+
+    private static JsonObject SourceScope(string scope, string oldHash) =>
+        ScopeNode(scope, oldHash, SnapshotNode(oldHash, Enumerable.Range(1, 17).ToArray()));
+
+    private static JsonObject ContextNode(string context, string active, string source) => new JsonObject
+    {
+        ["context"] = context,
+        ["active"] = active,
+        ["epochs"] = new JsonArray(active, source)
+    };
+
+    private static JsonObject ReceiptNode(string requestId, string context, string sourceEpoch,
+        string migrationEpoch, int firstGrant) => new JsonObject
+    {
+        ["version"] = 1,
+        ["plan"] = new JsonObject
+        {
+            ["version"] = 1,
+            ["requestId"] = requestId,
+            ["context"] = context,
+            ["sourceEpoch"] = sourceEpoch,
+            ["sourceArchiveSha"] = HexB,
+            ["sourceReservations"] = 17,
+            ["units"] = 8
+        },
+        ["migrationEpoch"] = migrationEpoch,
+        ["grantIds"] = new JsonArray(Enumerable.Range(firstGrant, 8).Select(i => (JsonNode)CareerId(i)).ToArray()),
+        ["capturedNativeIds"] = new JsonArray(Enumerable.Range(firstGrant, 8).Select(i => (JsonNode)("native-" + i)).ToArray()),
+        ["complete"] = true
+    };
+
+    private static JsonObject MigrationScope(string migration, string baseline, string grantHash,
+        string bootstrap, bool withBootstrap, int firstGrant)
+    {
+        var snapshots = new List<JsonObject> { SnapshotNode(grantHash, Enumerable.Range(firstGrant, 8).ToArray()) };
+        if (withBootstrap) snapshots.Add(SnapshotNode(bootstrap));
+        return ScopeNode(migration, baseline, snapshots.ToArray());
+    }
+
+    // schema-3 ledger fixture (same shape as the approved ledger-retirement-review repro): source
+    // epoch with 17 rows and its own baseline, migration epoch with the 8-grant witness snapshot
+    // plus, for pin=="empty", the pinned empty bootstrap baseline.
+    private static byte[] LedgerFixture(string pin) => Encoding.UTF8.GetBytes(new JsonObject
+    {
+        ["schemaVersion"] = 3,
+        ["scopes"] = new JsonArray(
+            SourceScope(HexA, SourceOldHash),
+            MigrationScope(HexC, pin == "empty" ? BootstrapHash : pin == "grant" ? GrantWitnessHash : "",
+                GrantWitnessHash, BootstrapHash, pin == "empty", 101)),
+        ["contexts"] = new JsonArray(ContextNode(ContextName, HexC, HexA)),
+        ["compensations"] = new JsonArray(ReceiptNode(Rid, ContextName, HexA, HexC, 101))
+    }.ToJsonString());
+
+    private static byte[] PlainFixture(bool bootstrapOnly) => Encoding.UTF8.GetBytes(new JsonObject
+    {
+        ["schemaVersion"] = 2,
+        ["scopes"] = new JsonArray(
+            SourceScope(HexA, SourceOldHash),
+            bootstrapOnly
+                ? ScopeNode(HexC, BootstrapHash, SnapshotNode(BootstrapHash))
+                : MigrationScope(HexC, BootstrapHash, GrantWitnessHash, BootstrapHash, true, 1)),
+        ["contexts"] = new JsonArray(ContextNode(ContextName, HexC, HexA))
+    }.ToJsonString());
+
+    private static byte[] SoleWitnessFixture() => Encoding.UTF8.GetBytes(new JsonObject
+    {
+        ["schemaVersion"] = 3,
+        ["scopes"] = new JsonArray(
+            SourceScope(HexA, SourceOldHash),
+            // eight old snapshots, newest first, each the only witness of exactly one grant
+            ScopeNode(HexC, "",
+                Enumerable.Range(0, 8).Select(i => SnapshotNode(SnapHash(0x17 - i), 108 - i)).ToArray())),
+        ["contexts"] = new JsonArray(ContextNode(ContextName, HexC, HexA)),
+        ["compensations"] = new JsonArray(ReceiptNode(Rid, ContextName, HexA, HexC, 101))
+    }.ToJsonString());
+
+    private static byte[] TwoLedgerFixture() => Encoding.UTF8.GetBytes(new JsonObject
+    {
+        ["schemaVersion"] = 3,
+        ["scopes"] = new JsonArray(
+            SourceScope(HexA, SourceOldHash),
+            MigrationScope(HexC, BootstrapHash, GrantWitnessHash, BootstrapHash, true, 101),
+            SourceScope(SecondSource, SecondOldHash),
+            MigrationScope(SecondMigration, SecondBootstrap, SecondGrantHash, SecondBootstrap, true, 201)),
+        ["contexts"] = new JsonArray(
+            ContextNode(ContextName, HexC, HexA),
+            ContextNode(SecondContext, SecondMigration, SecondSource)),
+        ["compensations"] = new JsonArray(
+            ReceiptNode(Rid, ContextName, HexA, HexC, 101),
+            ReceiptNode(Rid2, SecondContext, SecondSource, SecondMigration, 201))
+    }.ToJsonString());
+
+    private static MusketeerArchive DecodeArchive(byte[] fixture)
+    {
+        var archive = MusketeerArchive.Decode(fixture, out bool unsupported);
+        Check(archive != null && !unsupported, "fixture decodes");
+        Check(Encodes(archive, out _), "fixture encodes");
+        return archive;
+    }
+
+    private static void RetirementWitnessProtection()
+    {
+        // 1. retired grant, empty bootstrap baseline: every distinct snapshot must still record
+        //    and encode, and the last historical witness must survive the rotation.
+        var retired = DecodeArchive(LedgerFixture("empty"));
+        for (int n = 1; n <= 20; n++)
+        {
+            bool recorded = retired.Record(HexC, SnapHash(0x101 + n), RetiredRows());
+            Check(recorded && Encodes(retired, out _), "retired grant: distinct snapshot " + n + " records and encodes");
+        }
+        var migration = retired.Scopes[HexC];
+        Check(migration.Count == MusketeerArchive.MaxSnapshots && migration[0].Hash == SnapHash(0x101 + 20),
+            "retired grant: capacity stays at 8 with the newest snapshot first");
+        Check(migration.All(s => s.Hash == GrantWitnessHash || s.Records.All(r => r.Id != CareerGuid(101))),
+            "retired grant id never returns to new snapshots");
+        Check(retired.TryGet(HexC, GrantWitnessHash, out var witness)
+            && witness.Records.Any(r => r.Id == CareerGuid(101)), "last historical witness survives rotation");
+        Check(retired.ValidCompensations(), "ledger stays valid after rotation");
+
+        // 2. no-retirement control: the grant keeps riding the latest rows.
+        var active = DecodeArchive(LedgerFixture("empty"));
+        for (int n = 1; n <= 20; n++)
+            Check(active.Record(HexC, SnapHash(0x201 + n), FullRows()) && Encodes(active, out _),
+                "kept grant: distinct snapshot " + n + " records and encodes");
+
+        // 3. the baseline itself is the witness: pinning alone must keep protecting it.
+        var pinned = DecodeArchive(LedgerFixture("grant"));
+        for (int n = 1; n <= 20; n++)
+            Check(pinned.Record(HexC, SnapHash(0x281 + n), RetiredRows()) && Encodes(pinned, out _),
+                "baseline witness: distinct snapshot " + n + " records and encodes");
+        Check(pinned.TryGet(HexC, GrantWitnessHash, out _), "baseline witness stays pinned");
+
+        // 4. schema 2 / no ledger: the historical baseline-only rotation, unchanged.
+        var plain = DecodeArchive(PlainFixture(false));
+        for (int n = 1; n <= 20; n++)
+        {
+            string hash = SnapHash(0x301 + n);
+            Check(plain.Record(HexC, hash, RetiredRows()), "schema2: distinct snapshot " + n + " records");
+            var list = plain.Scopes[HexC];
+            Check(list.Count == Math.Min(n + 2, MusketeerArchive.MaxSnapshots), "schema2: count " + n);
+            Check(list[0].Hash == hash && list[^1].Hash == BootstrapHash, "schema2: newest first, pinned baseline last " + n);
+            Check(list.Any(s => s.Hash == GrantWitnessHash) == (n <= 6), "schema2: oldest non-baseline evicted exactly at capacity " + n);
+            Check(Encodes(plain, out var bytes)
+                && Encoding.UTF8.GetString(bytes).StartsWith("{\"schemaVersion\":2,", StringComparison.Ordinal)
+                && MusketeerArchive.Decode(bytes, out bool unsupported) != null && !unsupported, "schema2: schema-2 bytes roundtrip " + n);
+        }
+        Check(plain.Compensations.Count == 0, "schema2: no ledger introduced");
+        Console.WriteLine("schema2-final=" + Dump(plain));
+
+        // 5. all eight old snapshots are sole witnesses: refuse atomically, then a feasible
+        //    insertion (rows witnessing every grant) succeeds on the unchanged archive.
+        var sole = DecodeArchive(SoleWitnessFixture());
+        string beforeDump = Dump(sole);
+        Check(Encodes(sole, out var beforeBytes), "all-protected: pre-state encodes");
+        string refused = SnapHash(0x401);
+        Check(!sole.Record(HexC, refused, Array.Empty<MusketeerCareer>()), "all old snapshots protected: insertion refused");
+        Check(Dump(sole) == beforeDump, "refusal leaves order, counts and fields deep-identical");
+        Check(Encodes(sole, out var afterBytes) && afterBytes.AsSpan().SequenceEqual(beforeBytes),
+            "refusal leaves the encoded ledger byte-identical");
+        Check(!sole.TryGet(HexC, refused, out _), "refused snapshot is not kept");
+        string feasible = SnapHash(0x402);
+        Check(sole.Record(HexC, feasible, FullRows()), "retry with rows that witness every grant succeeds");
+        var soleList = sole.Scopes[HexC];
+        Check(soleList.Count == MusketeerArchive.MaxSnapshots && soleList[0].Hash == feasible
+            && soleList[^1].Hash == SnapHash(0x11), "feasible retry evicts the now-redundant oldest witness");
+        Check(sole.ValidCompensations() && Encodes(sole, out _), "feasible retry keeps the ledger valid");
+        Check(sole.Record(HexC, feasible, FullRows()), "same-hash re-record of the identical rows still returns true");
+
+        // 6. same-hash conflict keeps refusing without mutation while the ledger is present.
+        var conflict = DecodeArchive(LedgerFixture("empty"));
+        string conflictBefore = Dump(conflict);
+        Check(!conflict.Record(HexC, GrantWitnessHash, RetiredRows()), "same hash with different records is refused");
+        Check(Dump(conflict) == conflictBefore, "same-hash refusal mutates nothing");
+
+        // 7. multi-grant / multi-scope isolation: rotating one migration scope never touches the
+        //    other scope and never borrows its witness obligations.
+        var two = DecodeArchive(TwoLedgerFixture());
+        string dumpFirst = ScopeDump(two, HexC);
+        string dumpSecond = ScopeDump(two, SecondMigration);
+        for (int n = 1; n <= 20; n++)
+            Check(two.Record(HexC, SnapHash(0x501 + n), RetiredRows()) && Encodes(two, out _),
+                "scope A: distinct snapshot " + n + " records and encodes");
+        Check(ScopeDump(two, SecondMigration) == dumpSecond, "rotating scope A never touches scope B");
+        Check(two.TryGet(HexC, GrantWitnessHash, out var witnessA)
+            && witnessA.Records.Any(r => r.Id == CareerGuid(101)), "scope A keeps its own last witness");
+        string dumpFirstAfter = ScopeDump(two, HexC);
+        var rowsB = Enumerable.Range(202, 7).Select(CareerRow).ToArray();
+        for (int n = 1; n <= 20; n++)
+            Check(two.Record(SecondMigration, SnapHash(0x601 + n), rowsB) && Encodes(two, out _),
+                "scope B: distinct snapshot " + n + " records and encodes");
+        Check(ScopeDump(two, HexC) == dumpFirstAfter, "rotating scope B never touches scope A");
+        Check(two.TryGet(SecondMigration, SecondGrantHash, out var witnessB)
+            && witnessB.Records.Any(r => r.Id == CareerGuid(201)), "scope B keeps its own last witness");
+        Check(two.Scopes[SecondMigration].Count == MusketeerArchive.MaxSnapshots, "scope B rotates down to capacity");
+        Check(two.ValidCompensations(), "both ledgers stay valid");
+
+        // 8. production order: the granting capture records before the receipt exists, so the
+        //    obligations that appear afterwards must still be honoured by later rotations.
+        var production = DecodeArchive(PlainFixture(true));
+        string captureHash = SnapHash(0x701);
+        Check(production.Record(HexC, captureHash, FullRows()), "production order: granting capture records first");
+        var plan = new MusketeerLegacyCompensationPlan(1, G(Rid), ContextName, HexA, HexB, 17, 8);
+        production.Compensations[G(Rid)] = new MusketeerLegacyCompensationReceipt(
+            plan, HexC, Enumerable.Range(101, 8).Select(CareerGuid).ToArray(),
+            Enumerable.Range(101, 8).Select(i => "native-" + i).ToArray(), true);
+        Check(Encodes(production, out var schema3)
+            && Encoding.UTF8.GetString(schema3).Contains("\"schemaVersion\":3", StringComparison.Ordinal),
+            "adding the receipt upgrades the encoding to schema 3");
+        for (int n = 1; n <= 20; n++)
+            Check(production.Record(HexC, SnapHash(0x702 + n), RetiredRows()) && Encodes(production, out _),
+                "post-completion rotation " + n + " records and encodes");
+        Check(production.TryGet(HexC, captureHash, out var grantSnapshot)
+            && grantSnapshot.Records.Any(r => r.Id == CareerGuid(101)),
+            "the granting capture stays the last witness after later obligations appear");
+    }
+
+    // Pending compensation lives outside the persisted archive in production. Even if a caller
+    // presents one in memory, it must not create Complete-ledger snapshot retention obligations.
+    private static void PendingReceiptDoesNotPin()
+    {
+        var pending = MusketeerArchive.Decode(LedgerFixture("empty"), out _);
+        var control = MusketeerArchive.Decode(LedgerFixture("empty"), out _);
+        var receipt = pending.Compensations[G(Rid)];
+        pending.Compensations[G(Rid)] = new MusketeerLegacyCompensationReceipt(
+            receipt.Plan, receipt.MigrationEpoch, receipt.GrantIds, Array.Empty<string>(), false);
+        control.Compensations.Clear();
+        Check(!pending.Compensations[G(Rid)].Complete, "pending fixture really is incomplete");
+        for (int n = 1; n <= 20; n++)
+        {
+            string hash = SnapHash(0x900 + n);
+            Check(pending.Record(HexC, hash, RetiredRows()) && control.Record(HexC, hash, RetiredRows()),
+                "pending receipt keeps the ordinary rotation writable " + n);
+            Check(ScopeDump(pending, HexC) == ScopeDump(control, HexC),
+                "pending receipt creates no witness pin " + n);
+        }
+        Check(!pending.TryGet(HexC, GrantWitnessHash, out _),
+            "a pending receipt never preserves the otherwise evictable witness");
+        Check(pending.Scopes[HexC].Count == MusketeerArchive.MaxSnapshots,
+            "pending negative control keeps the exact snapshot limit");
+    }
+
     private static int Main()
     {
         PlanValidation();
@@ -638,6 +976,8 @@ internal static class Program
         ReceiptJsonStrictness();
         Utf8DecodingStrictness();
         HistoricalExclusion();
+        RetirementWitnessProtection();
+        PendingReceiptDoesNotPin();
         Console.WriteLine($"checks={_checks} passed={_checks - _failed} failed={_failed}");
         Console.WriteLine(_failed == 0 ? "RESULT: PASS" : "RESULT: FAIL");
         return _failed == 0 ? 0 : 1;

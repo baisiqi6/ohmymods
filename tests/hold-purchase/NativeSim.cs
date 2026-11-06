@@ -326,6 +326,43 @@ internal sealed class Env
         Managers.payables.All.Add(ammo); return ammo;
     }
 
+    /// <summary>Generic PayableComponent shop (no native shop tag, no FireTower owner).</summary>
+    internal PayableComponent AddComponentShop(string tag, float x, int price, int limit)
+    {
+        Transform transform = NewTransform(x, Layer, out GameObject go);
+        go.Scene = Layer.gameObject.Scene;
+        go.Tag = tag;
+        var shop = new PayableComponent
+        {
+            Price = price,
+            Limit = limit,
+            maxItems = limit,
+            _limitedNumItems = limit,
+            PayPointX = x,
+            Pointer = Ptr(0x50000 + _nextId * 0x10)
+        };
+        go.Attach(shop);
+        Managers.payables.All.Add(shop);
+        return shop;
+    }
+
+    /// <summary>Musketeer-shaped shop: PayableComponent plus same-GO owner, wired into the
+    /// production manual-payable static identity (test doubles only for the statics).</summary>
+    internal PayableComponent AddMusketeer(int price = 4, int limit = 20, float x = 40f)
+    {
+        PayableComponent shop = AddComponentShop("", x, price, limit);
+        var owner = new MusketeerShopOwner { Pointer = Ptr(0x80000 + _nextId * 0x10) };
+        shop.gameObject.Attach(owner);
+        shop._owner = owner;
+        MusketeerShop._object = shop.gameObject;
+        MusketeerShop._payable = shop;
+        MusketeerShop._owner = owner;
+        MusketeerShop._layer = Layer;
+        MusketeerShop._clearing = false;
+        MusketeerShop._retiring = false;
+        return shop;
+    }
+
     /// <summary>Moves a player onto a shop's pay point.</summary>
     internal static void StandAt(Player player, Payable shop)
     {

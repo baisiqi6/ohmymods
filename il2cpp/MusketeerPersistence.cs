@@ -304,6 +304,10 @@ internal static class MusketeerPersistence
         private readonly Dictionary<string, MusketeerIdentity.Career> Owners = new(StringComparer.Ordinal);
         private readonly Dictionary<MusketeerIdentity.Career, string> Ids = new();
         internal bool Conflict;
+#if VOYAGE_SAVE_DIAGNOSTICS && !ANDROID
+        internal MusketeerVoyageSaveDiagnostics.Capture Diag;
+        internal int DiagIdCount => Ids.Count;
+#endif
 
         internal void Begin()
         {
@@ -312,6 +316,9 @@ internal static class MusketeerPersistence
             // to whatever happens to be current. -1 defers its island to the first GetID, an
             // explicit land keeps the original args source (including old/background islands).
             if (Land < -1) return;   // -2 and below keep the original rejection semantics
+#if VOYAGE_SAVE_DIAGNOSTICS && !ANDROID
+            Diag = MusketeerVoyageSaveDiagnostics.TryOpen(this);
+#endif
             var global = GlobalSaveData.loaded;
             if (global == null) return;
             GlobalPointer = global.Pointer;
@@ -323,6 +330,9 @@ internal static class MusketeerPersistence
             if (!MusketeerIdentity.TryContextKey(Campaign, Challenge, Land, out string key)) return;
             Slot = Land;
             SetSource(key);
+#if VOYAGE_SAVE_DIAGNOSTICS && !ANDROID
+            MusketeerVoyageSaveDiagnostics.BeginSnapshot(Diag, "begin");
+#endif
         }
 
         private void SetSource(string key)
@@ -383,6 +393,9 @@ internal static class MusketeerPersistence
 
         internal void Capture(Persistent persistent, string id)
         {
+#if VOYAGE_SAVE_DIAGNOSTICS && !ANDROID
+            var diagObservation = MusketeerVoyageSaveDiagnostics.ObserveGetId(Diag, persistent, id);
+#endif
             if (persistent == null || string.IsNullOrEmpty(id) || id.Length > MusketeerArchive.MaxNativeIdLength) return;
             // -1 is the only deferred sentinel; every other negative land is rejected outright.
             if (Land < -1) return;
@@ -404,13 +417,24 @@ internal static class MusketeerPersistence
                 if (island == null || !IslandSaveData.isSavingGame) return;
                 if (!TryFrozenSource(island, out string contextKey)) { LoseFrozenSource(); return; }
                 Island = island; SetSource(contextKey);
+#if VOYAGE_SAVE_DIAGNOSTICS && !ANDROID
+                // land=-1 can only resolve its source here. This is a first-GetID baseline, never
+                // presented as an earlier Begin sample.
+                MusketeerVoyageSaveDiagnostics.BeginSnapshot(Diag, "first-getid");
+#endif
             }
             if (!MusketeerIdentity.Islands.TryGetValue(ContextKey, out var state) || state == null || !state.Ready) return;
             var career = MusketeerIdentity.BoundAt(state, persistent.gameObject);
+#if VOYAGE_SAVE_DIAGNOSTICS && !ANDROID
+            MusketeerVoyageSaveDiagnostics.ObserveBind(Diag, diagObservation, career);
+#endif
             if (career == null) return;
             if (Owners.TryGetValue(id, out var other) && !ReferenceEquals(other, career)) { Conflict = true; return; }
             if (Ids.TryGetValue(career, out string seen) && seen != id) { Conflict = true; return; }
             Owners[id] = career; Ids[career] = id;
+#if VOYAGE_SAVE_DIAGNOSTICS && !ANDROID
+            MusketeerVoyageSaveDiagnostics.ObserveMapped(Diag, diagObservation, career);
+#endif
         }
 
         internal void Apply()
@@ -438,7 +462,15 @@ internal static class MusketeerPersistence
                     {
                         // A temporarily hidden object is not persisted by the native save and is
                         // therefore not an expected row; an active one that missed the capture is.
-                        if (IsActive(career)) { MusketeerIdentity.Log("save-missed-row", null); return; }
+                        if (IsActive(career))
+                        {
+#if VOYAGE_SAVE_DIAGNOSTICS && !ANDROID
+                            // Evidence only: the original refusal, return and fault accounting below
+                            // remain authoritative.
+                            MusketeerVoyageSaveDiagnostics.Missing(Diag, career);
+#endif
+                            MusketeerIdentity.Log("save-missed-row", null); return;
+                        }
                         rows.Add(Reserved(career)); continue;
                     }
                     if (!liveIds.Add(id)) { MusketeerIdentity.Log("save-duplicate-id", null); return; }
@@ -735,6 +767,11 @@ internal static class MusketeerPersistence
         [HarmonyFinalizer]
         private static Exception Finally(Exception __exception, SaveCapture __state)
         {
+#if VOYAGE_SAVE_DIAGNOSTICS && !ANDROID
+            // The finalizer is the one path that also runs when the native Save throws. The
+            // diagnostic sink isolates its own failures.
+            MusketeerVoyageSaveDiagnostics.End(__state?.Diag, __exception);
+#endif
             if (__state != null && __state.Protected && (!__state.Applied || __exception != null))
                 MusketeerNativeSave.NoteCaptureFailure(__state.ContextKey);
             if (ReferenceEquals(_save, __state)) _save = __state?.Previous;

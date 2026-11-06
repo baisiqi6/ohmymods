@@ -207,6 +207,11 @@ public class Shop : Payable
     public int maxItems = 4;
     public int _limitedNumItems = 4;
     public bool Blocked;
+    /// <summary>
+    /// Review counterexample: the custom Musketeer owner's void OnPay can reject a shipment
+    /// and refund the price before PerformPay returns (and before its Harmony postfix fires).
+    /// </summary>
+    public bool RefundRejectedShipment;
     public int TransactionCompleteCalls;
     public Func<Player, bool> CanPayHook;
 
@@ -256,6 +261,13 @@ public class Shop : Payable
         if (priceIncrease != 0) Price += priceIncrease;
         PerformPayCalls++;
         LastPayer = interactingPlayer;
+        if (RefundRejectedShipment)
+        {
+            // Real OnPay order: notify the hold at the rejection boundary, then refund.
+            KingdomEnhancedMod.MusketeerShop.NotifyPaymentRejected(interactingPlayer);
+            Stock--;
+            interactingPlayer.wallet.Coins += Price;
+        }
         AfterPerformPay?.Invoke(this);
     }
 
@@ -539,6 +551,19 @@ namespace KingdomEnhancedMod
         public static KingdomEnhancedPlugin Instance = new KingdomEnhancedPlugin();
         public ManualLogSource LogSource = new ManualLogSource();
     }
+
+    /// <summary>Current-shop statics the production manual-payable identity partial reads.</summary>
+    internal static partial class MusketeerShop
+    {
+        internal static UnityEngine.GameObject _object;
+        internal static PayableComponent _payable;
+        internal static MusketeerShopOwner _owner;
+        internal static UnityEngine.Transform _layer;
+        internal static bool _clearing;
+        internal static bool _retiring;
+    }
+
+    public sealed class MusketeerShopOwner : UnityEngine.Component { }
 }
 
 // These types reuse only the native payment simulator, not production classification logic.

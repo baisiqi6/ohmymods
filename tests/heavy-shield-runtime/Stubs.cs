@@ -8,6 +8,10 @@ namespace Il2CppInterop.Runtime.InteropTypes
     public class Il2CppObjectBase { private static int Next; public IntPtr Pointer = (IntPtr)(++Next);
         public T TryCast<T>() where T : class => this as T; }
 }
+namespace Il2CppSystem.Collections
+{
+    public class IEnumerator : Il2CppInterop.Runtime.InteropTypes.Il2CppObjectBase { }
+}
 namespace Il2CppInterop.Runtime.InteropTypes.Arrays
 {
     public class Il2CppReferenceArray<T> : Il2CppInterop.Runtime.InteropTypes.Il2CppObjectBase { private T[] Rows; public Il2CppReferenceArray(T[] rows){Rows=rows;} public int Length=>Rows.Length;
@@ -120,7 +124,7 @@ namespace Coatsink.Common { public class IHaglet : Il2CppInterop.Runtime.Interop
 #endif
 public enum Side {Left=-1,Right=1}
 public enum EnemyType {TrollWeak,TrollMedium,ToughTroll,Archer=12,Boss=5}
-[Flags] public enum DamageSource {Troll=1,Knight=2,Fire=512,GreedProjectile=32768,Boulder=16,Arrow=8}
+[Flags] public enum DamageSource { Troll=1, Arrow=2, BoulderFriendly=4, BoulderEnemy=8, Knight=16, Ogre=32, Bolt=64, PlayerSteed=128, Pike=256, Fire=512, Stealer=1024, Boar=2048, Trap=4096, Crusher=8192, Fleet=16384, GreedProjectile=32768, SerpentAttack=65536 }
 public static class NetworkBigBoss { public static bool HasWorldAuth=true,IsOnline; }
 public static class ProgramDirector {public static bool Main=true;public static bool IsMainSceneActive()=>Main;}
 public class Game {public enum State {Playing,Other} public State state;}
@@ -146,16 +150,37 @@ public class Embarkee : UnityEngine.Behaviour {public bool IsEmbarked,IsTargetin
     public override bool enabled {get=>base.enabled;set{MutationCheck?.Invoke();base.enabled=value;}} }
 public class Peasant : UnityEngine.Component {}
 public class Character : UnityEngine.Behaviour {public bool grabbed;public UnityEngine.Color outfitColor=new(1),outfitSecondaryColor=new(2);
+    public float _inspiredUntil;public int InspiredDamageCallbacks;
+    public bool IsInspired()=>UnityEngine.Time.time<_inspiredUntil;
+    public void OnPreDamageInspired(ref int damage,UnityEngine.GameObject source,DamageSource kind){InspiredDamageCallbacks++;if(UnityEngine.Time.time<_inspiredUntil)damage=0;}
     public static int Demotes;public Func<Character> DemoteResult;public Character Demote(){using var scope=HeavyShieldRuntime.BeginNativeDemote(this);
         Demotes++;var result=DemoteResult?.Invoke();HeavyShieldRuntime.ObserveNativeDemoteReturn(scope,result);return result;} }
 public class Damageable : UnityEngine.Behaviour
 {
-    public bool invulnerable,isDead;public int Health=10,NativeHits;public bool Allowed=true;
+    public bool invulnerable,isDead;public int Health=10,NativeHits,NativeCalls;public bool Allowed=true;
+    public int surface;
+    public bool IsInBlockingFormation;
+    public Action AfterReceive; // Controlled synchronous extension before the real damage Finalizer.
+    private static readonly System.Reflection.MethodInfo Prefix = typeof(HeavyShieldReceiveDamage)
+        .GetMethod("Prefix", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+    private static readonly System.Reflection.MethodInfo Finalizer = typeof(HeavyShieldReceiveDamage)
+        .GetMethod("Finalizer", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
     public bool IsDamagedBy(DamageSource d)=>Allowed;
     public void ReceiveDamage(int damage,UnityEngine.GameObject source,DamageSource kind)=>ReceiveDamage(damage,source,kind,new());
     public void ReceiveDamage(int damage,UnityEngine.GameObject source,DamageSource kind,UnityEngine.Vector2 push)
-    {using var scope=HeavyShieldCombat.EnterDamage();try {if(!HeavyShieldCombat.TryBlock(this,damage,source,kind)&&!invulnerable&&Allowed){NativeHits++;Health-=damage;isDead=Health<=0;}}
-        finally{HeavyShieldCombat.ObserveDamageEnd(this);} }
+    {
+        object[] args = { this, damage, source, kind, null };
+        Exception fault = null;
+        try
+        {
+            bool original = (bool)Prefix.Invoke(null, args);
+            if(original){NativeCalls++;var character=GetComponent<Character>();if(character!=null)character.OnPreDamageInspired(ref damage,source,kind);}
+            if(original && !invulnerable){NativeHits++;Health-=damage;isDead=Health<=0;}
+            AfterReceive?.Invoke();
+        }
+        catch (Exception ex) { fault = ex; throw; }
+        finally { Finalizer.Invoke(null, new object[] { this, fault, args[4] }); }
+    }
 }
 public class ArrowAttack : UnityEngine.Object {}
 public class Scanner
@@ -201,7 +226,35 @@ public class Archer : UnityEngine.Behaviour
     }}
 }
 public class Enemy : UnityEngine.Component {public EnemyType Type;}
-public class Troll : Enemy {public DamageSource damageSource=DamageSource.Troll;public void TryDamage(Damageable d){}public void ApplyCollisionDamage(Damageable d){} }
+public class Troll : Enemy
+{
+    public DamageSource damageSource=DamageSource.Troll;
+    public UnityEngine.Vector2 knightBounceForce;
+    private Il2CppSystem.Collections.IEnumerator _currentPause;
+    public bool PauseReadFault;
+    public Il2CppSystem.Collections.IEnumerator _pauseMotion
+    {
+        get { if(PauseReadFault) throw new InvalidOperationException("controlled pause getter fault"); return _currentPause; }
+        set => _currentPause = value;
+    }
+    public int PushCalls,PauseCalls,CoroutineCalls;
+    public void TryDamage(Damageable d){}
+    public void ApplyCollisionDamage(Damageable d){}
+    public void OnPush(UnityEngine.Vector2 v){PushCalls++;}
+    public Il2CppSystem.Collections.IEnumerator PauseMotion(float duration,UnityEngine.Vector2 after)
+    {PauseCalls++;return new _PauseMotion_d__114{__4__this=this,duration=duration,velocityAfter=after};}
+    public void StartCoroutine(Il2CppSystem.Collections.IEnumerator e){CoroutineCalls++;}
+    public class _PauseMotion_d__114 : Il2CppSystem.Collections.IEnumerator
+    {
+        public int __1__state;
+        public Troll __4__this;
+        public float duration;
+        private UnityEngine.Vector2 _velocityAfter;
+        public int VectorWrites;
+        public UnityEngine.Vector2 velocityAfter
+        {get=>_velocityAfter;set{_velocityAfter=value;VectorWrites++;}}
+    }
+}
 public class GreedArcher : Enemy {}
 public class Arrow : UnityEngine.Component {private UnityEngine.Rigidbody2D _body;public int BodyReads;public UnityEngine.Rigidbody2D _rigidbody {get{BodyReads++;return _body;}set=>_body=value;}public UnityEngine.GameObject archer;public DamageSource _damageSource=DamageSource.GreedProjectile;
     public void HitObject(UnityEngine.GameObject g,bool water){}public bool TryDamage(Damageable d)=>true;}
@@ -246,7 +299,7 @@ namespace KingdomEnhancedMod
         internal static Dictionary<Guid,HashSet<HeavyShieldExitKind>> ExitProofs=new();internal static List<HeavyShieldExitKind> ConfirmedKinds=new();internal static bool EconomyUnknown;
         internal static long Generation=1;internal static bool TryGetCampaign(out HeavyShieldCampaignToken token)
         {token=new("campaign",(IntPtr)10,(IntPtr)20,Generation,CurrentPhase);return true;}
-        internal static bool ThrowRepairReadback;
+        internal static bool ThrowRepairReadback, ThrowCombatUpdate;
         internal static bool TryGetCombatState(in HeavyShieldCareerHandle h,out HeavyShieldSavedCombatState state)
         {if(ThrowRepairReadback)throw new Exception("controlled state readback fault");return Saved.TryGetValue(h.Receipt,out state)&&ValidateCareer(h);}
         // Identity's real commit is tested in heavy-shield-identity. This controlled dependency
@@ -255,7 +308,7 @@ namespace KingdomEnhancedMod
         {
             if(!ValidateCareer(h)||!Saved.TryGetValue(h.Receipt,out var old)||old.Durability!=c.ExpectedDurability
                 ||old.PendingBreak||old.RetirementUnknown||!policy.TryRepair(c.ExpectedDurability))return false;
-            Saved[h.Receipt]=new(40,false,false);return true;
+            Saved[h.Receipt]=new(90,false,false);return true;
         }
         internal static int Exits,Proofs;internal static bool FailUpdate;internal static bool ValidateCareer(in HeavyShieldCareerHandle h)
             =>Careers.Contains(h)&&h.World==Managers.Inst.world.gameLayer.Pointer.ToInt64()&&Lives.TryGetValue(h.Root,out var life)&&life==h.Life;
@@ -267,7 +320,7 @@ namespace KingdomEnhancedMod
         internal static void ObservePoolFreshLife(UnityEngine.GameObject root,bool fresh){if(fresh)Lives[root.Pointer]=Lives.TryGetValue(root.Pointer,out var n)?n+1:1;}
         internal static void ObservePoolDespawn(UnityEngine.GameObject root,float delay)
         {if(root==null||delay>0)return;foreach(var c in Careers)if(c.Root==root.Pointer&&ValidateCareer(c)&&!Unresolved.Contains(c.Receipt)){Unresolved.Add(c.Receipt);EconomyUnknown=true;return;}}
-        internal static bool UpdateCombatState(in HeavyShieldCareerHandle h,in HeavyShieldSavedCombatState s){if(FailUpdate||!ValidateCareer(h)||Unresolved.Contains(h.Receipt))return false;Saved[h.Receipt]=s;return true;}
+        internal static bool UpdateCombatState(in HeavyShieldCareerHandle h,in HeavyShieldSavedCombatState s){if(ThrowCombatUpdate)throw new Exception("controlled combat persistence fault");if(FailUpdate||!ValidateCareer(h)||Unresolved.Contains(h.Receipt))return false;Saved[h.Receipt]=s;return true;}
         internal static bool ObserveNativeExitProof(in HeavyShieldCareerHandle h,HeavyShieldExitKind k)
         {if(!ValidateCareer(h)||Unresolved.Contains(h.Receipt))return false;if(!ExitProofs.TryGetValue(h.Receipt,out var proof))ExitProofs[h.Receipt]=proof=new();proof.Add(k);Proofs++;return true;}
         internal static bool ConfirmExit(in HeavyShieldCareerHandle h,HeavyShieldExitKind k,Character successor)

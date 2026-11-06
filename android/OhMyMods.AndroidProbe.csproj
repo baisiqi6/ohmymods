@@ -140,6 +140,7 @@
     <Compile Include="../il2cpp/HeavyShieldIdentity.cs" Link="Shared/HeavyShieldIdentity.cs" />
     <Compile Include="../il2cpp/HeavyShieldIntegration.cs" Link="Shared/HeavyShieldIntegration.cs" />
     <Compile Include="../il2cpp/HeavyShieldNativeHooks.cs" Link="Shared/HeavyShieldNativeHooks.cs" />
+    <Compile Include="../il2cpp/Patch_HeavyShieldRebound.cs" Link="Shared/Patch_HeavyShieldRebound.cs" />
     <!-- Issue #206 perf closure: the shared consumers above (HeavyShieldNativeHooks /
          Patch_HeavyShieldSnapshot / MusketeerArchive / HeroRecruitmentFingerprint) call these two
          helpers, so the explicit Android source list must carry the real implementations. -->
@@ -195,6 +196,7 @@
     <Compile Include="../il2cpp/MusketeerPersistence.cs" Link="Shared/MusketeerPersistence.cs" />
     <Compile Include="../il2cpp/MusketeerRuntime.cs" Link="Shared/MusketeerRuntime.cs" />
     <Compile Include="../il2cpp/MusketeerShop.cs" Link="Shared/MusketeerShop.cs" />
+    <Compile Include="../il2cpp/MusketeerShop.ManualPurchase.cs" Link="Shared/MusketeerShop.ManualPurchase.cs" />
     <Compile Include="../il2cpp/MusketeerShopAssets.cs" Link="Shared/MusketeerShopAssets.cs" />
     <Compile Include="../il2cpp/MusketeerShopRules.cs" Link="Shared/MusketeerShopRules.cs" />
     <Compile Include="../il2cpp/MusketeerVisuals.cs" Link="Shared/MusketeerVisuals.cs" />

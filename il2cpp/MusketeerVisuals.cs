@@ -82,6 +82,11 @@ internal static class MusketeerVisuals
         internal readonly MusketeerAnimationState Animation = new MusketeerAnimationState();
         /// <summary>池复用后旧 life 的表现已退场：它不是"当前 life 的视觉"，也绝不代表当前 life 隐藏原生。</summary>
         internal bool Detached;
+#if !ANDROID
+        /// <summary>strict 登船降级路径登记的待退回执：ProcessDeferred 必须分流到
+        /// ReleaseNativeHideStrict（读回确认/未知不清账），绝不让 legacy ReleaseNativeHide 代清。</summary>
+        internal bool StrictPending;
+#endif
     }
 
     private static readonly Dictionary<int, VisualState> Visuals = new Dictionary<int, VisualState>(8);
@@ -250,6 +255,23 @@ internal static class MusketeerVisuals
                 PendingReleases.RemoveAt(i);
                 continue;
             }
+#if !ANDROID
+            if (state.StrictPending)
+            {
+                // strict 债务：只有读回确认恢复 / 明确无债 / renderer 真销毁才销账；未知保留重试。
+                if (!HideOwnStrict(state)) continue;
+                if (!ReleaseNativeHideStrict(state)) continue;
+                PendingReleases.RemoveAt(i);
+                GameObject strictRoot = state.Root;
+                state.Root = null;
+                state.Own = null;
+                state.Native = null;
+                state.Ref = null;
+                state.StrictPending = false;
+                DestroyOwnRoot(strictRoot);             // Sync 是安全点
+                continue;
+            }
+#endif
             if (!ReleaseNativeHide(state)) continue;   // 成功才销账
             PendingReleases.RemoveAt(i);
             GameObject root = state.Root;
@@ -1061,4 +1083,140 @@ internal static class MusketeerVisuals
         try { KingdomEnhancedPlugin.Instance?.LogSource?.LogWarning("[MusketeerVisuals] " + message); }
         catch (Exception) { }
     }
+
+    // ============================================================
+    // 登船降级退场（Issue281 PC-only；与 void BeforeReuse 并存，不改其生命周期语义）
+    // ============================================================
+
+#if !ANDROID
+    /// <summary>
+    /// 登船降级的**视觉侧**准备（<see cref="MusketeerRuntime.TryPrepareBoardingDemotion"/> 先行调用，
+    /// 身份键由 Runtime **一次成功读取后直传**——本方法绝不再次读身份，杜绝
+    /// SameObject/SafeGoId 把"读异常"折叠成"无视觉/不可达"的 legacy safe-false）：
+    /// 1) 活动视觉按**捕获键直比**（state.Pointer 为主证据、GoId 由字典键承载）匹配；
+    /// 2) 自有 renderer 隐藏必须**写 + 读回证明**（异常/读回仍可见 = false）；
+    /// 3) strict 退场（<see cref="DetachStateStrict"/>）：native-hide 债务只在
+    ///    <see cref="ReleaseNativeHideStrict"/> **读回确认恢复 / 明确无债 / renderer 真销毁**时结清；
+    ///    未知（读/写异常）→ StrictPending 回执保留，重复调用仍 false；
+    /// 4) 本 actor（精确 Pointer+GoId）既有 pending 债务（含 legacy 登记）同样 strict 结清。
+    /// 不调用 legacy <see cref="ReleaseNativeHide"/>（其 SafeGoId 失败会被当 gone 清 HidNative）；
+    /// 不 Destroy（root 销毁延后到 Sync）；其它 actor 的待退状态绝不混入。
+    /// </summary>
+    internal static bool TryPrepareBoardingDemotion(Archer archer, IntPtr pointer, int goId)
+    {
+        try
+        {
+            if (archer == null || archer.gameObject == null) return false;
+            if (goId == 0 || pointer == IntPtr.Zero) return false;
+
+            if (Visuals.TryGetValue(goId, out VisualState state) && state.Pointer == pointer)
+            {
+                if (!HideOwnStrict(state)) return false;
+                if (!DetachStateStrict(state)) return false;   // 债务未结清：视觉已让位但责任仍在
+            }
+            return SettlePendingReleaseStrict(pointer, goId);
+        }
+        catch (Exception)
+        {
+            return false;   // 未知状态一律不放行（fail-closed）
+        }
+    }
+
+    /// <summary>
+    /// strict 退场动作：与 legacy <see cref="DetachState"/> 同样的退场顺序（时钟复位/隐藏自有/让出槽位），
+    /// 但 native-hide 归还走 <see cref="ReleaseNativeHideStrict"/>（读回确认；未知不清账）。
+    /// 失败 → 以 <see cref="VisualState.StrictPending"/> 登记（ProcessDeferred 分流到 strict 结算，
+    /// 绝不让 legacy ReleaseNativeHide 代清）。
+    /// </summary>
+    private static bool DetachStateStrict(VisualState state)
+    {
+        state.Animation.Reset();
+        state.LastFrame = -1;
+        // The caller already proved the own renderer hidden; do not repeat a fallible legacy write.
+        state.Detached = true;
+        Visuals.Remove(state.GoId);
+
+        if (ReleaseNativeHideStrict(state))
+        {
+            GameObject root = state.Root;
+            state.Root = null;
+            state.Own = null;
+            state.Native = null;
+            state.Ref = null;
+            RetireRootDeferred(root);   // root 销毁延后（下一次 Sync 收尾）
+            return true;
+        }
+        state.StrictPending = true;
+        if (!PendingReleases.Contains(state)) PendingReleases.Add(state);
+        if (PendingReleases.Count >= MaxPendingReleases && !_loggedReleaseBacklog)
+        {
+            _loggedReleaseBacklog = true;
+            Log("pending native-hide releases piling up; receipts are kept for retry");
+        }
+        return false;
+    }
+
+    private static bool HideOwnStrict(VisualState state)
+    {
+        try
+        {
+            SpriteRenderer own = state.Own;
+            if (own == null) return true;
+            if (own.enabled) own.enabled = false;
+            return !own.enabled;
+        }
+        catch (Exception) { return false; }
+    }
+
+    /// <summary>
+    /// strict native-hide 归还：只有「明确无债 / renderer 真销毁（Unity null 语义；读异常不算销毁）/
+    /// 写 false 后**读回确认**已恢复」才清 HidNative；任何读/写异常 = 未知 → 保留债务返回 false。
+    /// 绝不复用 legacy ReleaseNativeHide（其 reachable 判定把身份读异常当 gone 并误清 HidNative）。
+    /// </summary>
+    private static bool ReleaseNativeHideStrict(VisualState state)
+    {
+        try
+        {
+            if (!state.HidNative) return true;                      // 明确无债
+            SpriteRenderer native = state.Native;
+            if (native == null)                                      // renderer 真销毁：债务终止（不得无限重试）
+            {
+                state.HidNative = false;
+                return true;
+            }
+            if (native.forceRenderingOff) native.forceRenderingOff = false;
+            if (native.forceRenderingOff) return false;              // 读回仍隐藏：未确认，保留债务
+            state.HidNative = false;
+            return true;
+        }
+        catch (Exception)
+        {
+            return false;                                            // 未知：绝不清账
+        }
+    }
+
+    /// <summary>strict 结清本 actor（精确 Pointer+GoId）的全部 pending native-hide 债务；未知保留。</summary>
+    private static bool SettlePendingReleaseStrict(IntPtr pointer, int goId)
+    {
+        for (int i = 0; i < PendingReleases.Count; i++)
+        {
+            VisualState pending = PendingReleases[i];
+            if (pending == null || pending.GoId != goId || pending.Pointer != pointer) continue;
+            // Adopt legacy receipts before any fallible operation; later Sync must stay strict too.
+            pending.StrictPending = true;
+            if (!HideOwnStrict(pending)) return false;
+            if (!ReleaseNativeHideStrict(pending)) return false;     // 债务未清：保留回执（含 StrictPending）
+            PendingReleases.RemoveAt(i);
+            GameObject root = pending.Root;
+            pending.Root = null;
+            pending.Own = null;
+            pending.Native = null;
+            pending.Ref = null;
+            pending.StrictPending = false;
+            RetireRootDeferred(root);   // helper 上下文非安全点：root 销毁延后
+            i--;                        // 同键可能有多条：继续扫
+        }
+        return true;
+    }
+#endif
 }

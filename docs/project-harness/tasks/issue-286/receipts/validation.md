@@ -40,3 +40,7 @@ Android probe 重建：0 errors、1条既有 `HeavyShieldBanner._nextActivation`
 Native raw-land→slot 的实际 writer/时序仍未知；本候选不写原生 land、不放宽普通 Save/Load、不自动清 `_economyFault`、不绕 Prepared、不补未知 paid claim。当前 Mac 正常档只读核对为 campaign0 / land11，盾卫登记仅0/4/8：这个已访问岛的缺行不由本候选自动回填，须另以隔离原始副本查证，不能称现存旧档已修。Windows 当前保存的已有付费声明，其 NativeId 在同份已保存岛对象 uniqueID 中均未找到；现行恢复没有旧ID重映射，不能把 PaidTool 声明当作实际货架仍有工具或擅自补发。这是另一旧账恢复边界，尚未证实现场先命中哪个门。槽位具体 renderer 和本次故障平台尚未确认，渲染尚未改；不能从 order+1 推导一定前景。
 
 完整本机证据位于 `.local/tasks/heavy-shield-shop-20261024/`：`root-identity-tests.json`、`build-final/manifest.json`、`resource-readback.json`、`android-probe-build.log`、`android-adaptertests.log`、`model-evidence.json`、各原始 red/green 与审查。
+
+## 2026-11-06 · 同步当前主线后重验
+
+基线 `b33d1c89ab6be1b06cba867b29006cb53c8b9460`。两份生成修复源码与 `4a14240` 已独审版本逐字节相同，只解决进展文档合并冲突。身份与生成等原有六组共 726 项通过，包括 raw 0 的新岛绑定、首次保存、重进恢复、旧岛权益和活跃付款保护。实际 Mac 累积版 net6 与 Windows 2.4.3 引用 net8 均 NoDeploy 构建 0 警告、0 错误。保留草稿，真实首次登岛时序、购买及保存重进待专项实测。已访问旧岛的一次性恢复另见 [登记回执](normal-registration-repair.md)。

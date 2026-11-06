@@ -1,3 +1,50 @@
+## 2026-11-06 — #286 Mac 岛屿登记恢复与生成候选同步
+
+按用户授权从正常退出后的最新档补第 11 号岛盾卫登记，原进度和付费权益核对保留。原生存档和火枪主配对已写回并读回，玩家付款待验。防止新岛漏登记的草稿以当前主线重新构建，既有身份/生成回归 726 项通过，Mac 与 Windows 2.4.3 编译通过。见[登记恢复](tasks/issue-286/receipts/normal-registration-repair.md)及[生成候选](tasks/issue-286/receipts/validation.md)。
+
+## 2026-10-30 — #311 宝石盾卫90耐久、自然秒限耗与原生格挡反弹（源码交付）
+
+按用户确认，每life有效格挡的实际扣耗至少间隔1自然秒，间隔内仍挡伤反弹；上限90，旧v1–v4先验证再比例迁移到schema5，破盾/购买/身份/unknown保持。复用原生本次pause恢复速度，基准×1.2；伤害Finalizer与碰撞Postfix共同证明归属，修掉独审发现的同Troll子pause误借，原3红例已转绿。A/B最终独审均APPROVE；Root相关13组通过，runtime1601断言，独立原56断言旧源3红/新源全绿，Mac/Win net6/net8 NoDeploy编译均0W0E，Android实际编译0E/1既有warning、host平台6断言通过。[PR #312](https://github.com/baisiqi6/ohmymods/pull/312) 已提交供合并审查；未合并、未安装、未操作正常档，游戏和设备体验仍待对应平台验证。详见[tasks/issue-311/verification.md](tasks/issue-311/verification.md)。
+
+重要任务已通过Coordinate受管file入口登记 `heavy-shield-combat-311`，operation `81ec8cbe-7044-48ee-afbc-1dd4d57f6ab3`；合并部署后沿同operation补record侧，当前未宣称managed done。保留schema5旧DLL不回读与配对备份边界；本轮不正式发版或递增版本。
+## 2026-11-01 · #318 银行账户误选修复，准备代码 PR
+
+新诊断资料确认英雄6/6通过、银行 save-account 首拒；实际原生挑战目录按ID查找，银行却按 enum-1 索引。已改为原生当前对象的全目录唯一匹配与分区校验，不改余额/购买档案或清除保护。Root相关回归50项、独立20项通过；Win243闭包0W0E、IL仅Account及38资源保持。旧hotpath桩错误与Mac离线依赖缺口单列，未做游戏/正常安装。见[根因与修复记录](tasks/issue-318/account-selection-fix.md)；PR、合并、发行和玩家复测分别记账。
+
+## 2026-10-31 · #318 Windows 保存失败诊断懒人包
+
+独立诊断候选 `11.1.0-win-save-diag318-r1` 已准备，基于公开 Windows11.1.0 闭包，保留原保存保护与购买记录语义。源审、0W0E 构建、IL/资源核对及 PS5.1 合成测试18/18通过；完整519项 ZIP 在Mac/Windows逐项核对，包内首次/重复CheckOnly以假数据通过，玩家70个原件内容/mtime保持。没有启动真实游戏、确认根因、更新公开发行或创建修复PR；用户转交玩家复现后继续定位。Issue318开放，受管任务仅create-files、record待后续，见[候选记录](tasks/issue-318/diagnostic-candidate.md)。
+
+## 2026-10-28 — #303 Git 工作区实际退役收尾
+
+## 2026-10-30 · Windows 2.4.3 v11.1.0 发行收敛（#307）
+
+- 用户指定发布本会话已安装、实玩的 Windows 修复链，按兼容新功能整批 MINOR 为11.1.0；Mac11.0与Android独立。
+- #250保存协程别名与#282航行输入/火枪运输策略以必要增量接回最新主线，保留Palace责任链；源码融合、跨平台编译与主机回归已独立审查。主线标准Release与实际B历史宏集合分别记录。
+- Windows发行采用受管287源/38资源/162引用闭包，无Mac宫廷，不包含临时角色计时/英雄性能实验。源码自含复建与严格IL/资源对照通过；435固定运行依赖与现装逐hash一致。
+- PR #308 已合并 `4ca7898e76d8bf3dbf10044c803cd45fedda0116`；**11.1.0（Windows 2.4.3 r23537 x64）已正式发布**，2026-10-30 15:17:09 UTC，5附件服务端digest读回一致。完整包SHA `16896af0d38f75ed7dee44b3bae7a31864f4eb83ef0a662c26437756fc7483c0`；DLL `7fffc4b36932920af8652c826e487d3c21623d136e2f4ea64b6b4377bc84ade7`；源码包 `bbe134e5f9f12d2a583a2c81f672616b5794a7c72d1455019419b6ad9439eca7`。
+- 本轮未安装/未启动游戏、未写正常存档；既有第一岛玩家证据独立保留。#250/#282由#308替代关闭且源分支保留，#281代码任务关闭；人口#275/#276、出航残余#309、旧档盾卫#286和旧空岛#277仍独立。第二岛/四世界/联机不预付。
+- Coordinate create-files半边和validator已通过，**record半边待有效入口恢复后同步**，未用本地DB或伪造completion。完整发布回执见 [tasks/issue-307/release.md](tasks/issue-307/release.md)。
+
+
+三个 EXharness skill 入口已随 PR304 合并。本轮旧工作树从70降到9，实际退役61棵；本地分支从128降到76，包含7个必要恢复分支。保留主 checkout、当前安装构建输入树、Android DSH集成树、5个在途PR树及受应用主工作区守卫保护的pr204树。独有内容已最小保全并验证恢复；26个历史测试项目改用固定Git/快照定位，原清理manifest与历史证据不改写。正常DLL、存档和2242项安装输入保持，未启动游戏或宣称Windows性能验收完成。见[收尾回执](tasks/issue-303/receipt.md#实际退役与恢复验收2026-10-28)。
+
+## 2026-10-28 — #303 EXharness 入口与 Git 治理
+
+AGENTS 登记三个可选 EXharness skill 入口，沿用项目既有计划、状态与协作规则。本地集成引用已非 force 快进；主 checkout 的 8 处改动与 2 个未跟踪文档已最小备份并验证，原目录保持。用户确认的四棵历史工作树因受管归档返回“仍有其它 active task 使用”而保留，未删分支或绕过守卫；在途任务、独有资产和构建消费者继续保留。文档交付与实际清理分开记录，Issue303 尚未收尾，见[回执](tasks/issue-303/receipt.md)。
+
+## 2026-10-27 — #298/#300 两项已合并并安装 Mac/Windows 正常包
+
+按用户授权依次合并PR299 e46fefa、PR301 fdfe9c4，最终tree与已验union精确同；两代码Issue已关闭。联合Gem78/Hold133/writer28/pipeline233/legacy405通过；Android1503/1旧pin失败保留。按各自实际冻结基底、原SDK/配置保全后安装：Mac c0d7aa08…、Win9ed9309c…；完整备份与独立读回证明存档/配置不变，原入口保持，无游戏启动或Native通过宣称。详情、旧机械失败和精确SHA见[联合回执](tasks/issue-298/receipts/merged-player-install-20261027.md)。
+
+## 2026-10-27 — #300 快速购买扩展：火枪店与高价单笔
+
+火枪4币店按精确当前payment/owner加入加速续买；其余≥7 Coins仅当笔加速、不续买。独审发现的火枪出货失败退款仍自动重发，已在真实拒绝/退款边界终止精确hold并复审通过。Root133/133，独立144/144；Mac完整/Win当前装版最小增量NoDeploy0W0E，Android0E（1旧warning）、Adapter1503/1旧WallEngineerRuntime pin失败如实保留。代码Ready PR交付，未合并安装/未动正常档，Native待验；见[回执](tasks/issue-300/receipt.md)。
+
+## 2026-10-27 — #298 坐骑岛追加 56 宝石：源码/主机审查完成，Native 待验
+
+两岛各四箱×7，复用原生宝箱/持久化与既有物理写盘拒绝路径。独立 Astra 审查发现两处恢复/新战役边界后修复并复审通过；Root 最终 source-linked 78/0，Mac 完整源码及 Windows 实际装版最小增量 NoDeploy 均 0W0E。既有 adapter/全量 Win243/旧回归缺口和未证时序探针保留，不报全绿。仅 Draft 交付，未合并安装/未发放到正常档；新旧岛开箱、保存冷读和防重发等 Native 另验。详见[回执](tasks/issue-298/receipts/source-host-review-20261027.md)。
+
 ## 2026-10-27 — #286 Windows 正常档登记已恢复，待玩家实测
 
 用户正常保存退出并授权完整备份后，25 文件/12,545,158 bytes 备份逐 hash 核验；使用最新匹配输入仅更新正常 global 与 primary Musk pair，13:50:03Z r3 实际 APPLIED，独立读回确认其余 23 文件及 DLL 未改、备份完整、无遗留 temp。r2 首次替换因 PowerShell null 参数绑定失败，正式数据未变；失败日志保留，r3 经独立增量审查及真实 Parser/CheckOnly 后成功。用户已可启动正常 Windows 测商店；F5/Native canonical、付款领取、换岛与冷读仍未验收，不记购买通过。见[实际应用回执](tasks/issue-286/receipts/windows-normal-registration-apply-20261027.md)；下方离线候选为历史时点。
@@ -29,6 +76,10 @@
 首次生成非零槽位岛仍带 raw land0 时，旧入口误用序列化字段/旧岛行，可能使盾卫状态未绑定新岛。候选已在独立分支修正为唯一 native pointer→slot、生成 scope 与 origin 两阶段核验、失败前 detached 状态准备；保留普通 Load/Save、旧 paid 行、活跃付款与 Prepared/未知交易保护。Operator 主机626检查通过，Mac240/Win240/Win243 NoDeploy 0W0E、275资源实际读回一致，Android probe0E/既有1W、AdapterTests1265/0；独立代码审查通过。构建和受控主机用例不等于 Native 时序或玩家问题通过。
 
 本次正常 DLL/存档未替换。当前 Mac 已访问11号岛缺盾卫登记，不由生成候选自动回填；平台已确认Mac，六个marker已指认；正常岛实际拒绝分支仍待隔离核对，默认渲染尚未改，#252/#286保持开放。详见[任务及验证边界](tasks/issue-286/receipts/validation.md)。下文保留历史。
+
+## 2026-10-25 — 11.0.0 Mac ARM64 发布批次 #294
+
+用户选定仅Mac ARM64正式包；以当前正常安装0553对应fa545源码整理版本和出处元数据，未加入未安装候选。新发行DLL8b475377…、ZIP706363ab…；0W0E、Capital885、authoring图/帧/布局核验、精确IL/资源差与双打包/读回/check-only留证。production-source旧R1布局pin在修改前后同样失败，未记全绿。正常包/存档保持，未新增游戏实机；Windows/Android未随本批发布。详见[本批记录](tasks/issue-294/release.md)；最终tag与下载以[发布页](https://github.com/baisiqi6/ohmymods/releases/tag/v11.0.0)回执为准。
 
 ## 2026-10-25 — #232/#262 代码范围已关闭（checklist done + GitHub closed）
 
@@ -2456,3 +2507,11 @@ PR229发布后仅进展文档追加段冲突；已保留主线与Android两端�
 - 2026-10-21 Android #232/#262 N11增量：私有0.0.5以单次dladdr代全maps遍历，删除旧预检和重复地址检查；Root0W0E/17地址ABI host，未变67复用、controller37/parser启动28通过。实际模块/RVA及两个target安装成立，无entry/九池身份；单条日志快照2秒超时令局部facts未合并，raw保留，不定挂死。F后读未执行；严格owner TERM→KILL/wait-9与独立八项完整metadata/资源交还另证，旧postflight失败保留。正常计划fbbe4a7d受管登记/镜像、其他184rows/168plans保持；仅接受有限安装和物理事实，产品Main未变、Pool目标与根因未知。继续修只读snapshot阶段预算/错误交接，详见[同一记录](tasks/issue-262/verification.md#g20-boat-upstream-pool-phase)。
 
 - 2026-10-21 Android #232/#262 N12入口诊断：保持Main2e55/cfg16b/F35fae与私有0.0.5 c58；修正单次日志读取固定2秒上限及错误交接后，新的受控单例完整采到同PM的OnLevelLoaded入口9池：银行助手8个30120..30127、北境Archer30000；随后Apply同PM/Count9、raw-prefab-key缺entry，仍同Boat NRE/Loading。入口diagnosticGoal/entryFactsValid=true，仅该诊断目标；无InitPools entry继续unknown，不把静态Count分支当运行分支证明，也不宣称实际swap-key或完整根因。原生加载/玩法/手机仍未验。后读F一致仅READ，严格owned TERM/wait0，Root八项bytes/完整metadata和自身AVD/端口保持；独审接受入口身份与物理事实。旧ADB1490消失后明确一次同SDK前台nodaemon重获86762，身份重新冻结并增量审查；中断消失的W4由同4bb3提交恢复为W5，原始失败保留。新正常plan cea19dc6受管登记/独立镜像、其他184行168计划保持/validator0；产品未改，PR263 Draft、232/262 OPEN。下一阶段收拢提前注册writer，先闭合保存/网络/晚到资产/重建依赖，不加forceInit或下游补池。详见[本次现场与边界](tasks/issue-262/verification.md#g20-boat-upstream-pool-phase)。
+
+## 2026-11-02 盾卫全向伤害保护（#320，PR#312增量）
+
+用户明确取消方向/普通来源限制，90耐久与每life自然1秒限耗统一覆盖公共伤害入口；原生鼓舞免伤保留、可选反弹凭据仍精确绑定来源。Root13组相关回归与Mac240/Win243 net8/net6真实interop NoDeploy构建通过，独立v2审查APPROVE；原生静态入口和实际游戏体验边界分开。未安装/未实机/未发版，Issue未合并前保持开放；详见tasks/issue-320/plan.md和verification.md。
+
+盾卫#320累计收口：任务分支已纳入#319银行存档修复（3af7ec6），新累计树四NoDeploy产品0W0E、275资源一致、actual-product banner43与账户选择18通过；盾卫v2 source未变。清单冲突经原operation受控重放保留两边122任务、状态todo，validator0warnings；不代表PR已合并/已安装。
+
+盾卫#320最终v3更正：原生证据推翻IsDamagedBy可否定长入口伤害的假设，已删门并纠正host桩，留非盾卫false-mask真扣血控制与旧v2红→v3绿。重新Root13组通过（runtime1663/全向67/原pause82），Mac/Win net8/net6四NoDeploy0W0E、五产物Cecil核v3/no-mask+Inspired与资源保持；独立增量实现APPROVE。v2批准被hold后按新证据修正，不再将旧绿当完整覆盖。银行/清单基线未变，尚未安装/实机/合并PR。

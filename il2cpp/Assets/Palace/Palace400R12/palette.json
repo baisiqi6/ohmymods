@@ -734,7 +734,7 @@
   ],
   "sourcePaletteTraining": "none; only four declared light-sky slots replaced",
   "pinkRampSource": {
-    "path": "/Users/Admin/projects/ohmymods/.local/tasks/ming-imperial-palace-20261002/palace-scroll-composition-20261007-r1/revisions/capital-400u-r12-production-20261023/work/background/logical-raw/rear-forest-flowering-pine.png",
+    "path": ".local/tasks/ming-imperial-palace-20261002/palace-scroll-composition-20261007-r1/revisions/capital-400u-r12-production-20261023/work/background/logical-raw/rear-forest-flowering-pine.png",
     "sha256": "c4529bf542be43aa4d6186fc3d222a0b4f21267784fe44fe71682fc902d43fba",
     "knownSemanticUnit": "rear-forest-flowering-pine",
     "petalROIxywh": [

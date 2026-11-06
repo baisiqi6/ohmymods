@@ -21,7 +21,7 @@ internal static class Program
         Run("open_edge_pure_map_insurance", OpenEdgePureMapInsurance);
         Run("open_edge_closing_map_is_left_alone", OpenEdgeClosingMapLeftAlone);
         Run("gate_counters_showmain_true_both_script_orders", GateCountersBothOrders);
-        Run("close_ours_hides_once_without_restore", CloseOursHidesWithoutRestore);
+        Run("close_ours_restores_then_hides", CloseOursRestoresThenHides);
         Run("close_user_menu_esc_layers_down_both_orders", CloseUserMenuBothOrders);
         Run("fallback_engage_after_rejected_menu_and_restores", FallbackEngageAfterRejection);
         Run("attempt_window_let_pass_then_menu_claims_ownership", AttemptWindowClaim);
@@ -36,6 +36,32 @@ internal static class Program
         Run("input_gate_resolution_fails_closed", InputGateResolveFailsClosed);
         Run("prefix_semantics_follow_panel_visibility_only", PrefixSemantics);
         Run("cursor_forced_globally_and_restored", CursorForcedGlobally);
+        Run("windows243_f5_close_then_direct_sailing_map_restores_root_canvas",
+            Windows243SailingRootCanvas);
+        Run("gate_owns_only_real_flip_and_keeps_native_false", GateOwnsOnlyRealFlip);
+        Run("close_owned_release_then_hide_same_frame_esc_both_orders",
+            CloseOwnedReleaseThenHideEscBothOrders);
+        Run("menu_replacement_drops_stale_responsibility",
+            MenuReplacementDropsStaleResponsibility);
+        Run("hide_failure_before_depth_keeps_root_released_and_retries",
+            HideFailureBeforeDepthKeepsRootReleasedAndRetries);
+        Run("hide_failure_after_depth_never_leaves_internal_true",
+            HideFailureAfterDepthNeverLeavesInternalTrue);
+        Run("hide_failure_then_replacement_drops_retry", HideFailureThenReplacementDropsRetry);
+        Run("repeated_close_is_idempotent", RepeatedCloseIsIdempotent);
+        Run("attempt_does_not_claim_replaced_menu", AttemptDoesNotClaimReplacedMenu);
+        Run("partial_hide_before_bare_false_tail_keeps_root_release",
+            PartialHideBeforeBareFalseTailKeepsRootRelease);
+        Run("hidden_close_releases_root_without_reviving_internal",
+            HiddenCloseReleasesRootWithoutRevivingInternal);
+        Run("owned_close_after_native_reopen_keeps_captured_root",
+            OwnedCloseAfterNativeReopenKeepsCapturedRoot);
+        Run("gate_keeps_first_captured_root_when_native_rewrites",
+            GateKeepsFirstCapturedRootWhenNativeRewrites);
+        Run("owned_mixed_root_false_stays_false", OwnedMixedRootFalseStaysFalse);
+        Run("canvas_replacement_drops_stale_root_responsibility",
+            CanvasReplacementDropsStaleRootResponsibility);
+        Run("restore_failure_retries_same_canvas", RestoreFailureRetriesSameCanvas);
 
         Console.WriteLine();
         Console.WriteLine(_failed == 0
@@ -89,7 +115,7 @@ internal static class Program
             Menu.InstExists = rows[i].instExists;
             env.Menu.ShowMainPanelStarted = true;
             env.Menu.targetDepth = 2;
-            env.Menu.SetRaw(true);
+            env.Menu.SetRaw(true, true);
             env.OpenPanel();
             Env.PanelUpdate(env, escDown: false, f5Down: false);
             Env.PanelUpdate(env, escDown: false, f5Down: false);
@@ -112,7 +138,7 @@ internal static class Program
         Env env = new Env(Game.State.Menu);
         env.Menu.ShowMainPanelStarted = true;
         env.Menu.targetDepth = 2;
-        env.Menu.SetRaw(true);
+        env.Menu.SetRaw(true, true);
         env.Menu.ActiveMap = new MapTimelineMenu { CurrentState = MapTimelineMenu.State.ShowingMapOnly };
         env.OpenPanel();
         Eq(1, env.Menu.HideOneCalls, "menu+map: exactly one HideOne on the open edge");
@@ -127,6 +153,7 @@ internal static class Program
         esc.Press(5);
         Env.PanelUpdate(env, escDown: true, f5Down: false);
         Eq(1, env.Menu.InteractableTrueWrites, "user menu: exactly one restore write on close");
+        Eq(true, env.Menu.RootCanvasInteractable, "user menu: root Canvas restored too");
         Eq(0, env.Menu.HideCalls, "user menu: never Hidden");
         NativeMenuUpdate.Update(env, esc); // same-frame Menu.Update: restored + ESC
         Eq(2, env.Menu.HideOneCalls, "the same ESC lays the menu down exactly once (1->0)");
@@ -140,7 +167,7 @@ internal static class Program
         Env env = new Env(Game.State.Menu);
         env.Menu.ShowMainPanelStarted = true;
         env.Menu.targetDepth = 2;
-        env.Menu.SetRaw(true);
+        env.Menu.SetRaw(true, true);
         env.Menu.ActiveMap = new MapTimelineMenu { CurrentState = MapTimelineMenu.State.Closing };
         env.OpenPanel();
         Eq(0, env.Menu.HideOneCalls, "closing map: never HideOne'd");
@@ -189,6 +216,12 @@ internal static class Program
         Env.PanelUpdate(panelFirst, escDown: false, f5Down: false);
         Eq(false, panelFirst.Menu.interactable, "panel-first: the next panel update re-gates");
         Eq(1, panelFirst.Menu.InteractableFalseWrites, "panel-first: exactly one effective false write");
+        // The native :724 true happened after the attempt but before our effective gate;
+        // that real true->false flip still creates the close-time restoration responsibility.
+        panelFirst.ClosePanelByF5();
+        Eq(1, panelFirst.Menu.HideCalls, "panel-first: our claimed menu is Hidden");
+        Eq(true, panelFirst.Menu.RootCanvasInteractable, "panel-first: root released on close");
+        Eq(false, panelFirst.Menu.interactable, "panel-first: Hide internal false");
 
         // Order A: the run signal lands before ModPanel.Update in the same frame — the gate
         // wins within that frame, no window at all.
@@ -202,26 +235,31 @@ internal static class Program
         Eq(1, gameFirst.Menu.InteractableFalseWrites, "game-first: one effective false write");
     }
 
-    private static void CloseOursHidesWithoutRestore()
+    private static void CloseOursRestoresThenHides()
     {
         Env env = new Env(Game.State.Playing);
         env.OpenPanel(); // synchronous model: menu shown + gated on the open Tick
         Eq(1, env.Game.NativeTryShowMenuCalls, "setup: our TryShowMenu");
-        Eq(false, env.Menu.interactable, "setup: gated");
+        Eq(false, env.Menu.interactable, "setup: internal gated");
+        Eq(false, env.Menu.RootCanvasInteractable, "setup: root Canvas gated");
         // ESC while gated: Menu.Update ignores it entirely (interactable false, :2733).
         StubRewired esc = new StubRewired();
         esc.Press(5);
         NativeMenuUpdate.Update(env, esc);
-        Eq(0, env.Menu.HideOneCalls, "gated menu ignores ESC: ours path writes 0 once, no -1 race");
+        Eq(0, env.Menu.HideOneCalls, "gated menu ignores ESC: no -1 race before the close");
         esc.EndFrame();
         env.ClosePanelByF5();
         Eq(1, env.Menu.HideCalls, "our menu: exactly one Hide on close");
         Eq(0, env.Menu.HideOneCalls, "ours path never HideOnes");
-        Eq(1, env.Menu.InteractableTrueWrites, "no restore write beyond the :724 baseline (P1-1)");
+        Eq(1, env.Menu.InteractableTrueWrites,
+            "owned close restores the CanvasGroup directly, never writes internal true");
+        Eq(true, env.Menu.RootCanvasInteractable, "the root Canvas is released before Hide");
+        Eq(false, env.Menu.interactable, "native Hide's bare internal false wins afterwards");
         Eq(0, env.Menu.targetDepth, "absolute 0");
         True(!PatchUI_PanelFocus.Engaged, "menu mode never engaged");
         Env.FinishMenuTail(env);
         Eq(1f, UnityEngine.Time.timeScale, "the native exit path restored the clock");
+        Eq(true, env.Menu.RootCanvasInteractable, "the native tail never revisits the root group");
         Eq(1, Lines("close: our menu hidden").Count, "close line logged once");
     }
 
@@ -243,6 +281,7 @@ internal static class Program
         esc.Press(5);
         Env.PanelUpdate(a, escDown: true, f5Down: false);
         Eq(true, a.Menu.interactable, "A: user path restores interactivity, never Hides");
+        Eq(true, a.Menu.RootCanvasInteractable, "A: user path restores the root Canvas");
         Eq(0, a.Menu.HideCalls, "A: zero Hide");
         NativeMenuUpdate.Update(a, esc);
         Eq(1, a.Menu.HideOneCalls, "A: the same press layers the menu down exactly once (1->0)");
@@ -262,6 +301,7 @@ internal static class Program
         Env.PanelUpdate(b, escDown: true, f5Down: false);
         Eq(0, b.Menu.HideOneCalls, "B: the closing frame itself never HideOnes");
         Eq(true, b.Menu.interactable, "B: restored on close");
+        Eq(true, b.Menu.RootCanvasInteractable, "B: root Canvas restored on close");
         Eq(0, b.Menu.HideCalls, "B: never Hidden");
         Eq(1, b.Menu.targetDepth, "B: the menu waits for the user");
         esc.EndFrame();
@@ -311,10 +351,15 @@ internal static class Program
         True(env.Game.state == Game.State.Menu, "the native menu opened");
         Env.PanelUpdate(env, escDown: false, f5Down: false);
         Eq(false, env.Menu.interactable, "gated the moment it shows");
-        // Ownership is claimed within the window: close Hides, never restores.
+        // Ownership is claimed within the window: close releases the captured interaction,
+        // then the native Hide tail leaves internal false/depth0.
         env.ClosePanelByF5();
         Eq(1, env.Menu.HideCalls, "claimed within 0.5s: ours -> Hide on close");
-        Eq(1, env.Menu.InteractableTrueWrites, "no restore write beyond :724 (P1-1)");
+        Eq(1, env.Menu.InteractableTrueWrites,
+            ":724 only; owned close restores the CanvasGroup without writing internal true");
+        Eq(true, env.Menu.RootCanvasInteractable, "root Canvas released");
+        Eq(false, env.Menu.interactable, "native Hide internal false");
+        Eq(0, env.Menu.targetDepth, "absolute 0");
     }
 
     private static void StaleAttemptNeverClaims()
@@ -331,6 +376,7 @@ internal static class Program
         env.ClosePanelByF5();
         Eq(0, env.Menu.HideCalls, "stale attempt: the external menu is NOT ours -> never Hidden");
         Eq(2, env.Menu.InteractableTrueWrites, "restored (:724 + the restore)");
+        Eq(true, env.Menu.RootCanvasInteractable, "root Canvas restored for the external menu");
     }
 
     private static void ZeroTimeScaleNeverEngages()
@@ -559,6 +605,397 @@ internal static class Program
         True(CursorSystem.Inst.forceVisibleCursor, "cursor force is global: outside G (frontend) too");
         front.ClosePanelByF5();
         True(!CursorSystem.Inst.forceVisibleCursor, "frontend close restores as well");
+    }
+
+    // 实际 Windows 2.4.3 已核链路（native-menu-review）：Mod setter 同时写内部 flag 与根
+    // CanvasGroup；原生 Hide 只把地图 targetDepth 归零并裸写内部 false，不恢复根组；
+    // ShowMapAndTimeline 本体不调用 Menu setter。F5 关面板后直接进入 SailingAway 开图，
+    // 根组必须已恢复，否则地图子按钮即使本地 true 也整体不可交互。
+    private static void Windows243SailingRootCanvas()
+    {
+        Env env = new Env(Game.State.Playing);
+        env.OpenPanel();
+        Eq(false, env.Menu.interactable, "setup: internal flag gated");
+        Eq(false, env.Menu.RootCanvasInteractable, "setup: root CanvasGroup gated");
+        Eq(1, env.Menu.InteractableFalseWrites, "setup: one effective setter false write");
+
+        env.ClosePanelByF5();
+        Eq(true, env.Menu.RootCanvasInteractable, "close: root CanvasGroup restored before Hide");
+        Eq(false, env.Menu.interactable, "close: native Hide's bare internal false still wins");
+        Eq(0, env.Menu.targetDepth, "close: native Hide sets targetDepth zero");
+        Eq(1, env.Menu.HideCalls, "close: exactly one absolute Hide");
+        Eq(0, env.Menu.HideOneCalls, "close: never layers the map down");
+        Env.FinishMenuTail(env);
+        Eq(false, env.Menu.interactable, "tail: internal stays false");
+        Eq(true, env.Menu.RootCanvasInteractable, "tail: the tail never touches the root group");
+
+        // Direct sailing-map activation: no normal main-menu reopening in between.
+        env.Game.state = Game.State.SailingAway;
+        env.Menu.ActiveMap = new MapTimelineMenu
+        {
+            CurrentState = MapTimelineMenu.State.ShowingMapOnly
+        };
+        env.Menu.targetDepth = 1;
+        bool islandButtonLocallyEnabled = true;
+        bool topBarLocallyEnabled = true;
+        Eq(true, islandButtonLocallyEnabled && env.Menu.RootCanvasInteractable,
+            "sailing: island buttons are effectively interactive");
+        Eq(true, topBarLocallyEnabled && env.Menu.RootCanvasInteractable,
+            "sailing: the top bar is effectively interactive");
+        Eq(false, env.Menu.interactable, "sailing: internal flag remains native false");
+        Eq(1, env.Menu.targetDepth, "sailing: map opening does not HideOne below its own depth");
+        Eq(0, env.Menu.HideOneCalls, "sailing: no negative-depth HideOne");
+    }
+
+    private static void GateOwnsOnlyRealFlip()
+    {
+        // Native menu already false before the panel: the setter's internal guard no-ops,
+        // so the Mod never changed interaction and must not unlock it on close.
+        Env native = new Env(Game.State.Playing);
+        native.Menu.ShowMainPanelStarted = true;
+        native.Menu.targetDepth = 1;
+        native.Menu.SetRaw(false, false);
+        native.OpenPanel();
+        Eq(false, native.Menu.interactable, "native false: still false after the gate pass");
+        Eq(false, native.Menu.RootCanvasInteractable, "native false: root stays false");
+        Eq(0, native.Menu.InteractableFalseWrites, "idempotent setter never wrote");
+        native.ClosePanelByF5();
+        Eq(false, native.Menu.interactable, "native false is not unlocked on close");
+        Eq(false, native.Menu.RootCanvasInteractable, "native root false is not unlocked on close");
+        Eq(0, native.Menu.InteractableTrueWrites, "no invented true write");
+        Eq(0, native.Menu.HideCalls, "user menu is never Hidden");
+
+        // A later native ShowMain repair writes true; the next gate really flips it and now
+        // owns the captured value, so close restores it again.
+        Env reopened = new Env(Game.State.Playing);
+        reopened.Menu.ShowMainPanelStarted = true;
+        reopened.Menu.targetDepth = 1;
+        reopened.Menu.SetRaw(false, false);
+        reopened.OpenPanel();
+        Eq(0, reopened.Menu.InteractableFalseWrites, "setup: no write while native false");
+        reopened.Menu.interactable = true; // native reopen coroutine write (both layers)
+        Env.PanelUpdate(reopened, escDown: false, f5Down: false);
+        Eq(1, reopened.Menu.InteractableFalseWrites, "the gate captured the real true->false flip");
+        Eq(false, reopened.Menu.interactable, "gated");
+        Eq(false, reopened.Menu.RootCanvasInteractable, "root gated");
+        reopened.ClosePanelByF5();
+        Eq(true, reopened.Menu.RootCanvasInteractable, "close restores the captured true");
+        Eq(true, reopened.Menu.interactable, "user menu keeps internal true, never Hidden");
+        Eq(2, reopened.Menu.InteractableTrueWrites, "native repair true + Mod restore true");
+        Eq(0, reopened.Menu.HideCalls, "still a user menu: never Hidden");
+    }
+
+    private static void CloseOwnedReleaseThenHideEscBothOrders()
+    {
+        // Panel update first: close releases + Hides synchronously; the same-frame native
+        // Menu.Update reads internal=false and ignores ESC (no 0 -> -1).
+        Env panelFirst = new Env(Game.State.Playing);
+        panelFirst.OpenPanel();
+        StubRewired esc = new StubRewired();
+        esc.Press(5);
+        Env.PanelUpdate(panelFirst, escDown: true, f5Down: false);
+        Eq(true, panelFirst.Menu.RootCanvasInteractable, "panel-first: root released");
+        Eq(false, panelFirst.Menu.interactable, "panel-first: internal false after the Hide tail");
+        Eq(0, panelFirst.Menu.targetDepth, "panel-first: depth zero");
+        NativeMenuUpdate.Update(panelFirst, esc);
+        Eq(0, panelFirst.Menu.HideOneCalls, "panel-first: same-frame ESC is ignored");
+        Eq(0, panelFirst.Menu.targetDepth, "panel-first: never -1");
+
+        // Menu update first: the still-gated menu ignores ESC, then the close releases + Hides.
+        Env menuFirst = new Env(Game.State.Playing);
+        menuFirst.OpenPanel();
+        esc.EndFrame();
+        esc.Press(5);
+        NativeMenuUpdate.Update(menuFirst, esc);
+        Eq(0, menuFirst.Menu.HideOneCalls, "menu-first: gated menu ignores ESC");
+        Env.PanelUpdate(menuFirst, escDown: true, f5Down: false);
+        Eq(true, menuFirst.Menu.RootCanvasInteractable, "menu-first: root released");
+        Eq(false, menuFirst.Menu.interactable, "menu-first: internal false");
+        Eq(0, menuFirst.Menu.targetDepth, "menu-first: depth zero");
+        Eq(0, menuFirst.Menu.HideOneCalls, "menu-first: no layered HideOne");
+    }
+
+    private static void MenuReplacementDropsStaleResponsibility()
+    {
+        Env env = new Env(Game.State.Playing);
+        env.OpenPanel();
+        Menu stale = env.Menu;
+        Eq(false, stale.RootCanvasInteractable, "setup: stale instance was gated");
+
+        Menu replacement = new Menu();
+        replacement.ShowMainPanelStarted = true;
+        replacement.targetDepth = 1;
+        replacement.SetRaw(true, true);
+        Menu.Inst = replacement;
+
+        env.ClosePanelByF5();
+        Eq(0, replacement.HideCalls, "the replacement is never Hidden by the old responsibility");
+        Eq(true, replacement.interactable, "the replacement's internal flag is untouched");
+        Eq(true, replacement.RootCanvasInteractable, "the replacement's root Canvas is untouched");
+        Eq(0, replacement.InteractableTrueWrites + replacement.InteractableFalseWrites,
+            "zero writes on the replacement");
+        Eq(false, stale.interactable, "the stale instance responsibility is dropped, not restored");
+        Eq(1, Lines("menu instance replaced").Count, "replacement logged exactly once");
+    }
+
+    private static void HideFailureBeforeDepthKeepsRootReleasedAndRetries()
+    {
+        Env env = new Env(Game.State.Playing);
+        env.OpenPanel();
+        env.Menu.HideFailureMode = Menu.HideFailure.BeforeDepth;
+        env.ClosePanelByF5();
+        Eq(1, env.Menu.HideCalls, "Hide was attempted once");
+        Eq(false, env.Menu.interactable, "owned internal was already false before Hide");
+        Eq(true, env.Menu.RootCanvasInteractable, "root release happened before the failing Hide");
+        Eq(1, env.Menu.targetDepth, "Hide threw before the depth write");
+        Eq(1, Lines("close hide fault").Count, "Hide failure logged once through the fault budget");
+
+        env.Menu.HideFailureMode = Menu.HideFailure.None;
+        Env.PanelUpdate(env, escDown: false, f5Down: false);
+        Eq(2, env.Menu.HideCalls, "the retained same-instance responsibility retries");
+        Eq(true, env.Menu.RootCanvasInteractable, "retry keeps the captured root true");
+        Eq(false, env.Menu.interactable, "retry's Hide leaves internal false");
+        Eq(0, env.Menu.targetDepth, "retry reaches depth zero");
+        Env.PanelUpdate(env, escDown: false, f5Down: false);
+        Eq(2, env.Menu.HideCalls, "successful retry clears the responsibility");
+    }
+
+    private static void HideFailureAfterDepthNeverLeavesInternalTrue()
+    {
+        Env env = new Env(Game.State.Playing);
+        env.OpenPanel();
+        env.Menu.HideFailureMode = Menu.HideFailure.AfterDepth;
+        env.ClosePanelByF5();
+        Eq(1, env.Menu.HideCalls, "Hide attempted once");
+        Eq(false, env.Menu.interactable, "Hide's bare internal false already ran");
+        Eq(true, env.Menu.RootCanvasInteractable, "root was released before Hide");
+        Eq(0, env.Menu.targetDepth, "depth was zeroed before the throw");
+        True(!(env.Menu.interactable && env.Menu.targetDepth == 0),
+            "never exposes internal=true at depth 0 to the same-frame ESC");
+        StubRewired esc = new StubRewired();
+        esc.Press(5);
+        NativeMenuUpdate.Update(env, esc);
+        Eq(0, env.Menu.HideOneCalls, "same-frame ESC still sees internal false");
+        Eq(0, env.Menu.targetDepth, "still never -1");
+
+        env.Menu.HideFailureMode = Menu.HideFailure.None;
+        Env.PanelUpdate(env, escDown: false, f5Down: false);
+        Eq(2, env.Menu.HideCalls, "retained responsibility retries the same instance");
+        Eq(true, env.Menu.RootCanvasInteractable, "retry restores root true");
+        Eq(false, env.Menu.interactable, "retry ends with internal false");
+        Eq(0, env.Menu.targetDepth, "retry ends at depth zero");
+    }
+
+    private static void HideFailureThenReplacementDropsRetry()
+    {
+        Env env = new Env(Game.State.Playing);
+        env.OpenPanel();
+        env.Menu.HideFailureMode = Menu.HideFailure.BeforeDepth;
+        env.ClosePanelByF5();
+        Eq(1, env.Menu.HideCalls, "setup: failed Hide retained responsibility");
+
+        Menu replacement = new Menu();
+        replacement.ShowMainPanelStarted = true;
+        replacement.targetDepth = 1;
+        replacement.SetRaw(true, true);
+        Menu.Inst = replacement;
+        Env.PanelUpdate(env, escDown: false, f5Down: false);
+        Eq(0, replacement.HideCalls, "the retry never applies to the replacement");
+        Eq(true, replacement.interactable, "replacement internal untouched");
+        Eq(0, replacement.InteractableTrueWrites + replacement.InteractableFalseWrites,
+            "replacement received zero interaction writes");
+        Eq(1, Lines("menu instance replaced").Count, "stale retry dropped with one log");
+    }
+
+    private static void RepeatedCloseIsIdempotent()
+    {
+        Env env = new Env(Game.State.Playing);
+        env.OpenPanel();
+        env.ClosePanelByF5();
+        Eq(1, env.Menu.HideCalls, "setup: one successful close");
+        int trueWrites = env.Menu.InteractableTrueWrites;
+        int falseWrites = env.Menu.InteractableFalseWrites;
+        Eq(1, trueWrites, "setup: :724 only; owned close never writes internal true");
+        Eq(1, falseWrites, "setup: the gate false");
+
+        Env.PanelUpdate(env, escDown: false, f5Down: false);
+        Env.PanelUpdate(env, escDown: false, f5Down: false);
+        Eq(1, env.Menu.HideCalls, "repeated close never Hides again");
+        Eq(trueWrites, env.Menu.InteractableTrueWrites, "no repeated restore writes");
+        Eq(falseWrites, env.Menu.InteractableFalseWrites, "no repeated gate writes");
+        Eq(0, env.Menu.targetDepth, "depth remains zero");
+        Eq(1, Lines("close: our menu hidden").Count, "close logged once");
+    }
+
+    private static void AttemptDoesNotClaimReplacedMenu()
+    {
+        Env env = new Env(Game.State.Playing);
+        env.Game.DeferredMenuOpen = true;
+        env.OpenPanel(); // attempt is bound to the initial Menu.Pointer
+
+        Menu replacement = new Menu();
+        Menu.Inst = replacement;
+        env.Game.PumpRunSignal(); // the deferred native open uses the replacement
+        True(env.Game.state == Game.State.Menu, "replacement menu opened");
+
+        Env.PanelUpdate(env, escDown: false, f5Down: false);
+        Eq(1, replacement.InteractableFalseWrites, "the replacement is gated as its own session");
+        env.ClosePanelByF5();
+        Eq(0, replacement.HideCalls, "the stale attempt does not claim the replacement as ours");
+        Eq(true, replacement.interactable, "replacement is treated as the user's menu");
+        Eq(true, replacement.RootCanvasInteractable, "user-menu restore puts root back true");
+        Eq(1, Lines("menu instance replaced").Count, "stale attempt drop logged once");
+    }
+
+    // Reviewer adversarial regression: native Hide writes depth 0 early and bare internal=false
+    // much later; fault in that real partial interval, then let the native targetDepth-driven
+    // tail finish before the next Mod Tick. The owned root release must survive both.
+    private static void PartialHideBeforeBareFalseTailKeepsRootRelease()
+    {
+        Env env = new Env(Game.State.Playing);
+        env.OpenPanel();
+        Eq(false, env.Menu.RootCanvasInteractable, "setup: Mod gated the root group");
+        env.Menu.HideFailureMode = Menu.HideFailure.AfterDepthBeforeInternal;
+        env.ClosePanelByF5();
+        Eq(1, env.Menu.HideCalls, "Hide was attempted once");
+        Eq(0, env.Menu.targetDepth, "partial Hide already wrote depth zero");
+        Eq(false, env.Menu.interactable, "owned internal stayed false; no temporary true");
+        Eq(true, env.Menu.RootCanvasInteractable, "owned close released the captured root before Hide");
+        True(!(env.Menu.interactable && env.Menu.targetDepth == 0),
+            "never exposes internal=true at depth 0");
+
+        Env.FinishMenuTail(env); // native tail observed depth 0 and finished first
+        True(!Menu.IsMenuShown, "native close tail finished");
+        env.Menu.HideFailureMode = Menu.HideFailure.None;
+        Env.PanelUpdate(env, escDown: false, f5Down: false);
+        Eq(true, env.Menu.RootCanvasInteractable,
+            "pending root release is not dropped because the native tail ended");
+        Eq(false, env.Menu.interactable, "internal is never revived by the hidden cleanup");
+        Eq(0, env.Menu.targetDepth, "depth stays zero");
+        Eq(1, env.Menu.HideCalls, "hidden cleanup never calls Hide again");
+    }
+
+    private static void HiddenCloseReleasesRootWithoutRevivingInternal()
+    {
+        Env env = new Env(Game.State.Playing);
+        env.OpenPanel();
+        Eq(false, env.Menu.RootCanvasInteractable, "setup: gated");
+        // Native tail already finished (depth 0, panel still open, responsibility still held).
+        env.Menu.ShowMainPanelStarted = false;
+        env.Menu.targetDepth = 0;
+        True(!Menu.IsMenuShown, "setup: menu is already hidden");
+
+        env.ClosePanelByF5();
+        Eq(true, env.Menu.RootCanvasInteractable, "hidden menu still releases the captured root");
+        Eq(false, env.Menu.interactable, "hidden cleanup never revives internal true");
+        Eq(0, env.Menu.HideCalls, "hidden menu is not Hidden again");
+        Eq(0, env.Menu.targetDepth, "depth untouched");
+    }
+
+    private static void OwnedCloseAfterNativeReopenKeepsCapturedRoot()
+    {
+        Env env = new Env(Game.State.Playing);
+        env.OpenPanel();
+        Eq(false, env.Menu.RootCanvasInteractable, "setup: gated root");
+        env.Menu.interactable = true; // native ShowMain rewrite after the last Mod gate
+        Eq(true, env.Menu.RootCanvasInteractable, "setup: native rewrote both layers true");
+        env.Menu.HideFailureMode = Menu.HideFailure.AfterDepthBeforeInternal;
+
+        env.ClosePanelByF5();
+        Eq(2, env.Menu.InteractableFalseWrites,
+            "close boundary gated exactly once more to restore internal false");
+        Eq(false, env.Menu.interactable, "owned internal false");
+        Eq(true, env.Menu.RootCanvasInteractable, "captured first root true is restored");
+        Eq(0, env.Menu.targetDepth, "partial Hide wrote depth zero");
+        True(!(env.Menu.interactable && env.Menu.targetDepth == 0),
+            "partial Hide after the close-boundary gate leaves no internal true/depth0 window");
+
+        Env.FinishMenuTail(env);
+        env.Menu.HideFailureMode = Menu.HideFailure.None;
+        Env.PanelUpdate(env, escDown: false, f5Down: false);
+        Eq(true, env.Menu.RootCanvasInteractable, "tail completion keeps the root release");
+        Eq(false, env.Menu.interactable, "internal remains false after the tail");
+        Eq(0, env.Menu.targetDepth, "depth remains zero");
+        Eq(1, env.Menu.HideCalls, "hidden cleanup does not retry Hide");
+    }
+
+    private static void GateKeepsFirstCapturedRootWhenNativeRewrites()
+    {
+        Env env = new Env(Game.State.Playing);
+        env.Menu.ShowMainPanelStarted = true;
+        env.Menu.targetDepth = 1;
+        env.Menu.SetRaw(true, false); // mixed original: internal true / root false
+        env.OpenPanel();
+        Eq(false, env.Menu.interactable, "setup: internal gated");
+        Eq(false, env.Menu.RootCanvasInteractable, "setup: root stayed false");
+        Eq(1, env.Menu.InteractableFalseWrites, "setup: real true->false write");
+
+        env.Menu.interactable = true; // native rewrite writes root true as a cascade
+        Eq(true, env.Menu.RootCanvasInteractable, "setup: native rewrite cascaded root true");
+        env.ClosePanelByF5();
+        Eq(true, env.Menu.interactable, "user menu: captured internal true restored");
+        Eq(false, env.Menu.RootCanvasInteractable,
+            "first captured root=false wins over native's later true");
+        Eq(1, env.Menu.InteractableTrueWrites,
+            "the native rewrite is the only true write; internal is already true at close");
+        Eq(0, env.Menu.HideCalls, "user menu is never Hidden");
+    }
+
+    private static void OwnedMixedRootFalseStaysFalse()
+    {
+        Env env = new Env(Game.State.Playing);
+        env.Game.DeferredMenuOpen = true;
+        env.OpenPanel();
+        env.Game.PumpRunSignal();
+        True(env.Game.state == Game.State.Menu, "native menu opened");
+        env.Menu._canvasGroup.interactable = false; // mixed before the first gate: internal true/root false
+        Env.PanelUpdate(env, escDown: false, f5Down: false);
+        Eq(false, env.Menu.interactable, "real internal flip captured");
+        Eq(false, env.Menu.RootCanvasInteractable, "root false preserved by the gate");
+
+        env.ClosePanelByF5();
+        Eq(false, env.Menu.interactable, "owned internal stays false");
+        Eq(false, env.Menu.RootCanvasInteractable, "owned mixed root=false stays false");
+        Eq(1, env.Menu.HideCalls, "owned menu Hidden");
+    }
+
+    private static void CanvasReplacementDropsStaleRootResponsibility()
+    {
+        Env env = new Env(Game.State.Playing);
+        env.OpenPanel();
+        Menu menu = env.Menu;
+        UnityEngine.CanvasGroup old = menu._canvasGroup;
+        Eq(false, old.interactable, "setup: old root gated");
+        var replacement = new UnityEngine.CanvasGroup { interactable = true };
+        menu._canvasGroup = replacement;
+
+        env.ClosePanelByF5();
+        Eq(true, replacement.interactable, "the replacement CanvasGroup is never modified");
+        Eq(false, old.interactable, "the detached old group is not written post-replacement");
+        Eq(false, menu.interactable, "internal remains false");
+        Eq(1, menu.HideCalls, "the same owned Menu is still Hidden");
+        Eq(0, menu.targetDepth, "depth zero");
+        Eq(1, Lines("menu canvas replaced").Count, "canvas replacement logged once");
+    }
+
+    private static void RestoreFailureRetriesSameCanvas()
+    {
+        Env env = new Env(Game.State.Playing);
+        env.OpenPanel();
+        Eq(false, env.Menu.RootCanvasInteractable, "setup: gated");
+        env.Menu._canvasGroup.ThrowOnSet = true;
+        env.ClosePanelByF5();
+        Eq(0, env.Menu.HideCalls, "root release failed before Hide");
+        Eq(false, env.Menu.interactable, "internal stays false through the release failure");
+        Eq(1, Lines("close release fault").Count, "release failure logged once");
+        Eq(false, env.Menu.RootCanvasInteractable, "root remains unreleased for the retry");
+
+        env.Menu._canvasGroup.ThrowOnSet = false;
+        Env.PanelUpdate(env, escDown: false, f5Down: false);
+        Eq(true, env.Menu.RootCanvasInteractable, "same-canvas retry releases the captured root");
+        Eq(false, env.Menu.interactable, "retry never revives internal");
+        Eq(1, env.Menu.HideCalls, "retry completes the owned Hide");
+        Eq(0, env.Menu.targetDepth, "retry reaches depth zero");
     }
 
     // -------------------------------------------------------------- helpers

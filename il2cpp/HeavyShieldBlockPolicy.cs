@@ -6,7 +6,9 @@ namespace KingdomEnhancedMod;
 // identity, native damage, knockback and the deferred Peasant conversion.
 internal sealed class HeavyShieldBlockPolicy
 {
-    internal const int InitialDurability = 40;
+    internal const int InitialDurability = 90;
+    // Half-open natural-second gate: a hit at exactly +1s is charged, +0.999s is not.
+    internal const double ChargeIntervalSeconds = 1d;
     internal const int BashDamage = 1;
     internal const int MaxBashTargets = 3;
     internal const float BashCooldownSeconds = 10f;
@@ -29,24 +31,6 @@ internal sealed class HeavyShieldBlockPolicy
         Dead
     }
 
-    internal readonly struct Hit
-    {
-        internal readonly bool IsDirect;
-        internal readonly bool HasSource;
-        internal readonly float SourceX;
-        internal readonly float DefenderX;
-        internal readonly int Facing; // -1 or +1; any other value is unknown.
-
-        internal Hit(bool isDirect, bool hasSource, float sourceX, float defenderX, int facing)
-        {
-            IsDirect = isDirect;
-            HasSource = hasSource;
-            SourceX = sourceX;
-            DefenderX = defenderX;
-            Facing = facing;
-        }
-    }
-
     internal LifeState State { get; private set; }
     internal int Durability { get; private set; }
     internal bool BashActive => _bashActive;
@@ -64,6 +48,9 @@ internal sealed class HeavyShieldBlockPolicy
     private ulong _activeDemoteLease;
     private int _demoteAttempts;
     private bool _impactClaimed;
+    // Transient per life: not persisted, never refreshed by repeat attachment or repair.
+    private bool _hasChargeAt;
+    private double _lastChargeAt;
 
     // Call on unload, disable, load/restore and pool reuse before binding a new life.
     internal void Reset()
@@ -75,6 +62,8 @@ internal sealed class HeavyShieldBlockPolicy
         _activeDemoteLease = 0;
         _demoteAttempts = 0;
         RetirementUnknown = false;
+        _hasChargeAt = false;
+        _lastChargeAt = 0d;
         ClearBash();
     }
 
@@ -94,6 +83,8 @@ internal sealed class HeavyShieldBlockPolicy
         if (State != LifeState.Inactive) return false;
         State = LifeState.Guarding;
         Durability = InitialDurability;
+        _hasChargeAt = false;
+        _lastChargeAt = 0d;
         return true;
     }
 
@@ -109,19 +100,25 @@ internal sealed class HeavyShieldBlockPolicy
         return true;
     }
 
-    internal HitResult EvaluateHit(in Hit hit)
+    // nowSeconds is the production unscaled natural clock sampled once per impact.
+    // A valid forward sample charges at most one point per ChargeIntervalSeconds;
+    // invalid or backwards samples keep the old once-per-hit charge without moving
+    // the stamp, so a bad clock can never grant unlimited free blocks.
+    internal HitResult EvaluateHit(double nowSeconds)
     {
         if (State != LifeState.Guarding) return HitResult.PassThrough;
-        if (!hit.IsDirect || !hit.HasSource || (hit.Facing != -1 && hit.Facing != 1)
-            || float.IsNaN(hit.SourceX) || float.IsInfinity(hit.SourceX)
-            || float.IsNaN(hit.DefenderX) || float.IsInfinity(hit.DefenderX))
-            return HitResult.PassThrough;
+        bool charge;
+        if (!double.IsFinite(nowSeconds) || (_hasChargeAt && nowSeconds < _lastChargeAt))
+            charge = true; // fallback: old per-hit wear, preserve the prior stamp
+        else if (!_hasChargeAt || nowSeconds - _lastChargeAt >= ChargeIntervalSeconds)
+        {
+            charge = true;
+            _hasChargeAt = true;
+            _lastChargeAt = nowSeconds;
+        }
+        else charge = false;
 
-        float relativeX = hit.SourceX - hit.DefenderX;
-        // A zero separation does not provide evidence of a frontal strike.
-        if (relativeX == 0f || Math.Sign(relativeX) != hit.Facing)
-            return HitResult.PassThrough;
-
+        if (!charge) return HitResult.Blocked;
         --Durability;
         if (Durability > 0) return HitResult.Blocked;
         State = LifeState.PendingDemote;
@@ -174,6 +171,8 @@ internal sealed class HeavyShieldBlockPolicy
         Durability = 0;
         _activeDemoteLease = 0;
         RetirementUnknown = false;
+        _hasChargeAt = false;
+        _lastChargeAt = 0d;
         ClearBash();
     }
 

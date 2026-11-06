@@ -2,6 +2,49 @@
 
 本文件区分既有可玩安装、隔离首次启动与最终发行包。未完成的条目不因其他平台或单元测试通过而变成通过。
 
+## 11.0.0 发布批次（2026-10-25；包级验证与游戏实测分开）
+
+平台范围：Apple Silicon Mac（原生 arm64），Kingdom Two Crowns: Call of Olympus
+2.4.0 r23485 / Unity 6000.0.61f1，IL2CPP / BepInEx 6；仅支持与包内
+`game-lock.json` 四指纹逐一匹配的非 Steam 锁定 DMG 实验构建。Windows 2.4.3、
+Android、Mac x64 / Rosetta、Steam Mac 构建未发布。
+
+### 来源与内容基线
+
+- 玩法源码：`fa54574426a528f135e79b2f9d9bf4c1c9a80e15`（Mac 正常安装合并提交）。审查别名 `c7579228c2e634e6b2cd5ccd4f011a07b6672238` 的整个 `il2cpp/` tree 与之一致。
+- 已安装基线：default-net6.0 DLL，SHA-256 `055368a3964d307b9a3155160d6a2036cd554f8765c7ea79bdac198b6e59fcaf`，9,100,288 bytes；安装回执把同一 candidate 绑定到上述 merge / reviewed head。该 SHA 只标识已安装基线，不是 11.0.0 重建产物。
+- 623 个冻结输入（343 C# + 5 props + 275 Assets）与该提交逐字节一致，规范化闭包 SHA-256 `7705451ca7b4d6022436b2e72f0ec81f17a82d994cb10d8b16c78c1e3b5914ff`；275 个嵌入资源、161 个本地引用（34 core + 127 interop）与 `DedicatedR7V1`（18 true / 10 false）已独立核对。
+- 11.0.0 允许差异仅版本/来源元数据：csproj `Version=11.0.0`、生成 `PluginInfo.PLUGIN_VERSION=11.0.0`、启动日志 `build=11.0.0-mac-arm64`、AssemblyVersion/FileVersion/InformationalVersion、包名/manifest/SHA256SUMS。GUID 与插件名不变；玩法逻辑、宏和依赖保持；五份出处/完整性 JSON 与 bootstrap 哈希按下节单独核对。
+- 不混入未安装候选 #250、#276、#282、#284、#287、#292、#293；不加入 `ANDROID`、`PALACE_PAID_CAPTURE_DIAGNOSTICS` 或任何 PALACE_* 测试宏；不升级 BepInEx / HarmonyX / Il2CppInterop，不重新生成 interop。
+
+### 已完成的核对
+
+- 来源链：安装 DLL ↔ 构建 receipt ↔ 623 字节闭包 ↔ 安装 receipt 相互绑定；`c7579228` 与 `fa545744` 在 `il2cpp/` 无 diff。
+- 资源与依赖：275 个 embedded resource 的 logical name/bytes、161 个引用的路径/字节、默认构建的 net6.0 框架引用与宏集合已核对。
+- 业务 profile：`DedicatedR7V1` 固定 28 项，未知 false，不读环境变量；QA/诊断/legacy 分支不能由 env 打开。
+- 玩家可见内容范围已按 623 输入整理，排除未安装候选；本批只声明 Mac ARM64，不声明 Windows 2.4.3 / Android / 联机。
+
+### 本次构建与出处处理
+
+- 源码 `e94342e38c922f593b6152be3b43bec0d9e3cf5a`，net6.0 Release 0 warning / 0 error；原始 DLL `73e76e2886cc37b82826996fac2e8a9e47119623c930cce3d5434b69f9144982`，发行 DLL `8b47537731c0c166ac22634729f73a29d4f7cde0733ed7105015f0561d380b85`。
+- 原安装 → control：10,339 个方法体及全部字段/资源零语义差；原始 1,411 byte 差均由调试路径和 PE 布局解释，未解释差为零。版本戳差与作者路径处理差分别核对，不将旧版本-only比较冒充新产物证据。
+- 三个内嵌 JSON 的 18 处来源路径相对化；哈希链闭合，精确 5 资源变化，其余 270 同，267 PNG、全部布局/帧字节不变。相对出处引用不是运行时依赖；历史审查状态不被提升。
+- `validate_pack.py --require-offline-ready`：86 assets、91 hashes、358 frames、452 placements通过。实际源码链接 Capital loader 885 项通过，包括真实加载及损坏拒绝。
+- Production source 套件修改前后均在 `FAIL: layout hash` 停止：测试仍钉旧 R1 `ff18f6...`，安装 R2 是 `b6f783...`。本次只同步受影响 RegistryHash，未改该布局测试或宣称全绿；Capital loader 已直接覆盖当前解析器/完整性链。
+- 脱敏工具原守卫保持，只钉新 raw SHA；31 项测试为 30 pass、1 个未提供历史四 DLL 的可选整合测试 skip。原 CLI 仅改 RSDS 路径字段，产物不得含个人路径标记。
+- 最终 ZIP 双打包、清单/SUMS读回、拒绝测试与解压 `--check-only` 的精确结果见本批包外 `RELEASE_MANIFEST.json`；只有形成结果才记录通过。
+- 本轮不启动游戏、不安装正常版、不改正常存档。新包没有新增实机验收，复用已安装同源玩法证据并保留原边界。既有宫廷完整往返实机用同源诊断包，不把它说成这份新 DLL 的新增实机。
+
+### 验证边界（本批仍待处理）
+
+- 当前正常 Mac 已安装基线中的旧岛盾卫仍可能记录缺行或无法购买；本批未包含该修复。密集围攻、实际维修、跨岛恢复未逐项验证。
+- 跨世界坐骑冷读仍可能先输出 fallback / skill-not-ready 日志再恢复；本批未包含对应候选修复。第二座探索岛自然抵达、旧空岛回填、全部坐骑技能与主客同步未验。
+- Europe / Dead Lands / Shogun / Norse 的忍者 / 狂战士商店未完成购买→转职→战斗→迁址→存读档 / 联机 Native 全链验收。
+- 宫廷仅记录 Mac ARM64 2.4.0 单机链；连续动画 / 60fps 观感、Windows 2.4.3、Android、联机未验。钱袋改动仅视觉，容量与经济业务未改。
+- 本批不发布 Windows 2.4.3 / Android；Mac x64 / Rosetta 与 Steam Mac 构建不在支持范围。
+
+以下 9.x / 10.x 段落为历史记录，不能作为 11.0.0 的验收依据，也不能复用其中的 DLL/ZIP SHA。
+
 ## 已有候选
 
 - 玩法源码：v9.5.13，`1088b9cd981efb32aa3afb03e91eea66ad1a451b`。

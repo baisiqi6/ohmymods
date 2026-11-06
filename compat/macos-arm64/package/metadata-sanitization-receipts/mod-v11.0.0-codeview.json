@@ -1,0 +1,49 @@
+{
+  "input": {
+    "file": "KingdomEnhancedMod.dll",
+    "sha256": "73e76e2886cc37b82826996fac2e8a9e47119623c930cce3d5434b69f9144982",
+    "size": 9100288
+  },
+  "modified_ranges": [
+    [
+      9095864,
+      9096011
+    ]
+  ],
+  "notes": "byte diff confined to CodeView RSDS path fields; RSDS GUID/age, headers, IL, resources and MVID untouched",
+  "output": {
+    "file": "KingdomEnhancedMod.dll",
+    "sha256": "8b47537731c0c166ac22634729f73a29d4f7cde0733ed7105015f0561d380b85",
+    "size": 9100288
+  },
+  "preserved_debug_entries": [
+    {
+      "data_offset": 9096011,
+      "entry_index": 1,
+      "size_of_data": 39,
+      "type": 19
+    },
+    {
+      "data_offset": 0,
+      "entry_index": 2,
+      "size_of_data": 0,
+      "type": 16
+    }
+  ],
+  "records": [
+    {
+      "age": 1,
+      "data_offset": 9095840,
+      "entry_index": 0,
+      "field_length": 147,
+      "guid_hex": "ab15055df9e81f43b5cb9d9a468ea3fb",
+      "new_path": "KingdomEnhancedMod.pdb",
+      "old_path_length": 146,
+      "path_offset": 9095864,
+      "size_of_data": 171,
+      "type": 2
+    }
+  ],
+  "schema": 1,
+  "tool": "sanitize_codeview"
+}

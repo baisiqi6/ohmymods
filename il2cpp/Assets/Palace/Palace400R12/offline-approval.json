@@ -4,7 +4,7 @@
   "nativeAccepted": false,
   "approvedUTC": "2026-10-23T16:56:54.469539+00:00",
   "layoutSHA256": "b6f783791d9039001ebb95b00bfa6e294b9e90628504b0ecf9e3662f0f517cda",
-  "registrySemanticSHA256": "5cb7755a725d5b0d1b33e5ba73d2db4aa836290143f4afde302791c71016e9b4",
+  "registrySemanticSHA256": "1d2fbc13f246ce60c02fe8834291433134889490c70a9dbc71d266fc4d7a65eb",
   "assetSHA256": {
     "cargo-granary": "49ba0389c3839d92235d3c789eacbcbbee45e3a7127db1cb781e9aa0cbce9c70",
     "central-palace-gate": "81e76d439b6bd331b77190cbb3a7f96385f8660403955329d0c97a15bd3baf64",
@@ -140,21 +140,28 @@
     "layoutSHA256": "b6f783791d9039001ebb95b00bfa6e294b9e90628504b0ecf9e3662f0f517cda",
     "reviewPaths": [
       {
-        "path": "/Users/Admin/projects/ohmymods/.local/tasks/palace400-runtime-20261023/phase-c/edge-r2-plan-review/verdict.md",
+        "path": ".local/tasks/palace400-runtime-20261023/phase-c/edge-r2-plan-review/verdict.md",
         "SHA256": "e0c2c7d31d348e1aee77505eb3ff9a312e4fb677fce87e7e07548b540096b1da"
       },
       {
-        "path": "/Users/Admin/projects/ohmymods/.local/tasks/palace400-runtime-20261023/phase-c/edge-r2-plan-review/selection-amendment.md",
+        "path": ".local/tasks/palace400-runtime-20261023/phase-c/edge-r2-plan-review/selection-amendment.md",
         "SHA256": "67933f237dd516bf5da564c807305f720702540ee6cbb939ad83f3206615f3a8"
       },
       {
-        "path": "/Users/Admin/projects/ohmymods/.local/tasks/palace400-runtime-20261023/phase-c/edge-placement-preview/final-coordinate-review.md",
+        "path": ".local/tasks/palace400-runtime-20261023/phase-c/edge-placement-preview/final-coordinate-review.md",
         "SHA256": "55ec60260c9f9989f58ff27497a1b53268985702d9b9929b536bc68a07c386bb"
       }
     ],
     "reviewPathsAreAuthoringEvidenceNotRuntimeDependencies": true,
     "rootIntegrationAuditPending": "Root runs the full builds and embedded 92-resource audit after the cold-geometry worker completes; this metadata revision does not perform or claim that audit.",
     "nativeAccepted": false
+  },
+  "releaseMetadataRevision": {
+    "previousRegistrySemanticSHA256": "5cb7755a725d5b0d1b33e5ba73d2db4aa836290143f4afde302791c71016e9b4",
+    "registrySemanticSHA256": "1d2fbc13f246ce60c02fe8834291433134889490c70a9dbc71d266fc4d7a65eb",
+    "version": "11.0.0",
+    "scope": "authoring-path-prefix-only; no pixel, geometry, runtime state, or Native approval change",
+    "note": "registrySemanticSHA256 is recomputed solely for the authoring path-prefix integrity change; it does not claim new gameplay or Native verification. The existing reviews, approvedUTC, flags, assetSHA256, layoutSHA256 and metadataRevision remain unchanged except the three authoring path prefixes."
   },
   "metadataVisualInvarianceReceiptSHA256": "e78ac6d277549964ff145c82989c1da4ea88e8619b76088ed1e4594b01dc3136",
   "humanScope": "R11 approved; user explicitly authorized subsequent asset production and isolated complete-Mod integration",

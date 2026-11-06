@@ -1,9 +1,13 @@
 # OhMyMods Mac ARM64 发行包（Kingdom Two Crowns）
 
-这是供 **Apple Silicon Mac** 使用的 Mod 实验包。把解压得到的文件夹放在游戏旁边，
+这是供 **Apple Silicon Mac** 使用的 Mod 发行包。把解压得到的文件夹放在游戏旁边，
 双击 `launcher.command` 启动；玩家无需安装开发 SDK，也不必每次手输终端命令。
-仅支持下述已锁定的 Kingdom Two Crowns `2.4.0 r23485` 实验构建。
-本次玩法版本为 `9.14.24`，Mac ARM64 预览包标记为 `preview.2`。
+仅支持非 Steam、已锁定的 Kingdom Two Crowns `2.4.0 r23485` DMG 实验构建。
+本次玩法版本为 `11.0.0`（用户指定的一次性里程碑），日志 build 为
+`11.0.0-mac-arm64`；包版本、文件清单与 SHA-256 以 `package-manifest.json`
+和对应 GitHub Release 为准。
+本包不含游戏本体；本批只发布 Mac ARM64，Windows 2.4.3、Android、Mac x64 /
+Rosetta 与 Steam Mac 构建均未发布。
 
 `game-lock.json` 锁定的 GameAssembly SHA256：
 `738fb98871dd6e2136474325ea3f7f4f81f2094873a6bc88f7a942d268660b1a`。
@@ -23,14 +27,29 @@
   也不要假设任意 `2.4.0` 都能用——以指纹校验为准。
 - 本包**不含游戏本体**，只分发 Mod 与所需加载依赖；请自行准备上述锁定构建，并只从
   本项目 **GitHub Releases** 获取本包（发布说明给出 ZIP 的 SHA-256，可用
-  `shasum -a 256 <下载的.zip>` 核对）。本包当前是**未做 Developer ID 签名和 Apple 公证**的实验发行。
+  `shasum -a 256 <下载的.zip>` 核对）。本包当前是**未做 Developer ID 签名和 Apple 公证**的发行包。
 - 本包的精确 Mod 版本以 `package-manifest.json` 和对应 GitHub Release 为准；加载器仍只支持上面锁定的游戏构建。
 
-### 本轮整合的玩法变化
+### 本轮（11.0.0）玩法变化
 
-相对 9.5.13，整合了新长火铳外观与短尾焰弹丸、火枪手举旗编队攻击传送门、弩手不被举旗误招、税收官瞬移时保持地面高度、武士冲刺后返队、换岛召回留在旧岛的狗、宠物与隐士防抓及被抓找回、骑士风格分配面板。宠物与隐士防抓的新开关**默认关闭**；升级后要继续保护隐士，需要在 F5 面板主动开启。
+相对上次正式版 v10.8.35（Windows），本版纳入宝石盾卫、跨世界坐骑双探索岛、十金币宫廷与
+400u 场景、钱袋视觉跨世界、皇冠窃贼原生速度、更多世界的忍者/狂战士商店，以及
+HUD 储存钻石、商店表现/库存搬迁保护、身份持久化、地图资源图标、字体与静态文本
+性能、连续购买和墙基密度等改进。详细条目与边界见对应 GitHub Release 的
+`MOD_V11.0.0版本更新说明` / release notes。
 
-新功能在 Mac 上的实际验收范围以本次 Release 附带的验收文件为准。编译、自动回归或加载成功不代表换岛、战斗、存读档和联机玩法均已人工验证。
+- 宝石盾卫与跨世界坐骑**默认关闭**：分别在 F5“MOD角色”页与“世界”页主动开启；
+  升级不会自动生成或开放新增内容。
+- 宫廷随 MOD 加载，无单独开关；普通希腊来源岛红色入口“十金币 · 进入天朝”。
+  固定（sealed）产品档不提供 QA / 免费试玩 / 诊断入口。
+- 已安装基线中的旧岛盾卫仍可能记录缺行或无法购买；本批未包含该修复。跨世界坐骑
+  冷读仍可能先输出 fallback / skill-not-ready 日志再恢复；第二岛、四个新增世界商店
+  的完整 Native 链、宫廷连续动画与联机未验。
+- 钱袋改动只扩展显示范围；容量与经济业务沿用既有实现，未在本批改动，不宣传
+  容量翻倍或 600 币。
+- 本版只发布 Mac ARM64；Windows 2.4.3、Android、Mac x64 / Rosetta、Steam Mac
+  构建未发布。新功能在 Mac 上的实际验收范围以本次 Release 附带的验收文件为准；
+  编译、自动回归或加载成功不代表换岛、战斗、存读档和联机玩法均已人工验证。
 
 ### 系统要求
 
@@ -73,7 +92,7 @@ KingdomTwoCrowns_Data -> KingdomTwoCrowns.app/Contents/Resources/Data
 ### 启动
 
 双击 `launcher.command`。**通过浏览器从 GitHub Releases 下载**的 ZIP 通常会被 macOS 打上「下载隔离」
-标记；本包是**未经过 Developer ID 签名和 Apple 公证的实验发行**，因此首次启动可能需要你明确放行：
+标记；本包是**未经过 Developer ID 签名和 Apple 公证的发行包**，因此首次启动可能需要你明确放行：
 
 1. 直接双击试试。若系统允许，即可直接启动。
 2. 若系统提示无法打开/来源未知，请在「系统设置 → 隐私与安全性」中**只放行
@@ -282,26 +301,38 @@ cd /path/to/OhMyMods-Mac-ARM64
   符号链接一律拒绝。操作员材料（REBUILD/VALIDATION/tools/receipts）可选，
   一旦列入即校验存在与哈希。
 
+**11.0.0 发布阻塞项（Operator/Root 必须处理）：** 当前仓库中的
+`input-lock.json` 仍带旧值 `package.version = 9.5.13-mac-arm64-preview.1`，
+`package-manifest.json` 的包外壳版本也可能陈旧。发布前必须按新 staging 重算
+`mod_dll_sha256`、包内文件哈希、`package-manifest.json` 版本与 `SHA256SUMS`，
+把版本统一为 `11.0.0`（包标记 `11.0.0-mac-arm64`），并填入真实产物 SHA；
+未更新前不得把本包当作 11.0.0 发布。不要复用旧 9.5.13 / 9.14.24 / 10.9.38 的
+DLL、manifest 或 ZIP 哈希。
+
 ### 构建流程
 
 ```sh
 # 说明：third-party/ 材料物理位于本 package/ 目录内，--notices-source 直接传
 # 包目录自身（构建器从中读取 third-party/**，只读不改）。
 
+# 操作员按实际位置设置两个变量；下面只使用相对/占位路径，不写入个人机器路径。
+INPUT_ROOT="<staging-input-root>"
+GAME_APP="<path-to-locked-KingdomTwoCrowns.app>"
+
 # 1) 从实际输入扫描生成候选 lock（操作员复核并填 version 后固化为 input-lock.json）
 python3 build_package.py \
-  --input-root /Applications/ohmymods-arm64-lab \
+  --input-root "$INPUT_ROOT" \
   --notices-source . \
-  --game-app "/Applications/ohmymods-arm64-lab/KingdomTwoCrowns.app" \
+  --game-app "$GAME_APP" \
   --emit-lock-template candidate-lock.json
 
 # 2) 用固化 lock 构建（输出已存在时默认拒绝，--force 覆盖）
 python3 build_package.py \
-  --input-root /Applications/ohmymods-arm64-lab \
+  --input-root "$INPUT_ROOT" \
   --notices-source . \
-  --game-app "/Applications/ohmymods-arm64-lab/KingdomTwoCrowns.app" \
+  --game-app "$GAME_APP" \
   --lock input-lock.json \
-  --output /path/to/OhMyMods-Mac-ARM64.zip
+  --output OhMyMods-Mac-ARM64.zip
 ```
 
 ZIP 特性：单一根目录 `OhMyMods-Mac-ARM64/`；条目按路径排序；固定时间戳

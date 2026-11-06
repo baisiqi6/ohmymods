@@ -32,16 +32,61 @@ namespace UnityEngine
         public string tag = "";
         public Scene scene; public Transform transform = new();
         readonly Dictionary<Type, Component> components = new();
+        // Persistent-only fault injection: other GetComponent callers keep the old behaviour.
+        public bool ThrowOnPersistentRead;
         public T Add<T>(T c) where T : Component { c.gameObject = this; components[typeof(T)] = c; return c; }
-        public T GetComponent<T>() where T : Component => components.TryGetValue(typeof(T), out var c) ? (T)c : null;
+        public T GetComponent<T>() where T : Component
+        {
+            if (ThrowOnPersistentRead && typeof(T) == typeof(Persistent))
+                throw new InvalidOperationException("Persistent component read");
+            return components.TryGetValue(typeof(T), out var c) ? (T)c : null;
+        }
+        public void Remove<T>() where T : Component => components.Remove(typeof(T));
     }
     public class Component : Object
     {
-        public GameObject gameObject;
+        private GameObject _gameObject;
+        public int GameObjectReads;
+        public bool ThrowOnGameObjectRead;
+        public int ThrowOnGameObjectReadAtCall;
+        public GameObject SubstituteGameObject;
+        public int SubstituteGameObjectAtCall;
+        public GameObject gameObject
+        {
+            get
+            {
+                GameObjectReads++;
+                if (ThrowOnGameObjectRead
+                    || (ThrowOnGameObjectReadAtCall > 0 && GameObjectReads == ThrowOnGameObjectReadAtCall))
+                    throw new InvalidOperationException("gameObject read");
+                // Models a native owner swap between ValidBinding/IsActive and the diagnostic
+                // snapshot: only the exact armed call returns a different live GO.
+                if (SubstituteGameObject != null && SubstituteGameObjectAtCall > 0
+                    && GameObjectReads == SubstituteGameObjectAtCall)
+                    return SubstituteGameObject;
+                return _gameObject;
+            }
+            set => _gameObject = value;
+        }
         public T GetComponent<T>() where T : Component => gameObject?.GetComponent<T>();
     }
     public struct Scene { public int handle; }
-    public class Transform : Component { public float x, y; public bool IsChildOf(Transform layer) => KingdomEnhancedMod.MusketeerAccess.InWorldResult; }
+    public class Transform : Component
+    {
+        public float x, y;
+        // Historical default stays InWorldResult for every existing fixture. Boat-scope cases
+        // override only their own instance: an explicit answer, a real parent edge, or a fault.
+        public bool? IsChildOfResult;
+        public Transform IsChildOfParent;
+        public bool ThrowOnIsChildOf;
+        public bool IsChildOf(Transform layer)
+        {
+            if (ThrowOnIsChildOf) throw new InvalidOperationException("IsChildOf read");
+            if (IsChildOfResult.HasValue) return IsChildOfResult.Value;
+            if (IsChildOfParent != null) return ReferenceEquals(IsChildOfParent, layer);
+            return KingdomEnhancedMod.MusketeerAccess.InWorldResult;
+        }
+    }
     public struct Vector2
     {
         public float x, y;
@@ -62,17 +107,84 @@ public class Character : UnityEngine.Component
     public Damageable _damageable = new();
     public Character Promote(DroppableTool tool, IUnitController unitController) => this;
 }
-public class Archer : UnityEngine.Component { }
+public class Embarkee : UnityEngine.Component
+{
+    private bool _isEmbarked;
+    public bool ThrowOnIsEmbarkedRead;
+    public bool IsEmbarked
+    {
+        get { if (ThrowOnIsEmbarkedRead) throw new InvalidOperationException("IsEmbarked read"); return _isEmbarked; }
+        set => _isEmbarked = value;
+    }
+    // Native owner reference double: the interop surface exposes TryCast<T> (HeroRecruitment form).
+    public UnitOwnerRef _owner;
+    // Native boundary shapes the Harmony attributes name (nameof); doubles stay no-op.
+    public void SetEmbarkableTarget(Embarkable target, int slot) { }
+    public void Embark() { }
+}
+public class Embarkable : UnityEngine.Component { }
+public sealed class UnitOwnerRef
+{
+    private readonly UnityEngine.Component _value;
+    public UnitOwnerRef(UnityEngine.Component value) { _value = value; }
+    public T TryCast<T>() where T : UnityEngine.Component => _value as T;
+}
+public class Archer : UnityEngine.Component
+{
+    public Embarkee _embarkee;
+    // Native CanEmbark getter double: the policy postfix only ever tightens an actor's own value.
+    public bool NativeCanEmbark = true;
+    public bool CanEmbark => NativeCanEmbark;
+}
 public class Droppable : UnityEngine.Component { public bool pickedUp; public UnityEngine.GameObject enemyClaimer; public UnityEngine.GameObject dropper; }
 public class DroppableTool : Droppable { }
-public class Persistent : UnityEngine.Component { public string path; public bool ShouldPersist() => false; }
+public class Persistent : UnityEngine.Component
+{
+    public string path;
+    private bool _persistObject = true, _persistInactive, __persistInstance = true;
+    public static int PersistObjectReads, PersistInactiveReads, PersistInstanceReads, ShouldPersistCalls;
+    public bool ThrowOnRead;
+    public bool persistObject
+    {
+        get { PersistObjectReads++; if (ThrowOnRead) throw new InvalidOperationException("persistObject read"); return _persistObject; }
+        set => _persistObject = value;
+    }
+    public bool persistInactive
+    {
+        get { PersistInactiveReads++; if (ThrowOnRead) throw new InvalidOperationException("persistInactive read"); return _persistInactive; }
+        set => _persistInactive = value;
+    }
+    // C# interop keeps the native field name verbatim; it is the field the native ShouldPersist
+    // checks alongside persistObject/persistInactive.
+    public bool _persistInstance
+    {
+        get { PersistInstanceReads++; if (ThrowOnRead) throw new InvalidOperationException("_persistInstance read"); return __persistInstance; }
+        set => __persistInstance = value;
+    }
+    // Behaviour.enabled: independent of activeInHierarchy and of the three persistence flags.
+    private bool _enabled = true;
+    public bool ThrowOnEnabledRead;
+    public bool enabled
+    {
+        get { if (ThrowOnEnabledRead) throw new InvalidOperationException("enabled read"); return _enabled; }
+        set => _enabled = value;
+    }
+    public bool ShouldPersist() { ShouldPersistCalls++; return false; }
+}
+public class Game
+{
+    public enum State { None = 0, SailingAway = 32 }
+    public State state;
+}
+public class Boat : UnityEngine.Component { }
+public class Kingdom { public Boat boat; }
 public class Pool
 {
     public UnityEngine.GameObject FastSpawn(UnityEngine.Vector3 position, UnityEngine.Quaternion rotation, UnityEngine.Transform parent, short netID, bool syncReceipt) => null;
     public void FastDespawn(UnityEngine.GameObject clone, float delay, bool ignoreWarnings) { }
 }
 public class World { public UnityEngine.Transform gameLayer; }
-public class Managers { public static Managers Inst; public World world; }
+public class Managers { public static Managers Inst; public World world; public Game game; public Kingdom kingdom; }
 public class GlobalSaveData : UnityEngine.Object
 {
     public static GlobalSaveData loaded;
@@ -98,13 +210,36 @@ public class CampaignSaveData : UnityEngine.Object
 public class IslandSaveData : UnityEngine.Object
 {
     public static IslandSaveData CurrentlySavingIsland; public static bool isSavingGame;
+    private static Il2CppSystem.Collections.Generic.HashSet<Persistent> _registeredPersistents = new();
+    public static int RegisteredPersistentsReads, GetIdCalls;
+    public static Il2CppSystem.Collections.Generic.HashSet<Persistent> registeredPersistents
+    {
+        get { RegisteredPersistentsReads++; return _registeredPersistents; }
+        set => _registeredPersistents = value ?? new();
+    }
     public int land; public string Json = "{}"; public bool isNew = true; public double playTimeDays;
     public List<ObjectData> objects = new();
     public static void Save(int campaign, int land, int challenge) { }
-    public static string GetID(Persistent persistent) => "";
+    public static string GetID(Persistent persistent) { GetIdCalls++; return ""; }
     public bool TryPopObjectsToScene() => true;
     public static Persistent TryCreateOrFind(ObjectData data) => null;
     public class ObjectData : UnityEngine.Object { public string uniqueID; }
+}
+
+namespace Il2CppSystem.Collections.Generic
+{
+    // Native-shaped HashSet subset used by the interop surface (Contains is a method, Count a
+    // getter). Production diagnostics name this type directly so the fixture resolves it without
+    // a project reference to Il2CppSystem.Core.
+    public class HashSet<T>
+    {
+        private readonly System.Collections.Generic.HashSet<T> inner = new();
+        public int Count => inner.Count;
+        public bool Add(T item) => inner.Add(item);
+        public bool Remove(T item) => inner.Remove(item);
+        public void Clear() => inner.Clear();
+        public bool Contains(T item) => inner.Contains(item);
+    }
 }
 
 namespace KingdomEnhancedMod
@@ -121,8 +256,38 @@ namespace KingdomEnhancedMod
         internal static bool Enabled { get => TrackAllowed && enabled; set => enabled = value; }
         internal static bool Playing { get => Enabled && playing; set => playing = value; }
         internal static bool InWorldResult = true;
+        internal static UnityEngine.Transform World;
         internal static bool InWorld(UnityEngine.GameObject root) => InWorldResult && root != null;
         internal static bool InWorld(UnityEngine.Component component) => InWorldResult && component != null && component.gameObject != null;
+    }
+
+    /// <summary>
+    /// 边界 double：真实 TryPrepareBoardingDemotion 由 B worker 的 il2cpp/MusketeerRuntime.cs 提供
+    /// （本套件不链接该文件）。这里只证明 BoardingPolicy 的调用边界与按返回值行动（计数/故障注入），
+    /// 绝不能宣称真实字段/视觉归还已在本套件通过。
+    /// </summary>
+    internal static class MusketeerRuntime
+    {
+        internal static int PrepareCalls;
+        internal static Archer LastActor;
+        internal static bool NextResult = true;
+        internal static bool ThrowOnPrepare;
+        /// <summary>mid-helper 注入钩子（policy-delta 审查）：模拟真实 B 归还期间对共享可变状态的并发写。</summary>
+        internal static System.Action<Archer> OnPrepare;
+
+        internal static bool TryPrepareBoardingDemotion(Archer actor)
+        {
+            PrepareCalls++;
+            LastActor = actor;
+            if (ThrowOnPrepare) throw new InvalidOperationException("prepare fault");
+            OnPrepare?.Invoke(actor);
+            return NextResult;
+        }
+
+        internal static void ResetBoardingDouble()
+        {
+            PrepareCalls = 0; LastActor = null; NextResult = true; ThrowOnPrepare = false; OnPrepare = null;
+        }
     }
 
     internal class KingdomEnhancedPlugin
@@ -135,10 +300,17 @@ namespace KingdomEnhancedMod
     internal class Logger
     {
         internal static readonly List<string> Lines = new();
+        internal static string ThrowOnFragment;
 
-        internal void LogInfo(string message) { Lines.Add("I: " + message); }
-        internal void LogWarning(string message) { Lines.Add("W: " + message); }
-        internal void LogError(string message) { Lines.Add("E: " + message); }
+        private static void Guard(string message)
+        {
+            if (ThrowOnFragment != null && message != null && message.Contains(ThrowOnFragment))
+                throw new InvalidOperationException("logger fault");
+        }
+
+        internal void LogInfo(string message) { Guard(message); Lines.Add("I: " + message); }
+        internal void LogWarning(string message) { Guard(message); Lines.Add("W: " + message); }
+        internal void LogError(string message) { Guard(message); Lines.Add("E: " + message); }
     }
 
     /// <summary>

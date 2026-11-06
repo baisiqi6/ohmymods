@@ -38,7 +38,7 @@ internal static class RuntimeMaintenanceRegression
             // length, must control the real targeting path after an enemy disappears.
             using (var f = new Fixture())
             {
-                check(f.Attach(new(40, false, false)), "tail test attaches");
+                check(f.Attach(new(90, false, false)), "tail test attaches");
                 for (int i = 0; i < 8; i++) Tick(f);
                 var far = EnemyAt(20); var stale = EnemyAt(5.2f);
                 var scanner = f.Archer._enemyScanner;
@@ -91,7 +91,7 @@ internal static class RuntimeMaintenanceRegression
                 HeavyShieldIdentity.CurrentPhase = HeavyShieldIdentityPhase.Staged; Tick(f, 0);
                 check(Policy.WorkedSeconds == 3, "autosave phase change is not owner teardown");
                 Tick(f, 4.9f); check(Entry(f).Policy.Durability == 20, "before eight work seconds shield remains worn");
-                Tick(f, .2f); check(Entry(f).Policy.Durability == 40 && Policy.Phase == HeavyShieldMaintenancePhase.Idle,
+                Tick(f, .2f); check(Entry(f).Policy.Durability == 90 && Policy.Phase == HeavyShieldMaintenancePhase.Idle,
                     "complete safe in-shop work reaches checked repair commit");
                 check(((IDictionary)typeof(HeavyShieldMaintenancePolicy).GetField("_accepted", BindingFlags.Instance | BindingFlags.NonPublic)
                     .GetValue(Policy)).Count == 0, "synchronous authoritative full-state confirmation clears accepted history");

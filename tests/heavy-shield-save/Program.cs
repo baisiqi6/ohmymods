@@ -1,6 +1,7 @@
 using KingdomEnhancedMod;
 
 FortyDurabilityCompatibility.Run();
+NinetyDurabilityCompatibility.Run();
 
 int checks = 0;
 void Check(bool value, string name) { checks++; if (!value) throw new Exception(name); }
@@ -82,7 +83,7 @@ island.Claims.Add(new HeavyShieldSavedClaim
 });
 Check(!HeavyShieldSaveCodec.TrySerialize(document, out _, out _), "receipt cannot buy two careers");
 island.Claims.RemoveAt(1);
-island.Claims[0].Durability = 41;
+island.Claims[0].Durability = 91;
 Check(!HeavyShieldSaveCodec.TrySerialize(document, out _, out _), "invalid durability rejected");
 island.Claims[0].Durability = 1;
 campaign.RightExtraReceipt = campaign.LeftExtraReceipt;

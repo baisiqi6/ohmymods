@@ -4,3 +4,7 @@
 /docs/project-harness/**/*.md text eol=lf
 /docs/project-harness/**/*.json text eol=lf
 /docs/project-harness/**/*.jsonl text eol=lf
+
+# Preserve the already-tested Windows CMD bytes; CRLF is intentional, not trailing space.
+release/windows243-11.1.0/launcher/*.cmd -text whitespace=cr-at-eol
+tests/windows243-package/fixtures/*.cmd -text whitespace=cr-at-eol
