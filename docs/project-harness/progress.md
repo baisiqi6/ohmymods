@@ -1,3 +1,7 @@
+## 2026-11-06 — #286 Mac 岛屿登记恢复与生成候选同步
+
+按用户授权从正常退出后的最新档补第 11 号岛盾卫登记，原进度和付费权益核对保留。原生存档和火枪主配对已写回并读回，玩家付款待验。防止新岛漏登记的草稿以当前主线重新构建，既有身份/生成回归 726 项通过，Mac 与 Windows 2.4.3 编译通过。见[登记恢复](tasks/issue-286/receipts/normal-registration-repair.md)及[生成候选](tasks/issue-286/receipts/validation.md)。
+
 ## 2026-10-30 — #311 宝石盾卫90耐久、自然秒限耗与原生格挡反弹（源码交付）
 
 按用户确认，每life有效格挡的实际扣耗至少间隔1自然秒，间隔内仍挡伤反弹；上限90，旧v1–v4先验证再比例迁移到schema5，破盾/购买/身份/unknown保持。复用原生本次pause恢复速度，基准×1.2；伤害Finalizer与碰撞Postfix共同证明归属，修掉独审发现的同Troll子pause误借，原3红例已转绿。A/B最终独审均APPROVE；Root相关13组通过，runtime1601断言，独立原56断言旧源3红/新源全绿，Mac/Win net6/net8 NoDeploy编译均0W0E，Android实际编译0E/1既有warning、host平台6断言通过。[PR #312](https://github.com/baisiqi6/ohmymods/pull/312) 已提交供合并审查；未合并、未安装、未操作正常档，游戏和设备体验仍待对应平台验证。详见[tasks/issue-311/verification.md](tasks/issue-311/verification.md)。
@@ -40,6 +44,38 @@ AGENTS 登记三个可选 EXharness skill 入口，沿用项目既有计划、�
 ## 2026-10-27 — #298 坐骑岛追加 56 宝石：源码/主机审查完成，Native 待验
 
 两岛各四箱×7，复用原生宝箱/持久化与既有物理写盘拒绝路径。独立 Astra 审查发现两处恢复/新战役边界后修复并复审通过；Root 最终 source-linked 78/0，Mac 完整源码及 Windows 实际装版最小增量 NoDeploy 均 0W0E。既有 adapter/全量 Win243/旧回归缺口和未证时序探针保留，不报全绿。仅 Draft 交付，未合并安装/未发放到正常档；新旧岛开箱、保存冷读和防重发等 Native 另验。详见[回执](tasks/issue-298/receipts/source-host-review-20261027.md)。
+
+## 2026-10-27 — #286 Windows 正常档登记已恢复，待玩家实测
+
+用户正常保存退出并授权完整备份后，25 文件/12,545,158 bytes 备份逐 hash 核验；使用最新匹配输入仅更新正常 global 与 primary Musk pair，13:50:03Z r3 实际 APPLIED，独立读回确认其余 23 文件及 DLL 未改、备份完整、无遗留 temp。r2 首次替换因 PowerShell null 参数绑定失败，正式数据未变；失败日志保留，r3 经独立增量审查及真实 Parser/CheckOnly 后成功。用户已可启动正常 Windows 测商店；F5/Native canonical、付款领取、换岛与冷读仍未验收，不记购买通过。见[实际应用回执](tasks/issue-286/receipts/windows-normal-registration-apply-20261027.md)；下方离线候选为历史时点。
+
+## 2026-10-27 — #286 Windows 缺岛登记已制成并独审副本候选
+
+用户确认 Windows F5 身份待核验、本岛从未购买且无未领盾具；新取匹配 global/pair 副本仍为 slot1/challenge0/land11 缺行。仅新增本岛空 canonical 行，保留 land8 兵/工具两责及全部其它原生数据；生产配对重建/交叉拒绝通过，29 工具检查与独立 Astra 复核完成。未回写正常档、未换 DLL；修复后 Native canonical、付款领取/换岛/冷读未验，不能称已修。见[副本回执](tasks/issue-286/receipts/windows-empty-island-copy-20261027.md)。钻石 28+28 奖励另归 #298，不混修购买保护。
+
+## 2026-10-25 — 离线对齐盾卫验收边界，图层和坐骑池责任分类
+
+本岛登记恢复后再次真实保存/冷载Exact；选址两轮各504原候选及166临界候选全被原生拒绝，未截断/未诊断异常，因此不能把相切缺口当本岛NoSpace根因。自动操作未完成场地准备，已正常保存关闭私有窗口、归档检查点并撤凭据；用户有空后协助扩墙/清树，再验购买/领取/换岛/购后冷读。正常存档/运行包不变，PR287继续Draft。
+
+离线复核纠正旧“缺Stencil”及_DstBlend查询；入口与六小盾仍缺失败像素有效pass/MPB，未采纳猜测性排序/材质修复。五轮10条Error逐行一致，四条技能池错误已闭合为映射前置缺失（原生回退普通马），非资源没技能；NoEnvelope冷读分类与Harmony权限错误独立留界。选址临界点与池顺序分别由#290/#291独立处理，不混入本岛修复或预付Native。详情见既有[登记回执](tasks/issue-286/receipts/normal-registration-repair.md)与[图层回执](tasks/issue-286/receipts/mac-layer-observation.md)。
+
+## 2026-10-24 — #286 正常岛登记副本通过保存冷载，购买仍受选址门阻挡
+
+精确原始副本一次性新增11空登记并正确重建Musk配对，原17输入未变；真实ARM64首Load/Save及新进程冷载均Exact、Unknown/QuotaUnknown解除、0/errors[]退出。当前另一阻挡已实证为Create Find无店位，付款/领取/换岛/购后冷载未验，继续最薄原调用取样；不凭登记恢复声称购买完成。正常数据/DLL/Steam未改，未合并安装，PR287保持Draft。详见[副本恢复回执](tasks/issue-286/receipts/normal-registration-repair.md)。
+
+## 2026-10-24 — #286 六小盾私有B对照完成，购买问题未收尾
+
+红框已定位屋檐四枚/柜前两枚独立标记；只改Greek marker排序的私有B NoDeploy 0W0E、275资源保持，真实ARM64远近两朝向采样及UI自然退出通过，正常6对象未变、凭据已撤。B画面正常且无柜台/店员新遮挡，但A未稳定复现原异常，故不认定根因/修复通过，默认源码未采纳、未合并安装。该测试检查点本身左右各2/2满席，不能买属于限制；正常已访问land11缺账仍是另一个未修问题，PR287生成候选不能自动回填。详见[单次回执与边界](tasks/issue-286/receipts/marker-order-native.md)。
+
+## 2026-10-24 — #285/#286 Mac图层四点取样完成，根因未定案
+
+用户确认两问题均Mac；已用基线98259af＋只读Probe在可信source8私有环境取得入口与盾店远近4组，真实UI保存退出、controller0/errors[]、正常存档/配置/DLL及71物理游戏文件保持。共享stencil8/0/1与店身0/独立小盾1的排序分叉已读回；实际MPB/GPU pass未知。普通骑行未稳定复现原图大圆弧，角色实体覆盖小盾不能冒称透明区域异常已证；B未运行，未应用层序/材质修复、未安装。具体槽位现已由红框确认为六个独立小盾，原白X为截图Shift误触；本轮不代验PR287新生成或正常已访问岛11缺账恢复。详见[本轮回执](tasks/issue-286/receipts/mac-layer-observation.md)。
+
+## 2026-10-24 — #286 盾具店购买绑定候选，未安装
+
+首次生成非零槽位岛仍带 raw land0 时，旧入口误用序列化字段/旧岛行，可能使盾卫状态未绑定新岛。候选已在独立分支修正为唯一 native pointer→slot、生成 scope 与 origin 两阶段核验、失败前 detached 状态准备；保留普通 Load/Save、旧 paid 行、活跃付款与 Prepared/未知交易保护。Operator 主机626检查通过，Mac240/Win240/Win243 NoDeploy 0W0E、275资源实际读回一致，Android probe0E/既有1W、AdapterTests1265/0；独立代码审查通过。构建和受控主机用例不等于 Native 时序或玩家问题通过。
+
+本次正常 DLL/存档未替换。当前 Mac 已访问11号岛缺盾卫登记，不由生成候选自动回填；平台已确认Mac，六个marker已指认；正常岛实际拒绝分支仍待隔离核对，默认渲染尚未改，#252/#286保持开放。详见[任务及验证边界](tasks/issue-286/receipts/validation.md)。下文保留历史。
 
 ## 2026-10-25 — 11.0.0 Mac ARM64 发布批次 #294
 
