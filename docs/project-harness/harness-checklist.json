@@ -1,7 +1,7 @@
 {
   "project": "ohmymods",
   "harness_root": "docs/project-harness",
-  "updated_at": "2026-11-02",
+  "updated_at": "2026-11-23",
   "items": [
     {
       "id": "identity-hardening-20260920",
@@ -2906,6 +2906,52 @@
         "before_fingerprint": "23714d819df1820a5009541bf0594344ce43b16ed06bbb2203bd9e645d49c90b",
         "after_fingerprint": "c89ade76c00215ac3c470cbe1c8ff5dd66792eb9f3174f811c2263d92657cfb3",
         "files_applied_at": "2026-11-02T13:34:47Z"
+      }
+    },
+    {
+      "id": "android-embedded-startup-323",
+      "title": "内嵌资源测试包联网冷启动",
+      "status": "todo",
+      "phase": "todo",
+      "priority": "p1",
+      "owner": null,
+      "human_gate_required": true,
+      "plan_path": "docs/project-harness/tasks/issue-323/plan.md",
+      "artifact_path": "docs/project-harness/tasks/issue-323/plan.md",
+      "acceptance": "Use the plan acceptance criteria as source of truth: docs/project-harness/tasks/issue-323/plan.md",
+      "blocked_by": [],
+      "blocked_reason": "",
+      "dependencies": [],
+      "handoff": {
+        "from": null,
+        "to": null,
+        "reason": null
+      },
+      "selected_in_session": null,
+      "updated_at": "2026-11-23T07:51:46Z",
+      "workflow": {
+        "status": "todo",
+        "branch": null,
+        "updated_at": "2026-11-23T07:51:46Z"
+      },
+      "artifacts": {
+        "plan": "docs/project-harness/tasks/issue-323/plan.md"
+      },
+      "verification": "",
+      "review": {},
+      "split_operation": {
+        "contract_version": 1,
+        "operation_id": "caa576d9-7987-4b18-a7e4-319de8c4681c",
+        "operation_kind": "task.create",
+        "workspace_id": "ohmymods",
+        "target_kind": "checklist_task",
+        "target_id": "android-embedded-startup-323",
+        "source_kind": null,
+        "source_id": null,
+        "input_fingerprint": "46ebecc74e27f46a3a4c5fcaef955018a6546c7f6894387d676efb374cbf2452",
+        "before_fingerprint": "7114058a0d5c0591273a82ee2ef654f0fe7c47dd455796d83cb4d83265aa8fbf",
+        "after_fingerprint": "039ad5beedb34597c9360a11f98da5cc0acf16b8763f03b9a69b5d7ffb9e3c67",
+        "files_applied_at": "2026-11-23T07:51:46Z"
       }
     }
   ]

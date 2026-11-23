@@ -1,3 +1,11 @@
+## 2026-11-23 — #323 Android内嵌资源测试包联网冷启动
+
+固定Android2.4.0/code23485私有本体在联网时误入外部PAD资源等待；已在打包阶段将启动状态机一条分支接回原离线继续点，保留getter、原INTERNET权限与全部原资源，不新增运行时hook/ready伪造/扫描重试。helper只接受冻结APK/native/metadata及原指令；12项host正反例、独立源码审查、真实native仅4B与其余entry CRC/size保持、签名/16KiB对齐均通过。
+
+私有候选 `94b41bea…` 已fresh安装测试平板，携唯一既有主DLL `6d480d05…`，首次自动部署1项，无手动DLL/config/runtime复制。真实WiFi+VPN下首启与二次cold start均进入世界，浮球中文面板、日历开关、基本移动/保存已验；二次约19秒main、21秒InitPools，无重复部署，用户配置与本轮保存SHA保持，Melon主日志无Exception，但Unity系统logcat每轮各6条GhostHint/GetGhost NRE及Ghost池缺失已登记[#325](https://github.com/baisiqi6/ohmymods/issues/325)待查，未定因，不宣称全系统无异常。第三方APKVision更新弹窗仍需取消，既有loader warnings保留；全职业/长时/多人/DLC未全验，升级留档不支持。
+
+受管create-files/validator通过，operation `caa576d9-7987-4b18-a7e4-319de8c4681c`；仅file半边，record待精确提交部署后同步。尚未PR/合并/关单，不将本轮实测视为全量Android移植验收。见[唯一任务计划](tasks/issue-323/plan.md)。
+
 ## 2026-10-30 — #311 宝石盾卫90耐久、自然秒限耗与原生格挡反弹（源码交付）
 
 按用户确认，每life有效格挡的实际扣耗至少间隔1自然秒，间隔内仍挡伤反弹；上限90，旧v1–v4先验证再比例迁移到schema5，破盾/购买/身份/unknown保持。复用原生本次pause恢复速度，基准×1.2；伤害Finalizer与碰撞Postfix共同证明归属，修掉独审发现的同Troll子pause误借，原3红例已转绿。A/B最终独审均APPROVE；Root相关13组通过，runtime1601断言，独立原56断言旧源3红/新源全绿，Mac/Win net6/net8 NoDeploy编译均0W0E，Android实际编译0E/1既有warning、host平台6断言通过。[PR #312](https://github.com/baisiqi6/ohmymods/pull/312) 已提交供合并审查；未合并、未安装、未操作正常档，游戏和设备体验仍待对应平台验证。详见[tasks/issue-311/verification.md](tasks/issue-311/verification.md)。
