@@ -8,6 +8,8 @@
 
 本批正常交付打包工具增量、计划与真实边界，PR先Draft且仅关联#327，不自动关单。服务端record/assignment仍缺精确部署与有效入口，受管状态保留pending；不借GitHub交付宣称managed done。
 
+工具源码提交269fc5c已push，草稿[PR #328](https://github.com/baisiqi6/ohmymods/pull/328)已创建并远端关联#327；发布前Root复跑15测试、checklist validator 0 warnings及diff检查通过。未合并、未关Issue，等待用户完成新候选教程后继续有界实测。
+
 ## 调查起点与历史证据
 
 用户确认屏幕左上×打开原生继续/保存菜单后，居民/坐骑仍实际走动，非Mod关闭按钮，非仅水面/动画。调查起点私有APK94b41bea…、主Mod6d480d05…，Android2.4.0/code23485；#323已由PR326合并5ab6f663，联网启动通过，Ghost残留另#325。PC/Mono、联网状态、全局暂停强制写入均非本轮默认范围。
