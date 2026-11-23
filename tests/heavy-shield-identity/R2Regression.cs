@@ -15,6 +15,9 @@ internal static class R2Regression
     {
         var island = new IslandSaveData { Pointer = Ptr(), land = 0, Json = json };
         var campaign = new CampaignSaveData { Pointer = Ptr(), CurrentLand = 0, CurrentIsland = island };
+        // Native campaign table: the current island occupies its slot. Generation
+        // identity is read from this table, never from the serialized land field.
+        campaign._islands.Add(island);
         var prefs = new PrefsSaveData { Pointer = Ptr() };
         if (key != null) prefs.contents[HeavyShieldSaveSchema.Key] = key;
         var global = new GlobalSaveData { Pointer = Ptr(), prefs = prefs };
@@ -78,6 +81,12 @@ internal static class R2Regression
     private static void NewIsland(CampaignSaveData campaign)
     {
         var island = new IslandSaveData { Pointer = Ptr(), land = 1, Json = "{\"land\":1,\"rev\":1}", isNew = true };
+        // The generated target is the unique member at slot 1 (slot == land).
+        while (campaign._islands.Count < 2)
+            campaign._islands.Add(new IslandSaveData
+            { Pointer = Ptr(), land = campaign._islands.Count,
+              Json = campaign._islands.Count == 0 ? "{\"land\":0,\"rev\":1}" : "{\"land\":1,\"rev\":0}" });
+        campaign._islands[1] = island;
         Switch(campaign, island); var generation = HeavyShieldPersistence.BeginNativeGeneration(campaign);
         HeavyShieldPersistence.EndNativeGeneration(generation, campaign, true); HeavyShieldPersistence.TickBinding();
         Stage(island);
@@ -366,6 +375,7 @@ internal static class R2Regression
         Stage(separate.Campaign.CurrentIsland, prepare: false);
         var secondIsland = new IslandSaveData { Pointer = Ptr(), land = 0, Json = "{\"land\":0,\"second\":1}", isNew = true };
         var secondCampaign = new CampaignSaveData { Pointer = Ptr(), CurrentLand = 0, CurrentIsland = secondIsland };
+        secondCampaign._islands.Add(secondIsland);
         separate.Global.campaigns.Add(secondCampaign); separate.Global.currentCampaign = 1;
         Switch(secondCampaign, secondIsland); HeavyShieldPersistence.AfterCampaignCreated(separate.Global, secondCampaign);
         var secondGeneration = HeavyShieldPersistence.BeginNativeGeneration(secondCampaign);
