@@ -29,7 +29,7 @@ Mac 开发入口 `~/projects/ohmymods`；Windows `C:/Users/ADMIN/Projects/ohmymo
 | 构建、部署、日志或 Windows 路径 | [runbook](docs/project-harness/runbook.md)；Debug 构建默认复制到开发环境，纯编译验证必须禁用/覆盖 `BepInExPluginsPath`。 |
 | Mac 构建、启动、安装或清理 | [Mac 工作区规范](docs/development/macos-workspace.md)；运行根目录 `/Applications/ohmymods/`，`.local/`、`game-source/` 仅保留本机，旧 `work` 链接只供历史记录解析。 |
 | Mono 维护 | [runbook 的 Mono 章节](docs/project-harness/runbook.md#mono-自用线)，含 C# 5、Harmony 1.2、bash 编译与 doorstop 注入限制。 |
-| 委派、模型选择或 ZCode operator 决策 | [协作协议](docs/project-harness/collaboration-protocol.md)；外部 agent 调用另读 EXharness [invoke-coding-agents](https://github.com/baisiqi6/EXharness/blob/main/skills/invoke-coding-agents/SKILL.md)。读取北京时间，按协议派发并核验实际模型事件，不静默换模型。 |
+| 委派、模型选择或 Operator 决策 | [协作协议](docs/project-harness/collaboration-protocol.md)；外部 agent 调用另读 EXharness [invoke-coding-agents](https://github.com/baisiqi6/EXharness/blob/main/skills/invoke-coding-agents/SKILL.md)。读取北京时间，按协议派发并核验实际模型事件，不静默换模型。 |
 | 商店素材制作与接入 | [商店素材准则](docs/development/shop-material-standard.md)；人物独立动画层，按同世界成年居民比例接地，逐帧核验层序、脚线、footprint 和付款点。 |
 | 发版与版本账目 | 根目录 [VERSIONING.md](VERSIONING.md)；按整批发布的最高变更类型递增一次（修复 PATCH、兼容新功能 MINOR、不兼容改动 MAJOR），递增高位时低位归零；不按条目计分，历史版本不重编号。 |
 
@@ -39,7 +39,7 @@ EXharness 链接是可选 skill 入口，优先读取已安装的同名 skill；
 
 - Mac 与 Windows 是平级维护者；任务先在 GitHub Issue 对齐目标、基线和范围，平台验收分别记录。一端通过不能代替另一端通过。
 - Operator 先侦查与分解，功能实现派 worker，重大功能/架构交叉审查。跨 slice 契约由 Operator 先定；worker 只建自己的 `Patch_XXX.cs`，不改 `Main.cs/build.bat`，Operator 统一注册。任务书注明源码、契约、验收、语法约束与模型要求。
-- ZCode operator 的实质决策按协作协议执行 GLM 5.3 max 对抗审查；修正后复审并留模型证据。具体时段、休息日、外派例外和素材路由以协议为准。
+- Operator 的实质决策按协作协议由独立 OMP 会话使用 `kimi-code/k3.1-pro`、`thinking=max` 对抗审查；修正后复审并留模型证据。具体时段、休息日、外派例外和素材路由以协议为准。
 - 构建、自动测试、代码审查、安装和游戏实测分别留证。代码范围完成必要审查与验证、对应 PR 全部合并后关闭 Issue；玩家实机不作为关单前置，后续实机新问题另开 Issue/PR。未交齐或未合并时保持开放。
 - `docs/project-harness/harness-checklist.json` 是任务状态权威；通过 Coordinate/harnessctl 对应入口修改，不裸改 JSON/DB，修改后运行 EXharness validator。
 - 只同步受本次改动影响的文档：当前进展和验证边界写 `progress.md`，单次过程与哈希/回执写 `tasks/`，历史进 `archive/`，发布说明进 `release/`；可复用机制与坑点写 `game-logic-map/`，注明适用版本与证据；领域决策写 `domain-model.md`。不为凑流程新增材料，特定任务决定不泛化成全局禁令。

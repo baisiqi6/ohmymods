@@ -556,7 +556,7 @@ marker组件存在不等于当前职业。选择、有效身份、未完成恢�
 英雄神器箭为实例外观覆写：复用原生 artemis_bow_arrow 图像，PPU32/pivot(.5,.5)，以原材质 Highlight 金色作 renderer RGB；保留原箭材质，不声称复现原生发光shader。绝不生成 ArtemisArrow 行为组件，不增加追踪/范围伤害。英雄开关及离线门与主功能一致。
 
 
-2026-09-15 协作决策：worker按北京时间工作日09–12点ZCode→OMP/GLM 5.3 max，14–18点内置subagent，其余OMP/DeepSeek Flash max。完整边界与核验规则见 collaboration-protocol.md；Reviewer约定不变，不涉及游戏领域逻辑。
+2026-09-15 协作决策（历史；上午模型及入口已由 2026-11-22 协作协议更新）：worker按北京时间工作日09–12点ZCode→OMP/GLM 5.3 max，14–18点内置subagent，其余OMP/DeepSeek Flash max。完整边界与核验规则见 collaboration-protocol.md；Reviewer约定不变，不涉及游戏领域逻辑。
 
 
 ### 2026-09-15 英雄显示优先级

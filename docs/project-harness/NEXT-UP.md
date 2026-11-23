@@ -40,7 +40,7 @@ V3.0.0 已交付：弩手（含死地随从弩手化/弩矢平直拖尾）、骑
 4. **原生无任何自动/免费冲锋**（穷尽证明）；白光 = `character.Inspire()`；
    六神像全局统一（Archer/Worker/Knight/Farmer/Time/Pike），无分世界变体。
 5. 协作规范：worker=OMP `deepseek-v4-flash` thinking=max；reviewer=OMP `kimi-code/k3`
-   （当月配额可能耗尽→回落 GLM subagent）；经济/行为契约改动必须 reviewer。
+   （当时约定额度用尽后回落 GLM；现行模型入口见[协作协议](collaboration-protocol.md)）；经济/行为契约改动必须 reviewer。
 6. 发布纪律：命名规范见 runbook（文件名=Mod版本）；构建戳在 KingdomEnhancedPlugin.cs
    （`build=`）；E 盘部署需游戏退出（哨兵模式等待进程）；ZIP 不进 git，走 GitHub Releases。
 
