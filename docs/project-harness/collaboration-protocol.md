@@ -12,6 +12,11 @@
 
 > **2026-10-08 用户授权（正常 Git 交付）**：Agent 完成必要审查与验证后，可自行 commit、push 并创建或更新 PR，无需逐次请求用户授权；只提交本任务拥有的改动，使用独立任务分支。此条替代原先“未获用户明确授权不要 commit”的限制。
 
+**现行模型路由（2026-11-22）**：项目中原指定 GLM 的任务（包括上午 Worker 和独立决策对抗审查）统一通过本机 OMP 派发，使用 `--model=kimi-code/k3.1-pro --thinking=max`。执行后核验实际 provider、模型和推理强度并留证；指定路由不可用时先诊断并说明，不静默替换。新派发按下表执行，进行中的有界任务先完成。
+
+<details>
+<summary>历史用户说明（其中 GLM 模型及其派发入口已由上述现行路由取代）</summary>
+
 > **2026-09-18 用户新增 operator 对抗审查规则（逐字引用）**："然后对于我们的zcode作为operator的协作规范，再加一条，就是你的每一步的决策都要有一个subagent作为对抗性审查者审查你的决策是否正确，是否最优，是否引入新的bug并如何解决，这个subagent也是GLM 5.3 max的强度，然后对于素材的制作，你可以像我们之前的协作规范一样使用deep seek flash max，因为它有多模态，可能比你直接设计要好，或者你们也对抗性交互，双审等等。"
 > 执行解释见「operator 决策对抗审查」一节与规则 9/10；本条为最新用户规则，与 2026-09-15 worker 分时规则并行生效，冲突时以本条为准。
 
@@ -20,8 +25,7 @@
 
 > **2026-09-15 用户最新 worker 规则（覆盖此前固定 OMP / 禁用内置 worker 的约定）**：按北京时间 Asia/Shanghai（UTC+8）派发时刻选择。工作日暂按周一至周五，不自动引入节假日调休表；09:00≤时间<12:00 使用本地 ZCode 第一顺位、OMP 第二顺位，均请求 GLM 5.3、thinking=max；14:00≤时间<18:00 使用当前主 agent 的内置 subagent（未指定模型，继承主 agent 配置）；其余时间（含12–14点、夜间和周末）使用本机 OMP DeepSeek Flash、thinking=max。Reviewer 仍可用独立内置 subagent，不受这份 worker 时段限制。
 
-> 本项目协作流程，后续 session/agent 以本条最新用户规则为准。
-> 时段按新任务派发/下一工作轮次选择，当前运行的有界任务先完成，不因跨整点中断。指定路由不可用先诊断并说明；上午可从 ZCode 切到 OMP，但仍用 GLM 5.3 max，不静默换模型。
+</details>
 
 > **2026-08-13 约定——IL2CPP 单主线**：IL2CPP 2.4.0 是唯一发布与端到端验收目标；
 > Mono 2.1.0 降级为冻结的历史/自用线。默认只要求 IL2CPP `dotnet8 build` 与独立副本实测。
@@ -32,19 +36,19 @@
 | 角色 | 职责 | 默认选择 | 备选/限制 |
 |------|------|----------|----------|
 | **Operator** | 主控：分解任务、审查 worker 产出、裁决采纳、交叉审核 reviewer 结论 | 当前主 agent | 每个实质决策先过决策对抗审查（规则 9） |
-| **Worker** | 实现：按任务规范编码、自测 | 按下表北京时间时段选择 | 上午 ZCode → OMP，保持 GLM 5.3 max |
+| **Worker** | 实现：按任务规范编码、自测 | 按下表北京时间时段选择 | 工作日上午使用现行 Kimi 路由 |
 | **Reviewer** | 审查：验证验收标准、找越界/缺陷/测试缺口 | 可用独立内置 subagent | 也可用 OMP，先核验模型和额度 |
-| **决策对抗审查者** | 事前审查 operator 每个实质决策（三问逐字：是否正确、是否最优、是否引入新 bug 及如何解决） | 主 agent 为 GLM 5.3 max 时用内置 subagent；否则改派本地 ZCode/OMP 请求 GLM 5.3、thinking=max，按 invoke-coding-agents 技能核验实际模型事件 | 不受 worker 时段路由限制；不可用先诊断说明，不静默换模型；分歧按规则 6 裁决并记录 |
+| **决策对抗审查者** | 事前审查 operator 每个实质决策（三问逐字：是否正确、是否最优、是否引入新 bug 及如何解决） | 独立 OMP 会话，按现行 Kimi 路由执行，核验实际模型事件 | 不受 worker 时段路由限制；不可用先诊断说明，不静默换模型；分歧按规则 6 裁决并记录 |
 
 ### Worker 分时规则（北京时间）
 
 | 时间 | Worker | 模型 / 强度 |
 |---|---|---|
-| 周一至周五 09:00–12:00（不含12:00） | 本地 ZCode 第一顺位，OMP 第二顺位 | GLM 5.3 / max |
+| 周一至周五 09:00–12:00（不含12:00） | 本机 OMP | `kimi-code/k3.1-pro` / max |
 | 周一至周五 14:00–18:00（不含18:00） | 当前主 agent 的内置 subagent | 继承主 agent 配置 |
 | 其余时间（含午间12–14点及周末） | 本地 OMP | DeepSeek Flash / max |
 
-派发记录注明北京时间、命中时段、CLI及实际模型。工作日暂按周一至周五；若用户后续指定节假日/调休规则再更新。派发前按 invoke-coding-agents 技能实时核验本地 CLI、模型ID和 max 支持，启动后核验公开模型事件。此表是调用偏好，不代表 GLM 5.3 路由已经实际验证；不要启动空任务来消耗额度验证规范。午后内置 worker 不强行指定 GLM，也不改变 reviewer 既有权限。
+派发记录注明北京时间、命中时段、CLI及实际模型。工作日暂按周一至周五；若用户后续指定节假日/调休规则再更新。派发前按 invoke-coding-agents 技能实时核验本地 CLI、模型ID和 max 支持，启动后核验公开模型事件。此表是调用偏好，不代替本次路由的实际核验；不要启动空任务来消耗额度验证规范。午后内置 worker 继承主 agent 配置，也不改变 reviewer 既有权限。
 
 > OMP 模型标识以 `omp models` 实时输出为准，不硬编码历史路由；调用前先核验。
 > （例外：目录的**能力标志**如 images 可能滞后于官方能力——实例：2026-09-18 deepseek-flash 被标 images=no 而官方已原生多模态。冲突时按规则 10 以官方文档+实际模型事件为准；模型 id 是否可传仍以 `omp models` 为准。）
@@ -107,10 +111,9 @@ Operator 分解为 2-3 个独立 slice（实质决策）
    通过既有受管入口同步代码任务完成状态，进展写 `progress.md`。安装与玩家实机结果单独记录，
    不作为关单前置；多 PR 范围未交齐、尚未合并或审核未通过时保持进行中。
 9. **operator 决策事前对抗审查（2026-09-18 用户规则）**：每个实质决策（类别与细则见
-   「operator 决策对抗审查」节）执行前必须经一个 GLM 5.3 max 强度的对抗性 subagent
+   「operator 决策对抗审查」节）执行前必须由独立 OMP 会话按现行 Kimi 路由
    审查三问——是否正确、是否最优、是否引入新 bug 及如何解决；修正后复审、僵持两轮走
-   规则 6；每次审查落记录（含模型证据）；紧急止损窄豁免除外。主 agent 非 GLM 5.3 max
-   时改派本地 ZCode/OMP 请求 GLM 5.3 max 并核验实际模型，不可用先诊断说明。
+   规则 6；每次审查落记录（含模型证据）；紧急止损窄豁免除外。
 10. **素材/美术制作路由（2026-09-18 用户规则；同日依官方文档事实修订）**：可用 OMP
    DeepSeek Flash（thinking=max）承担素材设计与制作（用户授权"可以"使用，不强制改线）。
    截至 2026-09-18 官方现役模型 id 为 `deepseek-flash`（=V4.1 Flash，原生多模态、支持
@@ -141,7 +144,7 @@ il2cpp 补丁主线在 il2cpp/（.NET 8 / BepInEx 6 / Il2CppInterop / HarmonyX�
 才追加 C# 5 语法 + Harmony 1.2 约束
 派发北京时间：<Asia/Shanghai 时间及星期>
 命中时段：<工作日上午 / 工作日下午 / 其余>
-Worker：<上午 ZCode→OMP GLM 5.3 max；下午内置 subagent；其余 OMP DeepSeek Flash max>
+Worker：<上午 OMP kimi-code/k3.1-pro max；下午内置 subagent；其余 OMP DeepSeek Flash max>
 实际模型证据：<公开 runtime/model event；不可用先诊断，不静默替换>
 ```
 
@@ -160,7 +163,6 @@ Worker：<上午 ZCode→OMP GLM 5.3 max；下午内置 subagent；其余 OMP De
 被审决策：<决策内容、背景与备选（任务 id、选项、理由）>
 审查三问（逐字）：这个决策是否正确？是否最优？是否引入新的bug并如何解决？
 输出：verdict（通过 / 修正后通过 / 打回）+ 三问逐条结论 + 证据（文件/行号/实测）
-模型：GLM 5.3 / thinking=max（主 agent 为 GLM 5.3 max 时用内置 subagent；
-      否则改派本地 ZCode/OMP 请求 GLM 5.3 max 并按 invoke-coding-agents 核验实际模型事件）
+模型：独立 OMP 会话，--model=kimi-code/k3.1-pro --thinking=max；核验实际模型事件。
 记录：落任务 events（REVIEW 形态）或 receipts，含模型证据与修正内容
 ```
