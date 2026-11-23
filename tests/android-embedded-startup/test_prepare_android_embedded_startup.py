@@ -12,6 +12,8 @@ from unittest.mock import patch
 import zipfile
 
 SCRIPT = Path(__file__).resolve().parents[2] / 'scripts/prepare_android_embedded_startup.py'
+NEW_INPUT_SHA = '4b40edd3e7eefb6df43e6777d566bda366179b5e245dd8f20e87810b0b56732d'
+OLD_INPUT_SHA = 'ef575e6c4fd14a473efd6aeacca61bd22ca4d401ca18721e61f918428d833a4e'
 NATIVE = 'lib/arm64-v8a/libil2cpp.so'
 META = 'assets/bin/Data/Managed/Metadata/global-metadata.dat'
 OFFSET = 0x262c6f0
@@ -66,7 +68,7 @@ class PackagingTests(unittest.TestCase):
                 z.writestr(name, data)
         self.original = self.source.read_bytes()
         self.pins = {
-            'INPUT_SHA256': digest(self.original),
+            'PROFILES': {'synthetic-test': digest(self.original)},
             'NATIVE_SHA256': digest(self.entries[NATIVE]),
             'METADATA_SHA256': digest(self.entries[META]),
         }
@@ -89,8 +91,10 @@ class PackagingTests(unittest.TestCase):
         code, stdout = self.run_helper()
         self.assertEqual(code, 0)
         receipt = json.loads(stdout)
+        self.assertEqual(receipt['profile'], 'synthetic-test')
         self.assertTrue(receipt['unsigned'])
         self.assertEqual(receipt['output_sha256'], digest(self.output.read_bytes()))
+        self.assertEqual(receipt['native_mapping']['mapping_index'], 2)
         with zipfile.ZipFile(self.output) as z:
             expected_names = {NATIVE, META, 'assets/game.data',
                               'META-INF/services/example', 'META-INF/notice.txt'}
@@ -116,7 +120,7 @@ class PackagingTests(unittest.TestCase):
         struct.pack_into('<I', data, eocd + len(block) + 16, central + len(block))
         self.source.write_bytes(data)
         self.original = bytes(data)
-        self.pins['INPUT_SHA256'] = digest(data)
+        self.pins['PROFILES'] = {'synthetic-test': digest(data)}
         self.run_helper()
         self.assertNotIn(payload, self.output.read_bytes())
         self.assertEqual(self.source.read_bytes(), self.original)
@@ -129,11 +133,11 @@ class PackagingTests(unittest.TestCase):
             for name, data in self.entries.items():
                 z.writestr(name, data)
         self.original = self.source.read_bytes()
-        self.pins['INPUT_SHA256'] = digest(self.original)
+        self.pins['PROFILES'] = {'synthetic-test': digest(self.original)}
         self.assert_rejected()
 
     def test_unknown_input_hash_rejected_without_output(self):
-        self.pins['INPUT_SHA256'] = '0' * 64
+        self.pins['PROFILES'] = {'synthetic-test': '0' * 64}
         self.assert_rejected()
 
     def test_wrong_native_hash_rejected_without_output(self):
@@ -215,6 +219,25 @@ class PackagingTests(unittest.TestCase):
             with self.assertRaises(OSError):
                 self.run_helper()
         self.assertEqual(list(self.root.iterdir()), [self.source])
+
+    def test_new_fulldlc_profile_is_explicitly_supported(self):
+        self.assertEqual(self.mod.resolve_profile(NEW_INPUT_SHA), 'fulldlc-4b40')
+        self.assertEqual(self.mod.resolve_profile(OLD_INPUT_SHA), 'installed-base-ef575')
+
+    def test_unknown_profile_rejected(self):
+        with self.assertRaises(ValueError):
+            self.mod.resolve_profile('0' * 64)
+
+    def test_multiple_executable_mappings_covering_target_rejected(self):
+        # A second R+X file-backed PT_LOAD also covers PATCH_VA; the frozen
+        # index-2 mapping alone must not be treated as semantic uniqueness.
+        data = bytearray(self.native)
+        struct.pack_into('<IIQQQQQQ', data, 64 + 1 * 56,
+                         1, 5, 0x1f4d630, 0x1f51630, 0,
+                         len(data) - 0x1f4d630, len(data) - 0x1f4d630, 0x1000)
+        self.entries[NATIVE] = data
+        self.make_input()
+        self.assert_rejected()
 
 
 if __name__ == '__main__':
