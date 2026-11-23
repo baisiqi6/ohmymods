@@ -16,7 +16,7 @@ namespace KingdomEnhancedMod;
 /// - 多消费者（如 DefenseSpacing 与 KnightStyle 的 Archer/Knight 扫描）在窗口
 ///   内共享同一份数组，同帧叠加退化为一次。
 ///
-/// 保守原则（行为语义零变化）：返回的永远是某次真实 FindObjectsOfType 的结果，
+/// 保守原则（行为语义零变化）：返回最近一次活动对象查询的结果，并保留原生 InstanceID 顺序，
 /// 只是"扫描年龄"最大等于各消费者原来的巡检节奏（Archer/Knight 3s、marker 5s、
 /// 蛇 10s——新鲜度等价于原节奏，核查结论见各消费点注释）。数组按引用共享：
 /// 所有消费方只读迭代（逐项判 null/activeInHierarchy），无人改写数组内容；
@@ -68,11 +68,57 @@ internal static class UnitScanCache
     {
         float now = Time.time;
         if (now - _archersScannedAt <= maxAgeSec) return _archers;
+#if KTC_GAME_243 && !ANDROID
+        if (!TryFindArchersByInstanceId(out var archers))
+            archers = UnityEngine.Object.FindObjectsOfType<Archer>();
+        _archers = archers;
+#else
         _archers = UnityEngine.Object.FindObjectsOfType<Archer>();
+#endif
         _archersScannedAt = now;
         LogActiveOnce();
         return _archers;
     }
+
+#if KTC_GAME_243 && !ANDROID
+    private static bool TryFindArchersByInstanceId(out Archer[] archers)
+    {
+        archers = null;
+        try
+        {
+            Archer[] matches = UnityEngine.Object.FindObjectsByType<Archer>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+            if (matches is null) return false;
+            if (matches.Length == 0)
+            {
+                archers = matches;
+                return true;
+            }
+
+            var instanceIds = new int[matches.Length];
+            for (int i = 0; i < matches.Length; i++)
+            {
+                Archer archer = matches[i];
+                if (archer is null) return false;
+                instanceIds[i] = archer.GetInstanceID();
+                if (instanceIds[i] == 0) return false;
+            }
+
+            // Match Unity's signed InstanceID order without sorting unmatched objects.
+            Array.Sort(instanceIds, matches);
+            for (int i = 1; i < instanceIds.Length; i++)
+                if (instanceIds[i - 1] == instanceIds[i])
+                    return false;
+
+            archers = matches;
+            return true;
+        }
+        catch (Exception)
+        {
+            // Keep the original query and its exception behavior on failed attempts.
+            return false;
+        }
+    }
+#endif
 
     /// <summary>
     /// 场上全体 Knight（默认 3s 窗口：DefenseSpacing 3s 拍与 KnightStyle 5s 拍
