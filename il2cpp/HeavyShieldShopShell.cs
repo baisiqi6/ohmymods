@@ -476,14 +476,36 @@ internal static class HeavyShieldShopShell
     private static void UpdatePaymentGates()
     {
         if (_points == null) return;
+        bool bowKnown = false, bowValue = false, busyKnown = false, busyValue = false;
+        bool ReadBowOnce()
+        {
+            if (!bowKnown) { bowValue = BowUsable(); bowKnown = true; }
+            return bowValue;
+        }
+        bool ReadAnyBusyOnce()
+        {
+            if (!busyKnown) { busyValue = AnyBusy(); busyKnown = true; }
+            return busyValue;
+        }
         for (int i = 0; i < _points.Length; i++)
         {
             var point = _points[i]; if (point?.Payable == null) continue;
             // Started stays usable for native completion even while the shop waits to retire.
-            point.Payable.forceBlockPayment = point.Payment.Busy ? !CanPay(i, _shopLife, point.Payer)
-                : (_economyFault || _retiring || _menuSuspended || IslandSaveData.isSavingGame
-                    || !HeavyShieldRuntime.CarrierPreflightReady || !BowUsable()
-                    || !HeavyShieldIdentity.CanReservePurchase(point.Payment.Kind) || AnyBusy() || point.Disabled);
+            var payable = point.Payable;
+            bool forceBlockPayment;
+            if (point.Payment.Busy)
+            {
+                bowKnown = false; busyKnown = false;
+                forceBlockPayment = !CanPay(i, _shopLife, point.Payer);
+                bowKnown = false; busyKnown = false;
+            }
+            else
+            {
+                forceBlockPayment = _economyFault || _retiring || _menuSuspended || IslandSaveData.isSavingGame
+                    || !HeavyShieldRuntime.CarrierPreflightReady || !ReadBowOnce()
+                    || !HeavyShieldIdentity.CanReservePurchase(point.Payment.Kind) || ReadAnyBusyOnce() || point.Disabled;
+            }
+            payable.forceBlockPayment = forceBlockPayment;
         }
     }
     internal static void CancelPendingTransactionsBeforeNativeSave() => CancelPendingTransactions();
