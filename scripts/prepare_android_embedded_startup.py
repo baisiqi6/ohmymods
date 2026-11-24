@@ -17,7 +17,10 @@ import sys
 import tempfile
 import zipfile
 
-INPUT_SHA256 = 'ef575e6c4fd14a473efd6aeacca61bd22ca4d401ca18721e61f918428d833a4e'
+PROFILES = {
+    'installed-base-ef575': 'ef575e6c4fd14a473efd6aeacca61bd22ca4d401ca18721e61f918428d833a4e',
+    'fulldlc-4b40': '4b40edd3e7eefb6df43e6777d566bda366179b5e245dd8f20e87810b0b56732d',
+}
 NATIVE_SHA256 = '774871434d39fe5145f05c9dc51101d973f0bf7dc63bba0f062d7c0848104157'
 METADATA_SHA256 = 'ef1cc0cce412d3f3402cbfcb5a5e2ef1ca0d6ff47c4a90a705909f8301deae19'
 NATIVE_ENTRY = 'lib/arm64-v8a/libil2cpp.so'
@@ -29,6 +32,13 @@ REPLACEMENT = bytes.fromhex('01000014')
 OLD_SIGNATURE = re.compile(r'META-INF/(?:MANIFEST\.MF|[^/]+\.(?:SF|RSA|DSA|EC))', re.I)
 
 
+def resolve_profile(input_sha):
+    for name, sha in PROFILES.items():
+        if input_sha == sha:
+            return name
+    raise ValueError('unsupported input APK SHA256')
+
+
 def stream_sha256(stream):
     result = hashlib.sha256()
     while chunk := stream.read(1024 * 1024):
@@ -37,7 +47,7 @@ def stream_sha256(stream):
 
 
 def validate_native(data):
-    """Check ELF64 little-endian AArch64 and the audited executable mapping."""
+    """Check ELF64 little-endian AArch64 and the unique executable target mapping."""
     if len(data) < 64 or data[:7] != b'\x7fELF\x02\x01\x01':
         raise ValueError('native is not ELF64 little-endian version 1')
     header = struct.unpack_from('<16sHHIQQQIHHHHHH', data)
@@ -46,16 +56,36 @@ def validate_native(data):
         raise ValueError('unexpected ELF header')
     if phnum < 3 or phoff < 64 or phoff + phsize * phnum > len(data):
         raise ValueError('invalid ELF program header table')
-    kind, flags, offset, va, _, size, memsize, _ = struct.unpack_from(
-        '<IIQQQQQQ', data, phoff + 2 * phsize)
-    if (kind, flags, offset, va) != (1, 5, 0x1f4d630, 0x1f51630):
+    mappings = []
+    for index in range(phnum):
+        kind, flags, offset, va, _, size, memsize, _ = struct.unpack_from(
+            '<IIQQQQQQ', data, phoff + index * phsize)
+        if kind != 1:
+            continue
+        if size > memsize or offset + size > len(data):
+            raise ValueError('invalid ELF PT_LOAD bounds')
+        if not (flags & 1) or size == 0:
+            continue
+        if va <= PATCH_VA <= va + size - 4:
+            mappings.append((index, flags, offset, va, size))
+    if len(mappings) != 1:
+        raise ValueError('patch target not in exactly one executable file-backed PT_LOAD')
+    index, flags, offset, va, size = mappings[0]
+    if (index, flags, offset, va) != (2, 5, 0x1f4d630, 0x1f51630):
         raise ValueError('unexpected executable PT_LOAD mapping')
-    if (size > memsize or offset + size > len(data)
-            or not va <= PATCH_VA <= va + size - 4
-            or offset + PATCH_VA - va != PATCH_OFFSET):
+    if offset + PATCH_VA - va != PATCH_OFFSET:
+        raise ValueError('patch file offset does not match ELF PT_LOAD')
+    if not (offset <= PATCH_OFFSET and PATCH_OFFSET + 4 <= offset + size):
         raise ValueError('patch outside executable file-backed PT_LOAD')
     if data[PATCH_OFFSET:PATCH_OFFSET + 4] != ORIGINAL:
         raise ValueError('unexpected original instruction')
+    return {
+        'mapping_index': index,
+        'segment_file_offset': offset,
+        'segment_va': va,
+        'segment_file_size': size,
+        'segment_flags': flags,
+    }
 
 
 def prepare(source, output):
@@ -68,8 +98,7 @@ def prepare(source, output):
     # Hash and ZIP reads use the same open source; no write is made before validation.
     with source.open('rb') as raw:
         input_sha = stream_sha256(raw)
-        if input_sha != INPUT_SHA256:
-            raise ValueError('unsupported input APK SHA256')
+        profile = resolve_profile(input_sha)
         raw.seek(0)
         with zipfile.ZipFile(raw) as original:
             try:
@@ -82,7 +111,7 @@ def prepare(source, output):
                 raise ValueError('unexpected native SHA256')
             if metadata_sha != METADATA_SHA256:
                 raise ValueError('unexpected metadata SHA256')
-            validate_native(native)
+            native_mapping = validate_native(native)
             patched = bytearray(native)
             patched[PATCH_OFFSET:PATCH_OFFSET + 4] = REPLACEMENT
             removed = []
@@ -115,8 +144,10 @@ def prepare(source, output):
                 if temporary is not None:
                     temporary.unlink()
     return {
+        'profile': profile,
         'input_sha256': input_sha, 'output_sha256': output_sha,
         'unsigned': True, 'native_entry': NATIVE_ENTRY,
+        'native_mapping': native_mapping,
         'patch_offset': hex(PATCH_OFFSET), 'patch_va': hex(PATCH_VA),
         'original': ORIGINAL.hex(), 'replacement': REPLACEMENT.hex(),
         'removed_signatures': removed,

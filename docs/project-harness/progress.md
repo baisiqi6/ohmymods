@@ -1,10 +1,16 @@
+## 2026-11-23 — #327 Android原生菜单暂停调查与输入对照
+
+教程后菜单仍timeScale1。主Mod208源无显式timeScale/state写入；当前平板基包比用户原始FullDLC多pp/hh/cd层，pp内libmod有固定1/3写入候选，但执行因果未证。v3归属为libmod+13d30c；v4一次启动遇新的无归属B落点即UNKNOWN，未读未知code/未执行计划菜单case，已正常保存退出、精确清诊断，仅原主6d480/config保持。v5工具8507692c已106pure tests，SOURCE_ONLY未独审/未部署，保留备用。
+
+优先回到用户原始上传包4b40…的输入实验，保持同core/Main/4B本地资源启动修复。现有helper仅增补精确profile与唯一ELF语义映射，旧ef575路径保持；独立source审查APPROVE、15测试通过。真实私有候选970d050b…已产出，22147资源CRC/size保持，production仅主6d480，签名/16KiB对齐/完整ZIP CRC通过，实际manifest/Application/20组件/12权限与原始输入一致，未重新带pp/hh/cd。具体候选已过独立安装关口并干净安装，设备base SHA970d…/自动production唯一Main6d480已读回，小浮球展开关闭、基础移动/招募/工具购买/建造可操作。用户于客户端2026-11-23自然游玩回报，新包在教程中也能正常暂停，符合原版行为；此为玩家行为观察，不冒充v1时标采样、教程完成或二次冷启动通过。新包未加入任何诊断或暂停补丁，Root保持停止设备输入；停止为已消失症状追加诊断/补丁；独立Kimi/max决策APPROVE有限收尾。新包教程后原路径与二次冷启动仍待验，精确SDK执行因果未证。缺该层不证明官方clean或无remote下载，结论限定包与fresh数据整组变化。当前组合的本次菜单行为按用户自然游玩验收通过；PR #328待正常合并后才有限关闭#327，不宣称全部Android验收或managed done，服务端record pending。见[唯一任务计划](tasks/issue-327/plan.md)。
+
 ## 2026-11-23 — #323 Android内嵌资源测试包联网冷启动
 
 固定Android2.4.0/code23485私有本体在联网时误入外部PAD资源等待；已在打包阶段将启动状态机一条分支接回原离线继续点，保留getter、原INTERNET权限与全部原资源，不新增运行时hook/ready伪造/扫描重试。helper只接受冻结APK/native/metadata及原指令；12项host正反例、独立源码审查、真实native仅4B与其余entry CRC/size保持、签名/16KiB对齐均通过。
 
 私有候选 `94b41bea…` 已fresh安装测试平板，携唯一既有主DLL `6d480d05…`，首次自动部署1项，无手动DLL/config/runtime复制。真实WiFi+VPN下首启与二次cold start均进入世界，浮球中文面板、日历开关、基本移动/保存已验；二次约19秒main、21秒InitPools，无重复部署，用户配置与本轮保存SHA保持，Melon主日志无Exception，但Unity系统logcat每轮各6条GhostHint/GetGhost NRE及Ghost池缺失已登记[#325](https://github.com/baisiqi6/ohmymods/issues/325)待查，未定因，不宣称全系统无异常。第三方APKVision更新弹窗仍需取消，既有loader warnings保留；全职业/长时/多人/DLC未全验，升级留档不支持。
 
-受管create-files/validator通过，operation `caa576d9-7987-4b18-a7e4-319de8c4681c`；仅file半边，record待精确提交部署后同步。尚未PR/合并/关单，不将本轮实测视为全量Android移植验收。见[唯一任务计划](tasks/issue-323/plan.md)。
+受管create-files/validator通过，operation `caa576d9-7987-4b18-a7e4-319de8c4681c`；仅file半边，record待精确提交部署后同步。PR #326已合并 `5ab6f663`，#323仅代码启动范围关闭；服务端record/assignment仍pending，主Operator已回读确认缺精确部署/有效入口。原生菜单暂停另#327调查，用户新增当前仍在教程且时间不前进的线索，先教程前后对照，未加暂停补丁。不将本轮实测视为全量Android移植验收。见[唯一任务计划](tasks/issue-323/plan.md)。
 
 ## 2026-10-30 — #311 宝石盾卫90耐久、自然秒限耗与原生格挡反弹（源码交付）
 

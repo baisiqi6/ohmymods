@@ -2953,6 +2953,52 @@
         "after_fingerprint": "039ad5beedb34597c9360a11f98da5cc0acf16b8763f03b9a69b5d7ffb9e3c67",
         "files_applied_at": "2026-11-23T07:51:46Z"
       }
+    },
+    {
+      "id": "android-native-pause-327",
+      "title": "Android原生菜单不暂停定位",
+      "status": "todo",
+      "phase": "todo",
+      "priority": "p1",
+      "owner": null,
+      "human_gate_required": true,
+      "plan_path": "docs/project-harness/tasks/issue-327/plan.md",
+      "artifact_path": "docs/project-harness/tasks/issue-327/plan.md",
+      "acceptance": "Use the plan acceptance criteria as source of truth: docs/project-harness/tasks/issue-327/plan.md",
+      "blocked_by": [],
+      "blocked_reason": "",
+      "dependencies": [],
+      "handoff": {
+        "from": null,
+        "to": null,
+        "reason": null
+      },
+      "selected_in_session": null,
+      "updated_at": "2026-11-23T08:59:53Z",
+      "workflow": {
+        "status": "todo",
+        "branch": null,
+        "updated_at": "2026-11-23T08:59:53Z"
+      },
+      "artifacts": {
+        "plan": "docs/project-harness/tasks/issue-327/plan.md"
+      },
+      "verification": "",
+      "review": {},
+      "split_operation": {
+        "contract_version": 1,
+        "operation_id": "579d8bc1-87b7-4d03-b52e-34ef948daad6",
+        "operation_kind": "task.create",
+        "workspace_id": "ohmymods",
+        "target_kind": "checklist_task",
+        "target_id": "android-native-pause-327",
+        "source_kind": null,
+        "source_id": null,
+        "input_fingerprint": "2c0ab54f63ea5f9c20f458d643159773a89f43988c263284a2a1ae352b9ae637",
+        "before_fingerprint": "a2bd9ec2f78a863f0323b05492744a687d7ff38391d28d45e7248b49e953cecf",
+        "after_fingerprint": "6229096894c22dbc92f930ae77db85d5a216c5ca0497dd8c025d51bf3365db46",
+        "files_applied_at": "2026-11-23T08:59:53Z"
+      }
     }
   ]
 }
