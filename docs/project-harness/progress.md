@@ -2,7 +2,7 @@
 
 教程后菜单仍timeScale1。主Mod208源无显式timeScale/state写入；当前平板基包比用户原始FullDLC多pp/hh/cd层，pp内libmod有固定1/3写入候选，但执行因果未证。v3归属为libmod+13d30c；v4一次启动遇新的无归属B落点即UNKNOWN，未读未知code/未执行计划菜单case，已正常保存退出、精确清诊断，仅原主6d480/config保持。v5工具8507692c已106pure tests，SOURCE_ONLY未独审/未部署，保留备用。
 
-优先回到用户原始上传包4b40…的输入实验，保持同core/Main/4B本地资源启动修复。现有helper仅增补精确profile与唯一ELF语义映射，旧ef575路径保持；独立source审查APPROVE、15测试通过。真实私有候选970d050b…已产出，22147资源CRC/size保持，production仅主6d480，签名/16KiB对齐/完整ZIP CRC通过，实际manifest/Application/20组件/12权限与原始输入一致，未重新带pp/hh/cd。具体候选已过独立安装关口并干净安装，设备base SHA970d…/自动production唯一Main6d480已读回，小浮球展开关闭、基础移动/招募/工具购买/建造可操作。新存档教程仍待完成，尚未加入v1菜单采样；已请求用户完成剩余引导并停止输入，暂停/冷启动验收未过。缺该层不证明官方clean或无remote下载，结论限定包与fresh数据整组变化。未宣称产品修复或完整Android验收，Issue开放、服务端record pending。见[唯一任务计划](tasks/issue-327/plan.md)。
+优先回到用户原始上传包4b40…的输入实验，保持同core/Main/4B本地资源启动修复。现有helper仅增补精确profile与唯一ELF语义映射，旧ef575路径保持；独立source审查APPROVE、15测试通过。真实私有候选970d050b…已产出，22147资源CRC/size保持，production仅主6d480，签名/16KiB对齐/完整ZIP CRC通过，实际manifest/Application/20组件/12权限与原始输入一致，未重新带pp/hh/cd。具体候选已过独立安装关口并干净安装，设备base SHA970d…/自动production唯一Main6d480已读回，小浮球展开关闭、基础移动/招募/工具购买/建造可操作。用户于客户端2026-11-23自然游玩回报，新包在教程中也能正常暂停，符合原版行为；此为玩家行为观察，不冒充v1时标采样、教程完成或二次冷启动通过。新包未加入任何诊断或暂停补丁，Root保持停止设备输入；停止为已消失症状追加诊断/补丁；独立Kimi/max决策APPROVE有限收尾。新包教程后原路径与二次冷启动仍待验，精确SDK执行因果未证。缺该层不证明官方clean或无remote下载，结论限定包与fresh数据整组变化。当前组合的本次菜单行为按用户自然游玩验收通过；PR #328待正常合并后才有限关闭#327，不宣称全部Android验收或managed done，服务端record pending。见[唯一任务计划](tasks/issue-327/plan.md)。
 
 ## 2026-11-23 — #323 Android内嵌资源测试包联网冷启动
 
